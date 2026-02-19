@@ -1,27 +1,7 @@
-import { useState } from "react";
-import { mockRestaurants } from "@/lib/mockData";
-import type { Restaurant } from "@/types";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Plus, Trash2, Eye, Shield } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-
+// DEPRECATED: Migrated to app/super-admin/page.tsx
 export default function SuperAdmin() {
+  return null;
+}
   const [restaurants, setRestaurants] = useState<Restaurant[]>(() =>
     mockRestaurants.map((r) => ({ ...r }))
   );

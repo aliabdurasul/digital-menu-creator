@@ -1,22 +1,7 @@
-import { useState } from "react";
-import { AdminSidebar, type AdminTab } from "@/components/admin/AdminSidebar";
-import { AdminDashboard } from "@/components/admin/AdminDashboard";
-import { AdminCategories } from "@/components/admin/AdminCategories";
-import { AdminProducts } from "@/components/admin/AdminProducts";
-import { AdminSettings } from "@/components/admin/AdminSettings";
-import { mockRestaurants } from "@/lib/mockData";
-import type { Restaurant } from "@/types";
-import { LogIn } from "lucide-react";
-import { Button } from "@/components/ui/button";
-
+// DEPRECATED: Migrated to app/restaurant-admin/page.tsx
 export default function RestaurantAdmin() {
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [activeTab, setActiveTab] = useState<AdminTab>("dashboard");
-  const [restaurant, setRestaurant] = useState<Restaurant>(() => ({
-    ...mockRestaurants[0],
-    categories: [...mockRestaurants[0].categories],
-    products: [...mockRestaurants[0].products],
-  }));
+  return null;
+}
 
   if (!loggedIn) {
     return (

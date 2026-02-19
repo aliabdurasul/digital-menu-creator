@@ -1,11 +1,11 @@
 import type { Restaurant } from "@/types";
 
-import coverDefault from "@/assets/cover-default.jpg";
-import foodBurger from "@/assets/food-burger.jpg";
-import foodSalad from "@/assets/food-salad.jpg";
-import foodPasta from "@/assets/food-pasta.jpg";
-import foodDessert from "@/assets/food-dessert.jpg";
-import foodDrinks from "@/assets/food-drinks.jpg";
+const coverDefault = "/images/cover-default.jpg";
+const foodBurger = "/images/food-burger.jpg";
+const foodSalad = "/images/food-salad.jpg";
+const foodPasta = "/images/food-pasta.jpg";
+const foodDessert = "/images/food-dessert.jpg";
+const foodDrinks = "/images/food-drinks.jpg";
 
 export const mockRestaurants: Restaurant[] = [
   {

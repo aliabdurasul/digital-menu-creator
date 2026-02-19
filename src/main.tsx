@@ -1,5 +1,5 @@
-import { createRoot } from "react-dom/client";
-import App from "./App.tsx";
-import "./index.css";
+// DEPRECATED: This file is no longer used.
+// The app has been migrated to Next.js App Router.
+// Entry point is now app/layout.tsx
 
-createRoot(document.getElementById("root")!).render(<App />);
+export {};

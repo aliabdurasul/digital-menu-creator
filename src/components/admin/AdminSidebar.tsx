@@ -1,7 +1,7 @@
-import { LayoutDashboard, FolderOpen, Package, Settings, ChevronLeft, ChevronRight } from "lucide-react";
+import { LayoutDashboard, FolderOpen, Package, Settings, ChevronLeft, ChevronRight, QrCode } from "lucide-react";
 import { useState } from "react";
 
-export type AdminTab = "dashboard" | "categories" | "products" | "settings";
+export type AdminTab = "dashboard" | "categories" | "products" | "settings" | "qr";
 
 interface AdminSidebarProps {
   activeTab: AdminTab;
@@ -12,6 +12,7 @@ const navItems: { id: AdminTab; label: string; icon: React.ElementType }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "categories", label: "Categories", icon: FolderOpen },
   { id: "products", label: "Products", icon: Package },
+  { id: "qr", label: "QR Code", icon: QrCode },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 

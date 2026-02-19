@@ -1,48 +1,7 @@
-import { useParams } from "react-router-dom";
-import { useState, useRef, useCallback, useEffect } from "react";
-import { mockRestaurants } from "@/lib/mockData";
-import { CategoryTabs } from "@/components/menu/CategoryTabs";
-import { ProductCard } from "@/components/menu/ProductCard";
-import { UtensilsCrossed } from "lucide-react";
-
+// DEPRECATED: Migrated to app/menu/[slug]/page.tsx
 export default function MenuPage() {
-  const { slug } = useParams<{ slug: string }>();
-  const restaurant = mockRestaurants.find((r) => r.slug === slug);
-  const [activeCat, setActiveCat] = useState("");
-  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
-
-  useEffect(() => {
-    if (restaurant && restaurant.categories.length > 0 && !activeCat) {
-      setActiveCat(restaurant.categories[0].id);
-    }
-  }, [restaurant, activeCat]);
-
-  const handleCatSelect = useCallback((catId: string) => {
-    setActiveCat(catId);
-    const el = sectionRefs.current[catId];
-    if (el) {
-      const top = el.getBoundingClientRect().top + window.scrollY - 120;
-      window.scrollTo({ top, behavior: "smooth" });
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!restaurant) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setActiveCat(entry.target.getAttribute("data-cat-id") || "");
-          }
-        }
-      },
-      { rootMargin: "-120px 0px -60% 0px", threshold: 0.1 }
-    );
-    Object.values(sectionRefs.current).forEach((el) => {
-      if (el) observer.observe(el);
-    });
-    return () => observer.disconnect();
-  }, [restaurant]);
+  return null;
+}
 
   if (!restaurant) {
     return (
