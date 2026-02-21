@@ -34,11 +34,13 @@ export default function RestaurantAdminPage() {
           return;
         }
 
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("restaurant_id, role")
           .eq("id", user.id)
           .single();
+
+        console.log("[restaurant-admin] Profile:", { profile, profileError });
 
         // Super admins should be on /super-admin, not here
         if (profile?.role === "super_admin") {
@@ -46,7 +48,7 @@ export default function RestaurantAdminPage() {
           return;
         }
 
-        if (!profile?.restaurant_id) {
+        if (!profile || !profile.restaurant_id) {
           setError("NO_RESTAURANT");
           setLoading(false);
           return;

@@ -39,43 +39,42 @@ function LoginForm() {
     try {
       const supabase = createClient();
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
 
-      if (signInError) {
-        setError(signInError.message || "Invalid email or password");
+      if (signInError || !signInData.user) {
+        setError(signInError?.message || "Invalid email or password");
         setLoading(false);
         return;
       }
 
-      // Determine where to navigate based on user role
-      const redirectTo = searchParams?.get("redirect");
+      // Use the user returned by signInWithPassword directly
+      const userId = signInData.user.id;
+      console.log("[login] Authenticated user:", userId, signInData.user.email);
 
-      if (redirectTo) {
-        // Explicit redirect takes priority — middleware will enforce roles
-        window.location.href = redirectTo;
-        return;
+      // ALWAYS query role before deciding where to redirect
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userId)
+        .single();
+
+      console.log("[login] Profile query:", { profile, profileError });
+
+      const role = profile?.role;
+      console.log("[login] Detected role:", role);
+
+      if (role === "super_admin") {
+        console.log("[login] → Redirecting to /super-admin");
+        window.location.href = "/super-admin";
+      } else {
+        const redirectTo = searchParams?.get("redirect");
+        const dest = redirectTo || "/restaurant-admin";
+        console.log("[login] → Redirecting to", dest);
+        window.location.href = dest;
       }
-
-      // Query profile to route to the correct dashboard
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .single();
-
-        if (profile?.role === "super_admin") {
-          window.location.href = "/super-admin";
-          return;
-        }
-      }
-
-      // Default: restaurant admin
-      window.location.href = "/restaurant-admin";
     } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);

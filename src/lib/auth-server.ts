@@ -35,14 +35,11 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       .single();
 
     if (profileError || !profile) {
-      // Profile table might not exist yet — user is authenticated but no role
-      // Return a default that will be rejected by role checks
-      return {
-        id: user.id,
-        email: user.email || "",
-        role: "restaurant_admin",
-        restaurantId: null,
-      };
+      // Profile query failed — do NOT assume a default role.
+      // Returning null forces callers to handle the missing-profile case
+      // instead of silently treating every user as restaurant_admin.
+      console.error("[auth-server] Profile query failed:", profileError?.message);
+      return null;
     }
 
     return {

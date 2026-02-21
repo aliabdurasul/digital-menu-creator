@@ -77,24 +77,30 @@ export async function updateSession(request: NextRequest) {
 
   // Role-based access enforcement
   if (isProtected && user) {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single();
 
-    if (
-      pathname.startsWith("/super-admin") &&
-      profile?.role !== "super_admin"
-    ) {
-      return redirect(new URL("/restaurant-admin", request.url));
-    }
+    // Only enforce role routing when we successfully got a profile.
+    // If the query failed, let the request through — the page handles it.
+    // Previously a failed query (profile === null) made
+    // null?.role !== "super_admin" → true → kicked super admins off.
+    if (!profileError && profile) {
+      if (
+        pathname.startsWith("/super-admin") &&
+        profile.role !== "super_admin"
+      ) {
+        return redirect(new URL("/restaurant-admin", request.url));
+      }
 
-    if (
-      pathname.startsWith("/restaurant-admin") &&
-      profile?.role === "super_admin"
-    ) {
-      return redirect(new URL("/super-admin", request.url));
+      if (
+        pathname.startsWith("/restaurant-admin") &&
+        profile.role === "super_admin"
+      ) {
+        return redirect(new URL("/super-admin", request.url));
+      }
     }
   }
 
