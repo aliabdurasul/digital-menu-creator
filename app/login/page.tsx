@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LogIn, Loader2, UtensilsCrossed } from "lucide-react";
+import { getMyRole } from "@/lib/actions";
 
 export default function LoginPage() {
   return (
@@ -54,26 +55,22 @@ function LoginForm() {
       const userId = signInData.user.id;
       console.log("[login] Authenticated user:", userId, signInData.user.email);
 
-      // ALWAYS query role before deciding where to redirect
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", userId)
-        .single();
-
-      console.log("[login] Profile query:", { profile, profileError });
-
-      const role = profile?.role;
+      // Use server action (service-role key) to bypass RLS on profiles table
+      const role = await getMyRole();
       console.log("[login] Detected role:", role);
 
       if (role === "super_admin") {
         console.log("[login] → Redirecting to /super-admin");
         window.location.href = "/super-admin";
-      } else {
+      } else if (role) {
         const redirectTo = searchParams?.get("redirect");
         const dest = redirectTo || "/restaurant-admin";
         console.log("[login] → Redirecting to", dest);
         window.location.href = dest;
+      } else {
+        setError("Could not determine account role. Please contact the administrator.");
+        setLoading(false);
+        return;
       }
     } catch {
       setError("Something went wrong. Please try again.");

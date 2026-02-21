@@ -1,5 +1,27 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
+
+/**
+ * Query profile role using the service-role key (bypasses RLS).
+ * The profiles table has a self-referencing RLS policy that blocks
+ * anon-key queries, so we must use the service key here.
+ */
+async function getProfileRole(userId: string): Promise<string | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) return null;
+
+  const admin = createSupabaseClient(url, serviceKey);
+  const { data: profile, error } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .single();
+
+  if (error || !profile) return null;
+  return profile.role;
+}
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -63,13 +85,9 @@ export async function updateSession(request: NextRequest) {
 
   // If authenticated user visits /login → redirect to dashboard
   if (pathname === "/login" && user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+    const role = await getProfileRole(user.id);
 
-    if (profile?.role === "super_admin") {
+    if (role === "super_admin") {
       return redirect(new URL("/super-admin", request.url));
     }
     return redirect(new URL("/restaurant-admin", request.url));
@@ -77,27 +95,20 @@ export async function updateSession(request: NextRequest) {
 
   // Role-based access enforcement
   if (isProtected && user) {
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+    const role = await getProfileRole(user.id);
 
-    // Only enforce role routing when we successfully got a profile.
-    // If the query failed, let the request through — the page handles it.
-    // Previously a failed query (profile === null) made
-    // null?.role !== "super_admin" → true → kicked super admins off.
-    if (!profileError && profile) {
+    // Only enforce role routing when we successfully got a role.
+    if (role) {
       if (
         pathname.startsWith("/super-admin") &&
-        profile.role !== "super_admin"
+        role !== "super_admin"
       ) {
         return redirect(new URL("/restaurant-admin", request.url));
       }
 
       if (
         pathname.startsWith("/restaurant-admin") &&
-        profile.role === "super_admin"
+        role === "super_admin"
       ) {
         return redirect(new URL("/super-admin", request.url));
       }

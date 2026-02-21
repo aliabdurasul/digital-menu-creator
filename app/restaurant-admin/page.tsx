@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Loader2, AlertTriangle, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { getMyProfile } from "@/lib/actions";
 
 export default function RestaurantAdminPage() {
   const router = useRouter();
@@ -24,31 +25,25 @@ export default function RestaurantAdminPage() {
     async function loadRestaurant() {
       try {
         const supabase = createClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
 
-        if (!user) {
+        // Use server action (service-role key) to bypass RLS on profiles table
+        const myProfile = await getMyProfile();
+
+        if (!myProfile) {
           setError("Not authenticated");
           setLoading(false);
           return;
         }
 
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("restaurant_id, role")
-          .eq("id", user.id)
-          .single();
-
-        console.log("[restaurant-admin] Profile:", { profile, profileError });
+        console.log("[restaurant-admin] Profile:", myProfile);
 
         // Super admins should be on /super-admin, not here
-        if (profile?.role === "super_admin") {
+        if (myProfile.role === "super_admin") {
           window.location.href = "/super-admin";
           return;
         }
 
-        if (!profile || !profile.restaurant_id) {
+        if (!myProfile.restaurant_id) {
           setError("NO_RESTAURANT");
           setLoading(false);
           return;
@@ -57,7 +52,7 @@ export default function RestaurantAdminPage() {
         const { data: dbRestaurant, error: rError } = await supabase
           .from("restaurants")
           .select("*")
-          .eq("id", profile.restaurant_id)
+          .eq("id", myProfile.restaurant_id)
           .single();
 
         if (rError || !dbRestaurant) {

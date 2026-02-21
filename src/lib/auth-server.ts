@@ -1,10 +1,19 @@
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import type { UserRole } from "@/types";
 import type { Restaurant } from "@/types";
 
 /**
  * Server-side auth helpers — Supabase only (no mock fallback).
  */
+
+/** Admin client that bypasses RLS */
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  if (!serviceKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
+  return createSupabaseClient(url, serviceKey);
+}
 
 interface AuthUser {
   id: string;
@@ -27,8 +36,9 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 
     if (authError || !user) return null;
 
-    // Fetch profile for role and restaurant_id
-    const { data: profile, error: profileError } = await supabase
+    // Fetch profile for role and restaurant_id using admin client (bypasses RLS)
+    const admin = getAdminClient();
+    const { data: profile, error: profileError } = await admin
       .from("profiles")
       .select("role, restaurant_id")
       .eq("id", user.id)
