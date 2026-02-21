@@ -144,8 +144,7 @@ export async function deleteCategory(id: string): Promise<boolean> {
   try {
     const supabase = createClient();
 
-    // Delete menu items in this category first
-    await supabase.from("menu_items").delete().eq("category_id", id);
+    // menu_items.category_id is ON DELETE SET NULL — products become uncategorized
     const { error } = await supabase.from("categories").delete().eq("id", id);
 
     return !error;
@@ -226,6 +225,9 @@ function toRestaurant(r: any, categories: any[], items: any[]): Restaurant {
     id: r.id,
     slug: r.slug,
     name: r.name,
+    description: r.description || "",
+    phone: r.phone || "",
+    address: r.address || "",
     logo: r.logo_url || "",
     coverImage: r.cover_image_url || "",
     categories: categories.map((c) => ({
@@ -245,6 +247,7 @@ function toRestaurant(r: any, categories: any[], items: any[]): Restaurant {
     })),
     plan: r.plan || "basic",
     active: r.active ?? true,
+    menuStatus: r.menu_status || "active",
     totalViews: r.total_views || 0,
   };
 }

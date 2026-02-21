@@ -77,6 +77,9 @@ export default function RestaurantAdminPage() {
           id: dbRestaurant.id,
           slug: dbRestaurant.slug,
           name: dbRestaurant.name,
+          description: dbRestaurant.description || "",
+          phone: dbRestaurant.phone || "",
+          address: dbRestaurant.address || "",
           logo: dbRestaurant.logo_url || "",
           coverImage: dbRestaurant.cover_image_url || "",
           categories: (categories || []).map(
@@ -93,7 +96,7 @@ export default function RestaurantAdminPage() {
               description: string;
               price: number;
               image_url: string;
-              category_id: string;
+              category_id: string | null;
               is_available: boolean;
               order: number;
             }) => ({
@@ -109,6 +112,7 @@ export default function RestaurantAdminPage() {
           ),
           plan: dbRestaurant.plan || "basic",
           active: dbRestaurant.active ?? true,
+          menuStatus: dbRestaurant.menu_status || "active",
           totalViews: dbRestaurant.total_views || 0,
         });
       } catch {

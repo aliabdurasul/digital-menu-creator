@@ -2,8 +2,11 @@ import { useState } from "react";
 import type { Restaurant } from "@/types";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Camera } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Camera, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface Props {
   restaurant: Restaurant;
@@ -13,6 +16,15 @@ interface Props {
 export function AdminSettings({ restaurant, setRestaurant }: Props) {
   const [logoPreview, setLogoPreview] = useState(restaurant.logo);
   const [coverPreview, setCoverPreview] = useState(restaurant.coverImage);
+
+  // Text fields
+  const [name, setName] = useState(restaurant.name);
+  const [description, setDescription] = useState(restaurant.description);
+  const [phone, setPhone] = useState(restaurant.phone);
+  const [address, setAddress] = useState(restaurant.address);
+  const [menuStatus, setMenuStatus] = useState<"active" | "paused">(restaurant.menuStatus);
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
 
   const uploadImage = async (file: File, path: string): Promise<string | null> => {
     try {
@@ -35,12 +47,10 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
     setLogoPreview(localUrl);
     setRestaurant((r) => r ? { ...r, logo: localUrl } : r);
 
-    // Try uploading to Supabase storage
     const publicUrl = await uploadImage(file, `${restaurant.id}/logo`);
     if (publicUrl) {
       setLogoPreview(publicUrl);
       setRestaurant((r) => r ? { ...r, logo: publicUrl } : r);
-      // Persist URL to restaurant row
       try {
         const supabase = createClient();
         await supabase
@@ -58,7 +68,6 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
     setCoverPreview(localUrl);
     setRestaurant((r) => r ? { ...r, coverImage: localUrl } : r);
 
-    // Try uploading to Supabase storage
     const publicUrl = await uploadImage(file, `${restaurant.id}/cover`);
     if (publicUrl) {
       setCoverPreview(publicUrl);
@@ -73,11 +82,54 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
     }
   };
 
+  const saveSettings = async () => {
+    if (!name.trim()) {
+      toast({ title: "Error", description: "Restaurant name is required", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("restaurants")
+        .update({
+          name: name.trim(),
+          description: description.trim(),
+          phone: phone.trim(),
+          address: address.trim(),
+          menu_status: menuStatus,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", restaurant.id);
+
+      if (error) throw error;
+
+      setRestaurant((r) =>
+        r
+          ? {
+              ...r,
+              name: name.trim(),
+              description: description.trim(),
+              phone: phone.trim(),
+              address: address.trim(),
+              menuStatus,
+            }
+          : r
+      );
+      toast({ title: "Saved", description: "Settings updated." });
+    } catch {
+      toast({ title: "Error", description: "Failed to save settings", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-foreground mb-6">Settings</h1>
 
       <div className="space-y-8 max-w-lg">
+        {/* Logo */}
         <div>
           <Label className="mb-2 block">Restaurant Logo</Label>
           <label className="relative w-24 h-24 rounded-2xl bg-muted border-2 border-dashed border-border flex items-center justify-center cursor-pointer overflow-hidden group">
@@ -98,6 +150,7 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
           </label>
         </div>
 
+        {/* Cover Image */}
         <div>
           <Label className="mb-2 block">Cover Image</Label>
           <label className="relative w-full h-40 rounded-2xl bg-muted border-2 border-dashed border-border flex items-center justify-center cursor-pointer overflow-hidden group">
@@ -117,6 +170,91 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
             />
           </label>
         </div>
+
+        {/* Restaurant Name */}
+        <div>
+          <Label className="mb-2 block">Restaurant Name</Label>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Restaurant name"
+          />
+        </div>
+
+        {/* Slug (read-only) */}
+        <div>
+          <Label className="mb-2 block">Slug (URL identifier)</Label>
+          <Input
+            value={restaurant.slug}
+            readOnly
+            className="bg-muted text-muted-foreground cursor-not-allowed"
+          />
+        </div>
+
+        {/* Description */}
+        <div>
+          <Label className="mb-2 block">Short Description</Label>
+          <Textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="A brief description of your restaurant"
+            rows={3}
+          />
+        </div>
+
+        {/* Phone */}
+        <div>
+          <Label className="mb-2 block">
+            Phone <span className="text-xs text-muted-foreground">(not shown on public menu)</span>
+          </Label>
+          <Input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+1 (555) 000-0000"
+          />
+        </div>
+
+        {/* Address */}
+        <div>
+          <Label className="mb-2 block">
+            Address <span className="text-xs text-muted-foreground">(not shown on public menu)</span>
+          </Label>
+          <Input
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="123 Main St, City"
+          />
+        </div>
+
+        {/* Menu Status */}
+        <div>
+          <Label className="mb-2 block">Menu Status</Label>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={menuStatus === "active" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setMenuStatus("active")}
+            >
+              Active
+            </Button>
+            <Button
+              type="button"
+              variant={menuStatus === "paused" ? "destructive" : "outline"}
+              size="sm"
+              onClick={() => setMenuStatus("paused")}
+            >
+              Paused
+            </Button>
+          </div>
+        </div>
+
+        {/* Save */}
+        <Button onClick={saveSettings} disabled={saving} className="w-full">
+          {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+          Save Changes
+        </Button>
       </div>
     </div>
   );

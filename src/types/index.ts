@@ -4,10 +4,14 @@ export interface DbRestaurant {
   id: string;
   slug: string;
   name: string;
+  description: string;
+  phone: string;
+  address: string;
   logo_url: string;
   cover_image_url: string;
   plan: "basic" | "pro";
   active: boolean;
+  menu_status: "active" | "paused";
   total_views: number;
   created_at: string;
   updated_at: string;
@@ -24,7 +28,7 @@ export interface DbCategory {
 export interface DbMenuItem {
   id: string;
   restaurant_id: string;
-  category_id: string;
+  category_id: string | null;
   name: string;
   description: string;
   price: number;
@@ -53,7 +57,7 @@ export interface Product {
   description: string;
   price: number;
   image: string;
-  categoryId: string;
+  categoryId: string | null;
   available: boolean;
   order: number;
 }
@@ -68,12 +72,16 @@ export interface Restaurant {
   id: string;
   slug: string;
   name: string;
+  description: string;
+  phone: string;
+  address: string;
   logo: string;
   coverImage: string;
   categories: Category[];
   products: Product[];
   plan: "basic" | "pro";
   active: boolean;
+  menuStatus: "active" | "paused";
   totalViews: number;
 }
 
@@ -89,6 +97,9 @@ export function toLegacyRestaurant(
     id: r.id,
     slug: r.slug,
     name: r.name,
+    description: r.description || "",
+    phone: r.phone || "",
+    address: r.address || "",
     logo: r.logo_url,
     coverImage: r.cover_image_url,
     categories: categories.map((c) => ({
@@ -108,6 +119,7 @@ export function toLegacyRestaurant(
     })),
     plan: r.plan,
     active: r.active,
+    menuStatus: r.menu_status || "active",
     totalViews: r.total_views,
   };
 }

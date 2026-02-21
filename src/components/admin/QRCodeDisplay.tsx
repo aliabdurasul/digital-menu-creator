@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, forwardRef, useImperativeHandle } from "react";
+import { useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 
 export interface QRCodeDisplayHandle {
@@ -44,11 +44,15 @@ const QRCodeDisplay = forwardRef<QRCodeDisplayHandle, QRCodeDisplayProps>(
     ref
   ) {
     const containerRef = useRef<HTMLDivElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+    const setCanvasRef = useCallback((node: HTMLCanvasElement | null) => {
+      canvasRef.current = node;
+    }, []);
 
     useImperativeHandle(ref, () => ({
       getCanvas: () => {
-        if (!containerRef.current) return null;
-        return containerRef.current.querySelector("canvas");
+        return canvasRef.current || containerRef.current?.querySelector("canvas") || null;
       },
     }));
 
@@ -58,6 +62,7 @@ const QRCodeDisplay = forwardRef<QRCodeDisplayHandle, QRCodeDisplayProps>(
         className="inline-flex items-center justify-center rounded-2xl bg-white p-6"
       >
         <QRCodeCanvas
+          ref={setCanvasRef}
           value={url}
           size={size}
           bgColor={bgColor}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useCallback } from "react";
 import type { Restaurant } from "@/types";
 import {
   QRCodeDisplay,
@@ -9,8 +9,6 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   Download,
-  Copy,
-  Check,
   QrCode,
   AlertTriangle,
   ExternalLink,
@@ -38,7 +36,6 @@ interface AdminQRCodeProps {
  */
 export function AdminQRCode({ restaurant }: AdminQRCodeProps) {
   const qrRef = useRef<QRCodeDisplayHandle>(null);
-  const [copied, setCopied] = useState(false);
 
   // Build the public menu URL using the restaurant slug
   const appUrl =
@@ -68,8 +65,15 @@ export function AdminQRCode({ restaurant }: AdminQRCodeProps) {
   }
 
   // ── Download QR as PNG ──
-  const handleDownload = useCallback(() => {
-    const canvas = qrRef.current?.getCanvas();
+  const handleDownload = useCallback(async () => {
+    let canvas = qrRef.current?.getCanvas();
+
+    // Retry once after short delay if canvas not ready (logo image still loading)
+    if (!canvas) {
+      await new Promise((r) => setTimeout(r, 200));
+      canvas = qrRef.current?.getCanvas();
+    }
+
     if (!canvas) {
       toast.error("Could not generate QR image. Please try again.");
       return;
@@ -87,29 +91,19 @@ export function AdminQRCode({ restaurant }: AdminQRCodeProps) {
     ctx.fillStyle = "#FFFFFF";
     ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
 
-    // Draw QR code centered
+    // Draw QR code centered (includes logo if rendered by qrcode.react)
     ctx.drawImage(canvas, padding, padding);
 
-    // Trigger download
+    // Trigger download — anchor must be in DOM for some browsers
     const link = document.createElement("a");
     link.download = `${restaurant.slug}-qr-code.png`;
     link.href = exportCanvas.toDataURL("image/png", 1.0);
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
 
     toast.success("QR code downloaded successfully!");
   }, [restaurant.slug]);
-
-  // ── Copy URL to clipboard ──
-  const handleCopyLink = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(publicUrl);
-      setCopied(true);
-      toast.success("Link copied to clipboard!");
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error("Failed to copy link. Please copy it manually.");
-    }
-  }, [publicUrl]);
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -173,24 +167,6 @@ export function AdminQRCode({ restaurant }: AdminQRCodeProps) {
             >
               <Download className="w-4 h-4" />
               Download QR
-            </Button>
-            <Button
-              onClick={handleCopyLink}
-              variant="outline"
-              className="flex-1 h-11 gap-2"
-              size="lg"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-4 h-4 text-success" />
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <Copy className="w-4 h-4" />
-                  Copy Link
-                </>
-              )}
             </Button>
           </div>
         </div>

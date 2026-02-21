@@ -111,7 +111,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
       name: product.name,
       description: product.description,
       price: product.price.toString(),
-      categoryId: product.categoryId,
+      categoryId: product.categoryId || "",
       available: product.available,
       imagePreview: product.image,
     });
@@ -149,7 +149,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
 
     const payload = {
       restaurant_id: restaurant.id,
-      category_id: form.categoryId,
+      category_id: form.categoryId || null,
       name: form.name.trim(),
       description: form.description.trim(),
       price: parseFloat(form.price) || 0,
@@ -398,7 +398,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
               <p className="font-medium text-sm text-foreground truncate">{product.name}</p>
               <p className="text-xs text-muted-foreground">
                 ${product.price.toFixed(2)} ·{" "}
-                {restaurant.categories.find((c) => c.id === product.categoryId)?.name || "—"}
+                {restaurant.categories.find((c) => c.id === product.categoryId)?.name || "Uncategorized"}
               </p>
             </div>
             <Switch

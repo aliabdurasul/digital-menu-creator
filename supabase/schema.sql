@@ -17,10 +17,14 @@ create table if not exists public.restaurants (
   id            uuid primary key default uuid_generate_v4(),
   slug          text unique not null,
   name          text not null,
+  description   text default '',
+  phone         text default '',
+  address       text default '',
   logo_url      text default '',
   cover_image_url text default '',
   plan          text default 'basic' check (plan in ('basic', 'pro')),
   active        boolean default true,
+  menu_status   text default 'active' check (menu_status in ('active', 'paused')),
   total_views   integer default 0,
   created_at    timestamptz default now(),
   updated_at    timestamptz default now()
@@ -39,7 +43,7 @@ create table if not exists public.categories (
 create table if not exists public.menu_items (
   id            uuid primary key default uuid_generate_v4(),
   restaurant_id uuid not null references public.restaurants(id) on delete cascade,
-  category_id   uuid not null references public.categories(id) on delete cascade,
+  category_id   uuid references public.categories(id) on delete set null,
   name          text not null,
   description   text default '',
   price         numeric(10,2) not null default 0,
@@ -289,3 +293,16 @@ $$;
 --    set raw_app_meta_data = raw_app_meta_data || '{"role": "super_admin"}'::jsonb
 --    where email = 'your-email@example.com';
 -- 4. The user must sign out and back in to get a new JWT with the updated role.
+
+-- ============================================================
+-- Migration: Run these on EXISTING databases
+-- ============================================================
+-- ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS description text default '';
+-- ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS phone text default '';
+-- ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS address text default '';
+-- ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS menu_status text default 'active' check (menu_status in ('active', 'paused'));
+--
+-- ALTER TABLE public.menu_items ALTER COLUMN category_id DROP NOT NULL;
+-- ALTER TABLE public.menu_items DROP CONSTRAINT menu_items_category_id_fkey;
+-- ALTER TABLE public.menu_items ADD CONSTRAINT menu_items_category_id_fkey
+--   FOREIGN KEY (category_id) REFERENCES public.categories(id) ON DELETE SET NULL;
