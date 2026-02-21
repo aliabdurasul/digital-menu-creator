@@ -34,7 +34,7 @@ export default function LoginPage() {
     }
 
     // Honor the middleware-set redirect param if present
-    const redirectTo = searchParams.get("redirect");
+    const redirectTo = searchParams?.get("redirect");
     if (redirectTo) {
       window.location.href = redirectTo;
       return;
