@@ -1,13 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Profile, UserRole } from "@/types";
-import { mockRestaurants } from "@/lib/mockData";
+import type { UserRole } from "@/types";
 import type { Restaurant } from "@/types";
 
 /**
- * Auth helpers — real Supabase Auth with mock fallback.
- *
- * These functions use server-side Supabase client to check auth state.
- * When DB tables are not yet created, they fall back to mock data.
+ * Server-side auth helpers — Supabase only (no mock fallback).
  */
 
 interface AuthUser {
@@ -122,12 +118,12 @@ export async function getCurrentRestaurant(): Promise<Restaurant | null> {
       }
     }
   } catch {
-    // DB tables might not exist yet — fall through to mock
+    // Supabase query failed
+    return null;
   }
 
-  // TODO: Remove mock fallback when DB is ready
-  const mockRestaurant = mockRestaurants.find((r) => r.id === (user.restaurantId || "1"));
-  return mockRestaurant || mockRestaurants[0] || null;
+  // No restaurant assigned to this user
+  return null;
 }
 
 /**

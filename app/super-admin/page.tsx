@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { mockRestaurants } from "@/lib/mockData";
 import type { Restaurant } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,19 +19,31 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Eye, Shield, Loader2, LogOut } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Eye,
+  Shield,
+  Loader2,
+  LogOut,
+  UserPlus,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
 
 export default function SuperAdminPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [assignOpen, setAssignOpen] = useState<string | null>(null);
+  const [assignEmail, setAssignEmail] = useState("");
 
   useEffect(() => {
     async function loadRestaurants() {
@@ -43,45 +54,54 @@ export default function SuperAdminPage() {
           .select("*")
           .order("created_at", { ascending: false });
 
-        if (!error && dbRestaurants && dbRestaurants.length > 0) {
-          setRestaurants(
-            dbRestaurants.map(
-              (r: {
-                id: string;
-                slug: string;
-                name: string;
-                logo_url: string;
-                cover_image_url: string;
-                plan: string;
-                active: boolean;
-                total_views: number;
-              }) => ({
-                id: r.id,
-                slug: r.slug,
-                name: r.name,
-                logo: r.logo_url || "",
-                coverImage: r.cover_image_url || "",
-                categories: [],
-                products: [],
-                plan: (r.plan || "basic") as "basic" | "pro",
-                active: r.active ?? true,
-                totalViews: r.total_views || 0,
-              })
-            )
-          );
+        if (error) {
+          toast({
+            title: "Error",
+            description: "Failed to load restaurants: " + error.message,
+            variant: "destructive",
+          });
           setLoading(false);
           return;
         }
-      } catch {
-        // DB not ready — fall through to mock
-      }
 
-      // TODO: Remove mock fallback when DB is ready
-      setRestaurants(mockRestaurants.map((r) => ({ ...r })));
-      setLoading(false);
+        setRestaurants(
+          (dbRestaurants || []).map(
+            (r: {
+              id: string;
+              slug: string;
+              name: string;
+              logo_url: string;
+              cover_image_url: string;
+              plan: string;
+              active: boolean;
+              total_views: number;
+            }) => ({
+              id: r.id,
+              slug: r.slug,
+              name: r.name,
+              logo: r.logo_url || "",
+              coverImage: r.cover_image_url || "",
+              categories: [],
+              products: [],
+              plan: (r.plan || "basic") as "basic" | "pro",
+              active: r.active ?? true,
+              totalViews: r.total_views || 0,
+            })
+          )
+        );
+      } catch {
+        toast({
+          title: "Error",
+          description: "Failed to load restaurants",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
     }
 
     loadRestaurants();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleLogout = async () => {
@@ -97,100 +117,112 @@ export default function SuperAdminPage() {
       .toLowerCase()
       .replace(/\s+/g, "-");
 
-    try {
-      const supabase = createClient();
-      const { data: newRow, error } = await supabase
-        .from("restaurants")
-        .insert({
-          name: newName.trim(),
-          slug,
-          logo_url: "",
-          cover_image_url: "",
-          plan: "basic",
-          active: true,
-          total_views: 0,
-        })
-        .select()
-        .single();
+    const supabase = createClient();
+    const { data: newRow, error } = await supabase
+      .from("restaurants")
+      .insert({
+        name: newName.trim(),
+        slug,
+        logo_url: "",
+        cover_image_url: "",
+        plan: "basic",
+        active: true,
+        total_views: 0,
+      })
+      .select()
+      .single();
 
-      if (!error && newRow) {
-        setRestaurants((prev) => [
-          {
-            id: newRow.id,
-            slug: newRow.slug,
-            name: newRow.name,
-            logo: "",
-            coverImage: "",
-            categories: [],
-            products: [],
-            plan: "basic",
-            active: true,
-            totalViews: 0,
-          },
-          ...prev,
-        ]);
-        setNewName("");
-        setOpen(false);
-        return;
-      }
-    } catch {
-      // DB not ready — fall through to mock
+    if (error || !newRow) {
+      toast({
+        title: "Error",
+        description: "Failed to create restaurant: " + (error?.message || "Unknown error"),
+        variant: "destructive",
+      });
+      return;
     }
 
-    // Mock fallback
-    const r: Restaurant = {
-      id: `r-${Date.now()}`,
-      slug,
-      name: newName.trim(),
-      logo: "",
-      coverImage: "",
-      categories: [],
-      products: [],
-      plan: "basic",
-      active: true,
-      totalViews: 0,
-    };
-    setRestaurants((prev) => [r, ...prev]);
+    setRestaurants((prev) => [
+      {
+        id: newRow.id,
+        slug: newRow.slug,
+        name: newRow.name,
+        logo: "",
+        coverImage: "",
+        categories: [],
+        products: [],
+        plan: "basic",
+        active: true,
+        totalViews: 0,
+      },
+      ...prev,
+    ]);
     setNewName("");
     setOpen(false);
   };
 
   const deleteRestaurant = async (id: string) => {
-    try {
-      const supabase = createClient();
-      await supabase.from("menu_items").delete().eq("restaurant_id", id);
-      await supabase.from("categories").delete().eq("restaurant_id", id);
-      await supabase.from("restaurants").delete().eq("id", id);
-    } catch {
-      // DB not ready — just remove locally
+    const supabase = createClient();
+    // Clear assignment
+    await supabase
+      .from("profiles")
+      .update({ restaurant_id: null })
+      .eq("restaurant_id", id);
+    await supabase.from("menu_items").delete().eq("restaurant_id", id);
+    await supabase.from("categories").delete().eq("restaurant_id", id);
+    const { error } = await supabase.from("restaurants").delete().eq("id", id);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete restaurant: " + error.message,
+        variant: "destructive",
+      });
+      return;
     }
+
     setRestaurants((prev) => prev.filter((r) => r.id !== id));
   };
 
   const toggleActive = async (id: string) => {
     const target = restaurants.find((r) => r.id === id);
     if (!target) return;
-    try {
-      const supabase = createClient();
-      await supabase
-        .from("restaurants")
-        .update({ active: !target.active })
-        .eq("id", id);
-    } catch {
-      // DB not ready — just update locally
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("restaurants")
+      .update({ active: !target.active })
+      .eq("id", id);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update status: " + error.message,
+        variant: "destructive",
+      });
+      return;
     }
+
     setRestaurants((prev) =>
       prev.map((r) => (r.id === id ? { ...r, active: !r.active } : r))
     );
   };
 
   const changePlan = async (id: string, plan: "basic" | "pro") => {
-    try {
-      const supabase = createClient();
-      await supabase.from("restaurants").update({ plan }).eq("id", id);
-    } catch {
-      // DB not ready — just update locally
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("restaurants")
+      .update({ plan })
+      .eq("id", id);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to change plan: " + error.message,
+        variant: "destructive",
+      });
+      return;
     }
+
     setRestaurants((prev) =>
       prev.map((r) => (r.id === id ? { ...r, plan } : r))
     );
@@ -207,15 +239,22 @@ export default function SuperAdminPage() {
       .trim()
       .toLowerCase()
       .replace(/\s+/g, "-");
-    try {
-      const supabase = createClient();
-      await supabase
-        .from("restaurants")
-        .update({ name: editName.trim(), slug: newSlug })
-        .eq("id", editingId);
-    } catch {
-      // DB not ready — just update locally
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("restaurants")
+      .update({ name: editName.trim(), slug: newSlug })
+      .eq("id", editingId);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to rename restaurant: " + error.message,
+        variant: "destructive",
+      });
+      return;
     }
+
     setRestaurants((prev) =>
       prev.map((r) =>
         r.id === editingId
@@ -224,6 +263,48 @@ export default function SuperAdminPage() {
       )
     );
     setEditingId(null);
+  };
+
+  const assignAdmin = async (restaurantId: string) => {
+    if (!assignEmail.trim()) return;
+    const supabase = createClient();
+
+    // Find user profile by email (match against auth.users via email)
+    const { data: profiles, error: pError } = await supabase
+      .from("profiles")
+      .select("id, email")
+      .eq("email", assignEmail.trim().toLowerCase());
+
+    if (pError || !profiles || profiles.length === 0) {
+      toast({
+        title: "User not found",
+        description:
+          "No account found with that email. The user must sign up first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ restaurant_id: restaurantId, role: "restaurant_admin" })
+      .eq("id", profiles[0].id);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to assign admin: " + error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Admin assigned",
+      description: `${assignEmail} is now admin of this restaurant.`,
+    });
+    setAssignOpen(null);
+    setAssignEmail("");
   };
 
   if (loading) {
@@ -280,6 +361,12 @@ export default function SuperAdminPage() {
           </Dialog>
         </div>
 
+        {restaurants.length === 0 && (
+          <div className="text-center py-12 text-muted-foreground">
+            No restaurants yet. Create one to get started.
+          </div>
+        )}
+
         <div className="space-y-3">
           {restaurants.map((r) => (
             <div
@@ -330,6 +417,42 @@ export default function SuperAdminPage() {
               </div>
 
               <div className="flex items-center gap-3 shrink-0">
+                {/* Assign Admin */}
+                <Dialog
+                  open={assignOpen === r.id}
+                  onOpenChange={(v) => {
+                    setAssignOpen(v ? r.id : null);
+                    if (!v) setAssignEmail("");
+                  }}
+                >
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 text-xs">
+                      <UserPlus className="w-3 h-3 mr-1" /> Assign
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Assign Admin to {r.name}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <Input
+                        value={assignEmail}
+                        onChange={(e) => setAssignEmail(e.target.value)}
+                        placeholder="Admin email address"
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && assignAdmin(r.id)
+                        }
+                      />
+                      <Button
+                        onClick={() => assignAdmin(r.id)}
+                        className="w-full"
+                      >
+                        Assign
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
                 <Select
                   value={r.plan}
                   onValueChange={(v) =>

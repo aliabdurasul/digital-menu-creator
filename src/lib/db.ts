@@ -1,15 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
-import { mockRestaurants } from "@/lib/mockData";
 import type { Restaurant } from "@/types";
 
 /**
- * Data access layer — Supabase queries with mock fallback.
- *
- * Each function attempts a real Supabase query first.
- * If the table doesn't exist or query fails, it falls back to mockData.
- * This ensures the app works before DB tables are created.
- *
- * TODO: Remove all mock fallbacks when DB is fully set up.
+ * Data access layer — all data from Supabase only.
+ * If a query fails the function returns null / empty array.
  */
 
 /* ─── Public Queries ─── */
@@ -43,8 +37,7 @@ export async function getRestaurantBySlug(
 
     return toRestaurant(dbRestaurant, categories || [], items || []);
   } catch {
-    // TODO: Remove mock fallback when DB is ready
-    return mockRestaurants.find((r) => r.slug === slug) || null;
+    return null;
   }
 }
 
@@ -63,8 +56,7 @@ export async function getAllRestaurants(): Promise<Restaurant[]> {
     // For list views we don't need full categories/products
     return restaurants.map((r) => toRestaurant(r, [], []));
   } catch {
-    // TODO: Remove mock fallback when DB is ready
-    return mockRestaurants.map((r) => ({ ...r }));
+    return [];
   }
 }
 
@@ -94,7 +86,6 @@ export async function createRestaurant(data: {
     if (error) throw error;
     return toRestaurant(newRestaurant, [], []);
   } catch {
-    // TODO: Remove mock fallback when DB is ready
     return null;
   }
 }

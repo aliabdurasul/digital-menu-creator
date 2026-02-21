@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Restaurant, Product } from "@/types";
-import { Plus, Trash2, GripVertical } from "lucide-react";
+import { Plus, Trash2, GripVertical, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -21,10 +21,11 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface Props {
   restaurant: Restaurant;
-  setRestaurant: React.Dispatch<React.SetStateAction<Restaurant>>;
+  setRestaurant: React.Dispatch<React.SetStateAction<Restaurant | null>>;
 }
 
 const emptyProduct = {
@@ -39,6 +40,8 @@ const emptyProduct = {
 export function AdminProducts({ restaurant, setRestaurant }: Props) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyProduct);
+  const [adding, setAdding] = useState(false);
+  const { toast } = useToast();
 
   const sorted = [...restaurant.products].sort((a, b) => a.order - b.order);
 
@@ -51,86 +54,98 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
   };
 
   const addProduct = async () => {
-    if (!form.name.trim() || !form.categoryId) return;
-    const tempId = `p-${Date.now()}`;
-    const product: Product = {
-      id: tempId,
-      name: form.name.trim(),
-      description: form.description.trim(),
-      price: parseFloat(form.price) || 0,
-      image: form.imagePreview || "/placeholder.svg",
-      categoryId: form.categoryId,
-      available: form.available,
-      order: restaurant.products.length,
-    };
+    if (!form.name.trim() || !form.categoryId || adding) return;
+    setAdding(true);
 
-    // Optimistic UI update
-    setRestaurant((r) => ({ ...r, products: [...r.products, product] }));
-    setForm(emptyProduct);
-    setOpen(false);
-
-    // Persist to Supabase
     try {
       const supabase = createClient();
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("menu_items")
         .insert({
           restaurant_id: restaurant.id,
-          category_id: product.categoryId,
-          name: product.name,
-          description: product.description,
-          price: product.price,
-          image_url: product.image,
-          is_available: product.available,
-          order: product.order,
+          category_id: form.categoryId,
+          name: form.name.trim(),
+          description: form.description.trim(),
+          price: parseFloat(form.price) || 0,
+          image_url: form.imagePreview || "/placeholder.svg",
+          is_available: form.available,
+          order: restaurant.products.length,
         })
         .select("id")
         .single();
 
-      if (data) {
-        setRestaurant((r) => ({
-          ...r,
-          products: r.products.map((p) =>
-            p.id === tempId ? { ...p, id: data.id } : p
-          ),
-        }));
+      if (error || !data) {
+        toast({
+          title: "Error",
+          description: "Failed to add product: " + (error?.message || "Unknown error"),
+          variant: "destructive",
+        });
+        return;
       }
+
+      const product: Product = {
+        id: data.id,
+        name: form.name.trim(),
+        description: form.description.trim(),
+        price: parseFloat(form.price) || 0,
+        image: form.imagePreview || "/placeholder.svg",
+        categoryId: form.categoryId,
+        available: form.available,
+        order: restaurant.products.length,
+      };
+
+      setRestaurant((r) => r ? { ...r, products: [...r.products, product] } : r);
+      setForm(emptyProduct);
+      setOpen(false);
     } catch {
-      // DB not ready — local state is fine
+      toast({ title: "Error", description: "Failed to add product", variant: "destructive" });
+    } finally {
+      setAdding(false);
     }
   };
 
   const deleteProduct = async (id: string) => {
-    setRestaurant((r) => ({
-      ...r,
-      products: r.products.filter((p) => p.id !== id),
-    }));
+    const prev = restaurant.products;
+    setRestaurant((r) =>
+      r ? { ...r, products: r.products.filter((p) => p.id !== id) } : r
+    );
 
     try {
       const supabase = createClient();
-      await supabase.from("menu_items").delete().eq("id", id);
+      const { error } = await supabase.from("menu_items").delete().eq("id", id);
+      if (error) throw error;
     } catch {
-      // DB not ready
+      setRestaurant((r) => r ? { ...r, products: prev } : r);
+      toast({ title: "Error", description: "Failed to delete product", variant: "destructive" });
     }
   };
 
   const toggleAvailability = async (id: string) => {
     const target = restaurant.products.find((p) => p.id === id);
-    setRestaurant((r) => ({
-      ...r,
-      products: r.products.map((p) =>
-        p.id === id ? { ...p, available: !p.available } : p
-      ),
-    }));
+    if (!target) return;
+    const prev = restaurant.products;
+
+    setRestaurant((r) =>
+      r
+        ? {
+            ...r,
+            products: r.products.map((p) =>
+              p.id === id ? { ...p, available: !p.available } : p
+            ),
+          }
+        : r
+    );
 
     try {
       const supabase = createClient();
-      await supabase
+      const { error } = await supabase
         .from("menu_items")
-        .update({ is_available: !(target?.available ?? true) })
+        .update({ is_available: !target.available })
         .eq("id", id);
+      if (error) throw error;
     } catch {
-      // DB not ready
+      setRestaurant((r) => r ? { ...r, products: prev } : r);
+      toast({ title: "Error", description: "Failed to update availability", variant: "destructive" });
     }
   };
 
@@ -214,7 +229,8 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
                 />
                 <Label>Available</Label>
               </div>
-              <Button onClick={addProduct} className="w-full">
+              <Button onClick={addProduct} className="w-full" disabled={adding}>
+                {adding ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 Add Product
               </Button>
             </div>

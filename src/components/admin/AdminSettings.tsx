@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 
 interface Props {
   restaurant: Restaurant;
-  setRestaurant: React.Dispatch<React.SetStateAction<Restaurant>>;
+  setRestaurant: React.Dispatch<React.SetStateAction<Restaurant | null>>;
 }
 
 export function AdminSettings({ restaurant, setRestaurant }: Props) {
@@ -33,13 +33,13 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
     if (!file) return;
     const localUrl = URL.createObjectURL(file);
     setLogoPreview(localUrl);
-    setRestaurant((r) => ({ ...r, logo: localUrl }));
+    setRestaurant((r) => r ? { ...r, logo: localUrl } : r);
 
     // Try uploading to Supabase storage
     const publicUrl = await uploadImage(file, `${restaurant.id}/logo`);
     if (publicUrl) {
       setLogoPreview(publicUrl);
-      setRestaurant((r) => ({ ...r, logo: publicUrl }));
+      setRestaurant((r) => r ? { ...r, logo: publicUrl } : r);
       // Persist URL to restaurant row
       try {
         const supabase = createClient();
@@ -56,13 +56,13 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
     if (!file) return;
     const localUrl = URL.createObjectURL(file);
     setCoverPreview(localUrl);
-    setRestaurant((r) => ({ ...r, coverImage: localUrl }));
+    setRestaurant((r) => r ? { ...r, coverImage: localUrl } : r);
 
     // Try uploading to Supabase storage
     const publicUrl = await uploadImage(file, `${restaurant.id}/cover`);
     if (publicUrl) {
       setCoverPreview(publicUrl);
-      setRestaurant((r) => ({ ...r, coverImage: publicUrl }));
+      setRestaurant((r) => r ? { ...r, coverImage: publicUrl } : r);
       try {
         const supabase = createClient();
         await supabase

@@ -1,75 +1,86 @@
 import { useState } from "react";
 import type { Restaurant, Category } from "@/types";
-import { Plus, Trash2, GripVertical } from "lucide-react";
+import { Plus, Trash2, GripVertical, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface Props {
   restaurant: Restaurant;
-  setRestaurant: React.Dispatch<React.SetStateAction<Restaurant>>;
+  setRestaurant: React.Dispatch<React.SetStateAction<Restaurant | null>>;
 }
 
 export function AdminCategories({ restaurant, setRestaurant }: Props) {
   const [newName, setNewName] = useState("");
+  const [adding, setAdding] = useState(false);
+  const { toast } = useToast();
 
   const sorted = [...restaurant.categories].sort((a, b) => a.order - b.order);
 
   const addCategory = async () => {
-    if (!newName.trim()) return;
-    const tempId = `cat-${Date.now()}`;
-    const cat: Category = {
-      id: tempId,
-      name: newName.trim(),
-      order: restaurant.categories.length,
-    };
+    if (!newName.trim() || adding) return;
+    setAdding(true);
 
-    // Optimistic UI update
-    setRestaurant((r) => ({ ...r, categories: [...r.categories, cat] }));
-    setNewName("");
-
-    // Persist to Supabase
     try {
       const supabase = createClient();
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("categories")
         .insert({
           restaurant_id: restaurant.id,
-          name: cat.name,
-          order: cat.order,
+          name: newName.trim(),
+          order: restaurant.categories.length,
         })
         .select("id")
         .single();
 
-      // Update the temp id with the real one
-      if (data) {
-        setRestaurant((r) => ({
-          ...r,
-          categories: r.categories.map((c) =>
-            c.id === tempId ? { ...c, id: data.id } : c
-          ),
-        }));
+      if (error || !data) {
+        toast({
+          title: "Error",
+          description: "Failed to add category: " + (error?.message || "Unknown error"),
+          variant: "destructive",
+        });
+        return;
       }
+
+      const cat: Category = {
+        id: data.id,
+        name: newName.trim(),
+        order: restaurant.categories.length,
+      };
+      setRestaurant((r) => r ? { ...r, categories: [...r.categories, cat] } : r);
+      setNewName("");
     } catch {
-      // DB not ready — local state is fine
+      toast({ title: "Error", description: "Failed to add category", variant: "destructive" });
+    } finally {
+      setAdding(false);
     }
   };
 
   const deleteCategory = async (id: string) => {
-    // Optimistic UI update
-    setRestaurant((r) => ({
-      ...r,
-      categories: r.categories.filter((c) => c.id !== id),
-      products: r.products.filter((p) => p.categoryId !== id),
-    }));
+    const prev = restaurant.categories;
+    const prevProducts = restaurant.products;
 
-    // Persist to Supabase
+    // Optimistic remove
+    setRestaurant((r) =>
+      r
+        ? {
+            ...r,
+            categories: r.categories.filter((c) => c.id !== id),
+            products: r.products.filter((p) => p.categoryId !== id),
+          }
+        : r
+    );
+
     try {
       const supabase = createClient();
       await supabase.from("menu_items").delete().eq("category_id", id);
-      await supabase.from("categories").delete().eq("id", id);
+      const { error } = await supabase.from("categories").delete().eq("id", id);
+      if (error) throw error;
     } catch {
-      // DB not ready — local state is fine
+      // Revert on failure
+      setRestaurant((r) => r ? { ...r, categories: prev, products: prevProducts } : r);
+      toast({ title: "Error", description: "Failed to delete category", variant: "destructive" });
     }
   };
 
@@ -84,8 +95,9 @@ export function AdminCategories({ restaurant, setRestaurant }: Props) {
           onChange={(e) => setNewName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && addCategory()}
         />
-        <Button onClick={addCategory} size="sm">
-          <Plus className="w-4 h-4 mr-1" /> Add
+        <Button onClick={addCategory} size="sm" disabled={adding}>
+          {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
+          {adding ? "" : "Add"}
         </Button>
       </div>
 
