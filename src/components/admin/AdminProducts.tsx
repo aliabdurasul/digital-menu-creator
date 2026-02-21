@@ -154,7 +154,6 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
     setSaving(true);
 
     const payload = {
-      restaurant_id: restaurant.id,
       category_id: form.categoryId || null,
       name: form.name.trim(),
       description: form.description.trim(),
@@ -171,13 +170,15 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
 
       if (isEditing && editingProduct) {
         // ── UPDATE ──
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("menu_items")
           .update(payload)
-          .eq("id", editingProduct.id);
+          .eq("id", editingProduct.id)
+          .select("id")
+          .single();
 
-        if (error) {
-          toast({ title: "Hata", description: "Ürün güncellenemedi: " + error.message, variant: "destructive" });
+        if (error || !data) {
+          toast({ title: "Hata", description: "Ürün güncellenemedi: " + (error?.message || "Erişim reddedildi"), variant: "destructive" });
           return;
         }
 
@@ -202,7 +203,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
         // ── INSERT ──
         const { data, error } = await supabase
           .from("menu_items")
-          .insert({ ...payload, order: restaurant.products.length })
+          .insert({ ...payload, restaurant_id: restaurant.id, order: restaurant.products.length })
           .select("id")
           .single();
 

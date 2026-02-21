@@ -14,6 +14,10 @@ export const metadata: Metadata = {
   title: "Lezzet-i Âlâ",
   description:
     "Restoranınız için modern dijital menü sistemi. Kolayca yönetin, özelleştirin ve paylaşın.",
+  icons: {
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    apple: "/favicon.svg",
+  },
   openGraph: {
     title: "Lezzet-i Âlâ",
     description:
@@ -34,6 +38,7 @@ export default function RootLayout({
     <html lang="tr" suppressHydrationWarning>
       <head>
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="apple-touch-icon" href="/favicon.svg" />
       </head>
       <body className={`${plusJakartaSans.variable} font-sans`}>
         <Providers>{children}</Providers>
