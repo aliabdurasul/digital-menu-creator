@@ -135,7 +135,7 @@ export function AdminQRCode({ restaurant }: AdminQRCodeProps) {
               {restaurant.name}
             </h2>
             <button
-              onClick={handleCopyLink}
+              onClick={() => window.open(publicUrl, "_blank")}
               className="mt-2 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors group"
             >
               <ExternalLink className="w-3.5 h-3.5" />
@@ -157,6 +157,15 @@ export function AdminQRCode({ restaurant }: AdminQRCodeProps) {
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm">
+            <Button
+              onClick={() => window.open(publicUrl, "_blank")}
+              className="flex-1 h-11 gap-2"
+              variant="secondary"
+              size="lg"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Preview Menu
+            </Button>
             <Button
               onClick={handleDownload}
               className="flex-1 h-11 gap-2"

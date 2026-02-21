@@ -243,23 +243,39 @@ create policy "Super admins full access to menu items"
   using (public.user_role() = 'super_admin');
 
 -- ============================================================
--- Storage Bucket (run separately if needed)
+-- Storage Bucket
 -- ============================================================
--- insert into storage.buckets (id, name, public)
--- values ('images', 'images', true)
--- on conflict do nothing;
---
--- create policy "Public read images"
---   on storage.objects for select
---   using (bucket_id = 'images');
---
--- create policy "Authenticated users upload images"
---   on storage.objects for insert
---   with check (bucket_id = 'images' and auth.role() = 'authenticated');
---
--- create policy "Authenticated users update own images"
---   on storage.objects for update
---   using (bucket_id = 'images' and auth.role() = 'authenticated');
+insert into storage.buckets (id, name, public)
+values ('images', 'images', true)
+on conflict do nothing;
+
+create policy "Public read images"
+  on storage.objects for select
+  using (bucket_id = 'images');
+
+create policy "Authenticated users upload images"
+  on storage.objects for insert
+  with check (bucket_id = 'images' and auth.role() = 'authenticated');
+
+create policy "Authenticated users update own images"
+  on storage.objects for update
+  using (bucket_id = 'images' and auth.role() = 'authenticated');
+
+-- ============================================================
+-- RPC: Increment restaurant views (atomic, race-condition safe)
+-- ============================================================
+create or replace function public.increment_restaurant_views(restaurant_slug text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.restaurants
+  set total_views = total_views + 1
+  where slug = restaurant_slug;
+end;
+$$;
 
 -- ============================================================
 -- Seed: Create a super admin user

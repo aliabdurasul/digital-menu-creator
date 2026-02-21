@@ -1,5 +1,6 @@
 import type { Restaurant } from "@/types";
-import { Eye, Package, FolderOpen } from "lucide-react";
+import { Eye, Package, FolderOpen, ExternalLink } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   restaurant: Restaurant;
@@ -7,6 +8,12 @@ interface Props {
 
 export function AdminDashboard({ restaurant }: Props) {
   const activeProducts = restaurant.products.filter((p) => p.available).length;
+
+  const appUrl =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_APP_URL || "";
+  const publicUrl = `${appUrl}/menu/${restaurant.slug}`;
 
   const stats = [
     { label: "Total Views", value: restaurant.totalViews.toLocaleString(), icon: Eye },
@@ -16,7 +23,16 @@ export function AdminDashboard({ restaurant }: Props) {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-foreground mb-6">Dashboard</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => window.open(publicUrl, "_blank")}
+        >
+          <ExternalLink className="w-4 h-4 mr-1" /> Preview Menu
+        </Button>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {stats.map((stat) => (
           <div

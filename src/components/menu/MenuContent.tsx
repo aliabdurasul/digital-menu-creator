@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import type { Restaurant } from "@/types";
 import { CategoryTabs } from "@/components/menu/CategoryTabs";
 import { ProductCard } from "@/components/menu/ProductCard";
+import { createClient } from "@/lib/supabase/client";
 
 interface MenuContentProps {
   restaurant: Restaurant;
@@ -22,6 +23,15 @@ export function MenuContent({ restaurant }: MenuContentProps) {
       setActiveCat(sortedCategories[0].id);
     }
   }, [sortedCategories, activeCat]);
+
+  // Increment view count once on mount
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.rpc("increment_restaurant_views", {
+      restaurant_slug: restaurant.slug,
+    }).then(() => { /* fire-and-forget */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleCatSelect = useCallback((catId: string) => {
     setActiveCat(catId);
@@ -50,9 +60,9 @@ export function MenuContent({ restaurant }: MenuContentProps) {
   }, [restaurant]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="max-w-[480px] mx-auto min-h-screen bg-background shadow-sm">
       {/* Cover */}
-      <div className="relative w-full h-48 sm:h-64 overflow-hidden">
+      <div className="relative w-full h-44 sm:h-56 overflow-hidden">
         <img
           src={restaurant.coverImage}
           alt={restaurant.name}
@@ -95,7 +105,7 @@ export function MenuContent({ restaurant }: MenuContentProps) {
       </div>
 
       {/* Products */}
-      <div className="px-4 py-6 max-w-2xl mx-auto space-y-8">
+      <div className="px-3 py-4 space-y-8">
         {sortedCategories.map((cat) => {
           const products = restaurant.products
             .filter((p) => p.categoryId === cat.id)

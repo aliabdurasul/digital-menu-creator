@@ -7,11 +7,11 @@ interface ProductCardProps {
 export function ProductCard({ product }: ProductCardProps) {
   return (
     <div
-      className={`flex gap-4 p-4 rounded-2xl bg-card border border-border/50 transition-all duration-200 hover:shadow-md ${
+      className={`flex gap-3 p-3 sm:p-4 rounded-2xl bg-card border border-border/50 transition-all duration-200 hover:shadow-md touch-manipulation ${
         !product.available ? "opacity-60" : ""
       }`}
     >
-      <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden shrink-0 bg-muted">
+      <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden shrink-0 bg-muted">
         <img
           src={product.image}
           alt={product.name}
