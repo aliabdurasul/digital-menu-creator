@@ -310,10 +310,14 @@ export async function getAllRestaurantsAdmin(): Promise<
     id: string;
     slug: string;
     name: string;
+    description: string;
+    phone: string;
+    address: string;
     logo_url: string;
     cover_image_url: string;
     plan: string;
     active: boolean;
+    menu_status: string;
     total_views: number;
   }>>
 > {
