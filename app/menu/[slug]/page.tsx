@@ -1,8 +1,11 @@
 import { notFound } from "next/navigation";
 import { getRestaurantBySlug } from "@/lib/db";
-import { MenuContent } from "@/components/menu/MenuContent";
+import { MenuShell } from "@/components/menu/MenuShell";
 import { AlertTriangle } from "lucide-react";
 import type { Metadata } from "next";
+
+/** ISR: regenerate every 60 seconds */
+export const revalidate = 60;
 
 interface MenuPageProps {
   params: { slug: string };
@@ -23,11 +26,12 @@ export async function generateMetadata({
       title: `${restaurant.name} — Digital Menu`,
       description: `View the digital menu for ${restaurant.name}`,
       type: "website",
+      ...(restaurant.coverImage && { images: [restaurant.coverImage] }),
     },
   };
 }
 
-/** Server Component — fetches data on the server, passes to client for interactivity */
+/** Server Component — renders full HTML on server, minimal JS shipped */
 export default async function MenuPage({ params }: MenuPageProps) {
   const restaurant = await getRestaurantBySlug(params.slug);
 
@@ -35,7 +39,7 @@ export default async function MenuPage({ params }: MenuPageProps) {
     notFound();
   }
 
-  // Inactive restaurant — subscription check
+  // Inactive restaurant — fully server-rendered, zero JS
   if (!restaurant.active) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background text-muted-foreground">
@@ -49,5 +53,5 @@ export default async function MenuPage({ params }: MenuPageProps) {
     );
   }
 
-  return <MenuContent restaurant={restaurant} />;
+  return <MenuShell restaurant={restaurant} />;
 }

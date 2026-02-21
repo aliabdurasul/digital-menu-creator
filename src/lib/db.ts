@@ -15,27 +15,21 @@ export async function getRestaurantBySlug(
   try {
     const supabase = createClient();
 
+    // Single query: fetch restaurant with categories + items via Supabase joins
     const { data: dbRestaurant, error } = await supabase
       .from("restaurants")
-      .select("*")
+      .select(`
+        *,
+        categories ( id, restaurant_id, name, "order", created_at ),
+        menu_items ( id, restaurant_id, category_id, name, description, price, image_url, is_available, "order", created_at, updated_at )
+      `)
       .eq("slug", slug)
       .single();
 
     if (error || !dbRestaurant) throw new Error("Not found");
 
-    const { data: categories } = await supabase
-      .from("categories")
-      .select("*")
-      .eq("restaurant_id", dbRestaurant.id)
-      .order("order");
-
-    const { data: items } = await supabase
-      .from("menu_items")
-      .select("*")
-      .eq("restaurant_id", dbRestaurant.id)
-      .order("order");
-
-    return toRestaurant(dbRestaurant, categories || [], items || []);
+    const { categories, menu_items, ...rest } = dbRestaurant;
+    return toRestaurant(rest, categories || [], menu_items || []);
   } catch {
     return null;
   }
