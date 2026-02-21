@@ -101,6 +101,9 @@ export async function getCurrentRestaurant(): Promise<Restaurant | null> {
           id: dbRestaurant.id,
           slug: dbRestaurant.slug,
           name: dbRestaurant.name,
+          description: dbRestaurant.description || "",
+          phone: dbRestaurant.phone || "",
+          address: dbRestaurant.address || "",
           logo: dbRestaurant.logo_url || "",
           coverImage: dbRestaurant.cover_image_url || "",
           categories: (categories || []).map((c: { id: string; name: string; order: number }) => ({
@@ -108,7 +111,7 @@ export async function getCurrentRestaurant(): Promise<Restaurant | null> {
             name: c.name,
             order: c.order,
           })),
-          products: (items || []).map((i: { id: string; name: string; description: string; price: number; image_url: string; category_id: string; is_available: boolean; order: number }) => ({
+          products: (items || []).map((i: { id: string; name: string; description: string; price: number; image_url: string; category_id: string | null; is_available: boolean; order: number }) => ({
             id: i.id,
             name: i.name,
             description: i.description,
@@ -120,6 +123,7 @@ export async function getCurrentRestaurant(): Promise<Restaurant | null> {
           })),
           plan: dbRestaurant.plan || "basic",
           active: dbRestaurant.active ?? true,
+          menuStatus: dbRestaurant.menu_status || "active",
           totalViews: dbRestaurant.total_views || 0,
         };
       }
