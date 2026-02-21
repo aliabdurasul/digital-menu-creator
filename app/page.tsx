@@ -1,14 +1,21 @@
 import Link from "next/link";
-import { UtensilsCrossed, LogIn, ArrowRight } from "lucide-react";
+import { LogIn, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Image from "next/image";
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Hero */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-20 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
-          <UtensilsCrossed className="w-8 h-8 text-primary" />
+        <div className="w-24 h-24 rounded-2xl overflow-hidden mb-6 shadow-lg">
+          <Image
+            src="/logo.svg"
+            alt="Lezzet-i Âlâ"
+            width={96}
+            height={96}
+            priority
+          />
         </div>
         <h1 className="text-4xl sm:text-5xl font-extrabold text-foreground tracking-tight">
           Lezzet-i Âlâ
@@ -31,7 +38,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <div className="text-center py-6 text-xs text-muted-foreground">
-        Lezzet-i Âlâ
+        © 2026 Lezzet-i Âlâ
       </div>
     </div>
   );

@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="#1B2A4A"/>
+
+  <!-- Circular plate -->
+  <circle cx="256" cy="230" r="120" stroke="#C8A45C" stroke-width="5" fill="none"/>
+  <circle cx="256" cy="230" r="105" stroke="#C8A45C" stroke-width="1.5" fill="none" opacity="0.4"/>
+
+  <!-- Abstract QR pattern inside plate (geometric squares) -->
+  <g fill="#C8A45C" opacity="0.85">
+    <!-- Row 1 -->
+    <rect x="216" y="190" width="16" height="16" rx="2"/>
+    <rect x="236" y="190" width="16" height="16" rx="2"/>
+    <rect x="276" y="190" width="16" height="16" rx="2"/>
+    <!-- Row 2 -->
+    <rect x="216" y="210" width="16" height="16" rx="2"/>
+    <rect x="256" y="210" width="16" height="16" rx="2"/>
+    <rect x="276" y="210" width="16" height="16" rx="2"/>
+    <!-- Row 3 -->
+    <rect x="236" y="230" width="16" height="16" rx="2"/>
+    <rect x="256" y="230" width="16" height="16" rx="2"/>
+    <rect x="216" y="230" width="16" height="16" rx="2"/>
+    <!-- Row 4 -->
+    <rect x="256" y="250" width="16" height="16" rx="2"/>
+    <rect x="236" y="250" width="16" height="16" rx="2"/>
+    <rect x="276" y="250" width="16" height="16" rx="2"/>
+  </g>
+
+  <!-- Fork (left) — thin line style -->
+  <g stroke="#C8A45C" stroke-width="3" stroke-linecap="round" fill="none">
+    <!-- Fork handle -->
+    <line x1="105" y1="310" x2="105" y2="200"/>
+    <!-- Fork tines -->
+    <line x1="95" y1="200" x2="95" y2="170"/>
+    <line x1="105" y1="200" x2="105" y2="170"/>
+    <line x1="115" y1="200" x2="115" y2="170"/>
+    <!-- Fork tine connectors -->
+    <line x1="95" y1="200" x2="115" y2="200"/>
+  </g>
+
+  <!-- Spoon (right) — thin line style -->
+  <g stroke="#C8A45C" stroke-width="3" stroke-linecap="round" fill="none">
+    <!-- Spoon handle -->
+    <line x1="407" y1="310" x2="407" y2="210"/>
+    <!-- Spoon bowl -->
+    <ellipse cx="407" cy="185" rx="15" ry="22"/>
+  </g>
+
+  <!-- Text: Lezzet-i Âlâ -->
+  <text x="256" y="400" text-anchor="middle" font-family="'Plus Jakarta Sans', 'Inter', 'Segoe UI', system-ui, sans-serif" font-size="42" font-weight="700" fill="#C8A45C" letter-spacing="1">Lezzet-i Âlâ</text>
+  <text x="256" y="430" text-anchor="middle" font-family="'Plus Jakarta Sans', 'Inter', 'Segoe UI', system-ui, sans-serif" font-size="14" font-weight="400" fill="#C8A45C" opacity="0.6" letter-spacing="3">DİJİTAL MENÜ</text>
+</svg>

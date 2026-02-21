@@ -35,6 +35,9 @@ const emptyForm = {
   categoryId: "",
   available: true,
   imagePreview: "",
+  ingredients: "",
+  portionInfo: "",
+  allergenInfo: "",
 };
 
 type FormErrors = Record<string, string>;
@@ -114,6 +117,9 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
       categoryId: product.categoryId || "",
       available: product.available,
       imagePreview: product.image,
+      ingredients: product.ingredients || "",
+      portionInfo: product.portionInfo || "",
+      allergenInfo: product.allergenInfo || "",
     });
     setErrors({});
     setOpen(true);
@@ -155,6 +161,9 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
       price: parseFloat(form.price) || 0,
       image_url: form.imagePreview || "/placeholder.svg",
       is_available: form.available,
+      ingredients: form.ingredients.trim(),
+      portion_info: form.portionInfo.trim(),
+      allergen_info: form.allergenInfo.trim(),
     };
 
     try {
@@ -180,6 +189,9 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
           image: payload.image_url,
           categoryId: payload.category_id,
           available: payload.is_available,
+          ingredients: payload.ingredients,
+          portionInfo: payload.portion_info,
+          allergenInfo: payload.allergen_info,
         };
 
         setRestaurant((r) =>
@@ -208,6 +220,9 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
           categoryId: payload.category_id,
           available: payload.is_available,
           order: restaurant.products.length,
+          ingredients: payload.ingredients,
+          portionInfo: payload.portion_info,
+          allergenInfo: payload.allergen_info,
         };
 
         setRestaurant((r) => r ? { ...r, products: [...r.products, product] } : r);
@@ -305,6 +320,33 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
                   placeholder="Kısa açıklama"
                   rows={2}
                 />
+              </div>
+              <div>
+                <Label>Malzemeler</Label>
+                <Textarea
+                  value={form.ingredients}
+                  onChange={(e) => setForm((f) => ({ ...f, ingredients: e.target.value }))}
+                  placeholder="Örn: domates, peynir, zeytinyağı..."
+                  rows={2}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Porsiyon Bilgisi</Label>
+                  <Input
+                    value={form.portionInfo}
+                    onChange={(e) => setForm((f) => ({ ...f, portionInfo: e.target.value }))}
+                    placeholder="Örn: 250g / 2 kişilik"
+                  />
+                </div>
+                <div>
+                  <Label>Alerjen Bilgisi</Label>
+                  <Input
+                    value={form.allergenInfo}
+                    onChange={(e) => setForm((f) => ({ ...f, allergenInfo: e.target.value }))}
+                    placeholder="Örn: gluten, süt"
+                  />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

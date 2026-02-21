@@ -1,14 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
 import type { Category } from "@/types";
 import { cn } from "@/lib/utils";
-import { LanguageToggle } from "@/components/menu/LanguageToggle";
 
 interface MenuInteractionsProps {
   categories: Category[];
-  slug: string;
 }
 
 /**
@@ -17,23 +14,13 @@ interface MenuInteractionsProps {
  *   1. Sticky category tabs
  *   2. Scroll-spy with IntersectionObserver on [data-cat-id] sections
  *   3. Smooth scroll-to on tab click
- *   4. One-time view tracking via RPC
  */
-export function MenuInteractions({ categories, slug }: MenuInteractionsProps) {
+export function MenuInteractions({ categories }: MenuInteractionsProps) {
   const [activeCat, setActiveCat] = useState(categories[0]?.id ?? "");
   const tabsRef = useRef<HTMLDivElement>(null);
   const isClickingRef = useRef(false);
 
-  /* ── 1. Increment restaurant views (fire-and-forget) ── */
-  useEffect(() => {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    supabase.rpc("increment_restaurant_views", { restaurant_slug: slug });
-  }, [slug]);
-
-  /* ── 2. Scroll-spy via IntersectionObserver ── */
+  /* ── 1. Scroll-spy via IntersectionObserver ── */
   useEffect(() => {
     const sections = document.querySelectorAll<HTMLElement>("[data-cat-id]");
     if (!sections.length) return;
@@ -55,7 +42,7 @@ export function MenuInteractions({ categories, slug }: MenuInteractionsProps) {
     return () => observer.disconnect();
   }, []);
 
-  /* ── 3. Auto-scroll active tab button into view ── */
+  /* ── 2. Auto-scroll active tab button into view ── */
   useEffect(() => {
     if (!tabsRef.current) return;
     const btn = tabsRef.current.querySelector<HTMLButtonElement>(
@@ -64,7 +51,7 @@ export function MenuInteractions({ categories, slug }: MenuInteractionsProps) {
     btn?.scrollIntoView({ inline: "center", behavior: "smooth", block: "nearest" });
   }, [activeCat]);
 
-  /* ── 4. Tab click → smooth scroll to section ── */
+  /* ── 3. Tab click → smooth scroll to section ── */
   function handleTabClick(catId: string) {
     setActiveCat(catId);
     isClickingRef.current = true;
@@ -106,7 +93,6 @@ export function MenuInteractions({ categories, slug }: MenuInteractionsProps) {
             </button>
           ))}
         </div>
-        <LanguageToggle />
       </div>
     </div>
   );

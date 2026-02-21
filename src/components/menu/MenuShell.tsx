@@ -1,8 +1,7 @@
 import Image from "next/image";
 import type { Restaurant } from "@/types";
-import { ProductCard } from "@/components/menu/ProductCard";
+import { ProductList } from "@/components/menu/ProductList";
 import { MenuInteractions } from "@/components/menu/MenuInteractions";
-import { LanguageProvider } from "@/components/menu/LanguageProvider";
 
 interface MenuShellProps {
   restaurant: Restaurant;
@@ -13,21 +12,11 @@ interface MenuShellProps {
  * Only the thin <MenuInteractions> island ships JS for:
  *   - sticky category tab highlighting
  *   - smooth-scroll on tab click
- *   - view count increment
  */
 export function MenuShell({ restaurant }: MenuShellProps) {
   const sortedCategories = [...restaurant.categories].sort(
     (a, b) => a.order - b.order
   );
-
-  const categorySections = sortedCategories
-    .map((cat) => ({
-      ...cat,
-      products: restaurant.products
-        .filter((p) => p.categoryId === cat.id)
-        .sort((a, b) => a.order - b.order),
-    }))
-    .filter((cat) => cat.products.length > 0);
 
   return (
     <div className="max-w-[480px] mx-auto min-h-screen bg-background shadow-sm">
@@ -74,34 +63,20 @@ export function MenuShell({ restaurant }: MenuShellProps) {
         </div>
       </div>
 
-      {/* Language provider wraps all client-interactive content */}
-      <LanguageProvider>
-        {/* Client island: sticky tabs + scroll spy + view tracking + language toggle */}
-        <MenuInteractions
-          categories={sortedCategories}
-          slug={restaurant.slug}
-        />
+      {/* Client island: sticky tabs + scroll spy */}
+      <MenuInteractions
+        categories={sortedCategories}
+      />
 
-        {/* Products — ProductCard is a client component for language support */}
-        <div className="px-3 py-4 space-y-8">
-          {categorySections.map((cat) => (
-            <div key={cat.id} data-cat-id={cat.id}>
-              <h2 className="text-lg font-bold text-foreground mb-3">
-                {cat.name}
-              </h2>
-              <div className="space-y-3">
-                {cat.products.map((p) => (
-                  <ProductCard key={p.id} product={p} />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </LanguageProvider>
+      {/* Accordion product list */}
+      <ProductList
+        products={restaurant.products}
+        categories={sortedCategories}
+      />
 
       {/* Footer */}
       <div className="text-center py-8 text-xs text-muted-foreground">
-        <span className="font-semibold text-primary">Lezzet-i Âlâ</span>
+        <span className="font-semibold text-primary">© 2026 Lezzet-i Âlâ</span>
       </div>
     </div>
   );

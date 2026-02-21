@@ -32,6 +32,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="tr" suppressHydrationWarning>
+      <head>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+      </head>
       <body className={`${plusJakartaSans.variable} font-sans`}>
         <Providers>{children}</Providers>
         <Toaster />

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Background -->
+  <rect width="64" height="64" rx="14" fill="#1B2A4A"/>
+
+  <!-- Circular plate -->
+  <circle cx="32" cy="32" r="18" stroke="#C8A45C" stroke-width="1.5" fill="none"/>
+
+  <!-- Abstract QR dots -->
+  <g fill="#C8A45C" opacity="0.85">
+    <rect x="25" y="25" width="4" height="4" rx="0.5"/>
+    <rect x="30" y="25" width="4" height="4" rx="0.5"/>
+    <rect x="35" y="25" width="4" height="4" rx="0.5"/>
+    <rect x="25" y="30" width="4" height="4" rx="0.5"/>
+    <rect x="35" y="30" width="4" height="4" rx="0.5"/>
+    <rect x="25" y="35" width="4" height="4" rx="0.5"/>
+    <rect x="30" y="35" width="4" height="4" rx="0.5"/>
+    <rect x="35" y="35" width="4" height="4" rx="0.5"/>
+    <rect x="30" y="30" width="4" height="4" rx="0.5"/>
+  </g>
+
+  <!-- Fork (left) -->
+  <g stroke="#C8A45C" stroke-width="1" stroke-linecap="round" fill="none">
+    <line x1="10" y1="44" x2="10" y2="26"/>
+    <line x1="8" y1="26" x2="8" y2="20"/>
+    <line x1="10" y1="26" x2="10" y2="20"/>
+    <line x1="12" y1="26" x2="12" y2="20"/>
+    <line x1="8" y1="26" x2="12" y2="26"/>
+  </g>
+
+  <!-- Spoon (right) -->
+  <g stroke="#C8A45C" stroke-width="1" stroke-linecap="round" fill="none">
+    <line x1="54" y1="44" x2="54" y2="28"/>
+    <ellipse cx="54" cy="24" rx="3.5" ry="5"/>
+  </g>
+</svg>

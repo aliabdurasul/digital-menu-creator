@@ -35,6 +35,9 @@ export interface DbMenuItem {
   image_url: string;
   is_available: boolean;
   order: number;
+  ingredients: string;
+  portion_info: string;
+  allergen_info: string;
   created_at: string;
   updated_at: string;
 }
@@ -60,6 +63,9 @@ export interface Product {
   categoryId: string | null;
   available: boolean;
   order: number;
+  ingredients: string;
+  portionInfo: string;
+  allergenInfo: string;
 }
 
 export interface Category {
@@ -116,6 +122,9 @@ export function toLegacyRestaurant(
       categoryId: i.category_id,
       available: i.is_available,
       order: i.order,
+      ingredients: i.ingredients || "",
+      portionInfo: i.portion_info || "",
+      allergenInfo: i.allergen_info || "",
     })),
     plan: r.plan,
     active: r.active,

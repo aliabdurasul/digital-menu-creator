@@ -66,43 +66,102 @@ export function AdminQRCode({ restaurant }: AdminQRCodeProps) {
 
   // ── Download QR as PNG ──
   const handleDownload = useCallback(async () => {
-    let canvas = qrRef.current?.getCanvas();
+    try {
+      let canvas = qrRef.current?.getCanvas();
 
-    // Retry once after short delay if canvas not ready (logo image still loading)
-    if (!canvas) {
-      await new Promise((r) => setTimeout(r, 200));
-      canvas = qrRef.current?.getCanvas();
+      // Retry once after short delay if canvas not ready (logo image still loading)
+      if (!canvas) {
+        await new Promise((r) => setTimeout(r, 200));
+        canvas = qrRef.current?.getCanvas();
+      }
+
+      if (!canvas) {
+        toast.error("QR görüntüsü oluşturulamadı. Lütfen tekrar deneyin.");
+        return;
+      }
+
+      // Create a high-res export canvas with white padding
+      const padding = 40;
+      const exportCanvas = document.createElement("canvas");
+      exportCanvas.width = canvas.width + padding * 2;
+      exportCanvas.height = canvas.height + padding * 2;
+      const ctx = exportCanvas.getContext("2d");
+      if (!ctx) return;
+
+      // White background
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+
+      // Draw QR code centered (includes logo if rendered by qrcode.react)
+      ctx.drawImage(canvas, padding, padding);
+
+      // Use toBlob for more reliable download
+      exportCanvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            toast.error("QR kodu oluşturulamadı. Lütfen tekrar deneyin.");
+            return;
+          }
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.download = `${restaurant.slug}-qr-code.png`;
+          link.href = url;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          toast.success("QR kod başarıyla indirildi!");
+        },
+        "image/png",
+        1.0
+      );
+    } catch {
+      // CORS tainted canvas or other error — retry without logo
+      try {
+        const fallbackCanvas = document.createElement("canvas");
+        const size = 300;
+        const padding = 40;
+        fallbackCanvas.width = size + padding * 2;
+        fallbackCanvas.height = size + padding * 2;
+        const ctx = fallbackCanvas.getContext("2d");
+        if (!ctx) {
+          toast.error("QR kodu indirilemedi.");
+          return;
+        }
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, fallbackCanvas.width, fallbackCanvas.height);
+
+        // Get the raw QR canvas without logo via DOM query
+        const rawCanvas = document.querySelector<HTMLCanvasElement>(
+          "[data-qr-container] canvas"
+        );
+        if (rawCanvas) {
+          ctx.drawImage(rawCanvas, padding, padding);
+        }
+
+        fallbackCanvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              toast.error("QR kodu oluşturulamadı.");
+              return;
+            }
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.download = `${restaurant.slug}-qr-code.png`;
+            link.href = url;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            toast.success("QR kod indirildi!");
+          },
+          "image/png",
+          1.0
+        );
+      } catch {
+        toast.error("QR kodu indirilemedi. Lütfen tekrar deneyin.");
+      }
     }
-
-    if (!canvas) {
-      toast.error("QR görüntüsü oluşturulamadı. Lütfen tekrar deneyin.");
-      return;
-    }
-
-    // Create a high-res export canvas with white padding
-    const padding = 40;
-    const exportCanvas = document.createElement("canvas");
-    exportCanvas.width = canvas.width + padding * 2;
-    exportCanvas.height = canvas.height + padding * 2;
-    const ctx = exportCanvas.getContext("2d");
-    if (!ctx) return;
-
-    // White background
-    ctx.fillStyle = "#FFFFFF";
-    ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
-
-    // Draw QR code centered (includes logo if rendered by qrcode.react)
-    ctx.drawImage(canvas, padding, padding);
-
-    // Trigger download — anchor must be in DOM for some browsers
-    const link = document.createElement("a");
-    link.download = `${restaurant.slug}-qr-code.png`;
-    link.href = exportCanvas.toDataURL("image/png", 1.0);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    toast.success("QR kod başarıyla indirildi!");
   }, [restaurant.slug]);
 
   return (
@@ -140,7 +199,7 @@ export function AdminQRCode({ restaurant }: AdminQRCodeProps) {
           </div>
 
           {/* QR Code */}
-          <div className="border border-border/50 rounded-2xl shadow-inner bg-white">
+          <div data-qr-container className="border border-border/50 rounded-2xl shadow-inner bg-white">
             <QRCodeDisplay
               ref={qrRef}
               url={publicUrl}

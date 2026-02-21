@@ -1,5 +1,5 @@
 import type { Restaurant } from "@/types";
-import { Eye, Package, FolderOpen, ExternalLink } from "lucide-react";
+import { Package, FolderOpen, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Props {
@@ -16,7 +16,6 @@ export function AdminDashboard({ restaurant }: Props) {
   const publicUrl = `${appUrl}/menu/${restaurant.slug}`;
 
   const stats = [
-    { label: "Toplam Görüntülenme", value: restaurant.totalViews.toLocaleString(), icon: Eye },
     { label: "Aktif Ürünler", value: activeProducts, icon: Package },
     { label: "Kategoriler", value: restaurant.categories.length, icon: FolderOpen },
   ];
@@ -33,7 +32,7 @@ export function AdminDashboard({ restaurant }: Props) {
           <ExternalLink className="w-4 h-4 mr-1" /> Menüyü Önizle
         </Button>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {stats.map((stat) => (
           <div
             key={stat.label}

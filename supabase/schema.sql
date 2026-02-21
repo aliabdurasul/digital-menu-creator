@@ -50,6 +50,9 @@ create table if not exists public.menu_items (
   image_url     text default '',
   is_available  boolean default true,
   "order"       integer default 0,
+  ingredients   text default '',
+  portion_info  text default '',
+  allergen_info text default '',
   created_at    timestamptz default now(),
   updated_at    timestamptz default now()
 );
@@ -306,3 +309,8 @@ $$;
 -- ALTER TABLE public.menu_items DROP CONSTRAINT menu_items_category_id_fkey;
 -- ALTER TABLE public.menu_items ADD CONSTRAINT menu_items_category_id_fkey
 --   FOREIGN KEY (category_id) REFERENCES public.categories(id) ON DELETE SET NULL;
+
+-- ── V2: Add product detail fields ──
+-- ALTER TABLE public.menu_items ADD COLUMN IF NOT EXISTS ingredients text default '';
+-- ALTER TABLE public.menu_items ADD COLUMN IF NOT EXISTS portion_info text default '';
+-- ALTER TABLE public.menu_items ADD COLUMN IF NOT EXISTS allergen_info text default '';

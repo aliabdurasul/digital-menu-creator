@@ -1,12 +1,9 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { Restaurant } from "@/types";
 import { CategoryTabs } from "@/components/menu/CategoryTabs";
-import { ProductCard } from "@/components/menu/ProductCard";
-import { createClient } from "@/lib/supabase/client";
-import { LanguageProvider } from "@/components/menu/LanguageProvider";
-import { LanguageToggle } from "@/components/menu/LanguageToggle";
+import { ProductList } from "@/components/menu/ProductList";
 
 interface MenuContentProps {
   restaurant: Restaurant;
@@ -14,7 +11,6 @@ interface MenuContentProps {
 
 export function MenuContent({ restaurant }: MenuContentProps) {
   const [activeCat, setActiveCat] = useState("");
-  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const sortedCategories = [...restaurant.categories].sort(
     (a, b) => a.order - b.order
@@ -26,25 +22,18 @@ export function MenuContent({ restaurant }: MenuContentProps) {
     }
   }, [sortedCategories, activeCat]);
 
-  // Increment view count once on mount
-  useEffect(() => {
-    const supabase = createClient();
-    supabase.rpc("increment_restaurant_views", {
-      restaurant_slug: restaurant.slug,
-    }).then(() => { /* fire-and-forget */ });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const handleCatSelect = useCallback((catId: string) => {
     setActiveCat(catId);
-    const el = sectionRefs.current[catId];
+    const el = document.querySelector<HTMLElement>(`[data-cat-id="${catId}"]`);
     if (el) {
-      const top = el.getBoundingClientRect().top + window.scrollY - 120;
-      window.scrollTo({ top, behavior: "smooth" });
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, []);
 
   useEffect(() => {
+    const sections = document.querySelectorAll<HTMLElement>("[data-cat-id]");
+    if (!sections.length) return;
+
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -55,14 +44,11 @@ export function MenuContent({ restaurant }: MenuContentProps) {
       },
       { rootMargin: "-120px 0px -60% 0px", threshold: 0.1 }
     );
-    Object.values(sectionRefs.current).forEach((el) => {
-      if (el) observer.observe(el);
-    });
+    sections.forEach((s) => observer.observe(s));
     return () => observer.disconnect();
   }, [restaurant]);
 
   return (
-    <LanguageProvider>
     <div className="max-w-[480px] mx-auto min-h-screen bg-background shadow-sm">
       {/* Cover */}
       <div className="relative w-full h-44 sm:h-56 overflow-hidden">
@@ -98,61 +84,25 @@ export function MenuContent({ restaurant }: MenuContentProps) {
         </div>
       </div>
 
-      {/* Category Tabs + Language Toggle */}
+      {/* Category Tabs */}
       <div className="sticky top-0 z-20 mt-4 border-b border-border bg-background">
-        <div className="flex items-center">
-          <div className="flex-1 overflow-hidden">
-            <CategoryTabs
-              categories={sortedCategories}
-              activeId={activeCat}
-              onSelect={handleCatSelect}
-            />
-          </div>
-          <div className="px-2 shrink-0">
-            <LanguageToggle />
-          </div>
-        </div>
+        <CategoryTabs
+          categories={sortedCategories}
+          activeId={activeCat}
+          onSelect={handleCatSelect}
+        />
       </div>
 
       {/* Products */}
-      <div className="px-3 py-4 space-y-8">
-        {sortedCategories.map((cat) => {
-          const products = restaurant.products
-            .filter((p) => p.categoryId === cat.id)
-            .sort((a, b) => a.order - b.order);
-          if (products.length === 0) return null;
-          return (
-            <div
-              key={cat.id}
-              ref={(el) => {
-                sectionRefs.current[cat.id] = el;
-              }}
-              data-cat-id={cat.id}
-            >
-              <h2 className="text-lg font-bold text-foreground mb-3">
-                {cat.name}
-              </h2>
-              <div className="space-y-3">
-                {products.map((p, i) => (
-                  <div
-                    key={p.id}
-                    className="animate-fade-in"
-                    style={{ animationDelay: `${i * 60}ms` }}
-                  >
-                    <ProductCard product={p} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <ProductList
+        products={restaurant.products}
+        categories={sortedCategories}
+      />
 
       {/* Footer */}
       <div className="text-center py-8 text-xs text-muted-foreground">
-        <span className="font-semibold text-primary">Lezzet-i Âlâ</span>
+        <span className="font-semibold text-primary">© 2026 Lezzet-i Âlâ</span>
       </div>
     </div>
-    </LanguageProvider>
   );
 }
