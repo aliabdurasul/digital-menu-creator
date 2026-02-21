@@ -294,13 +294,13 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
               <Plus className="w-4 h-4 mr-1" /> Ürün Ekle
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{isEditing ? "Ürünü Düzenle" : "Ürün Ekle"}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
-                <Label>Ad</Label>
+                <Label className="text-xs">Ad</Label>
                 <Input
                   value={form.name}
                   onChange={(e) => {
@@ -313,7 +313,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
                 {errors.name && <p className="text-xs text-destructive mt-1">{errors.name}</p>}
               </div>
               <div>
-                <Label>Açıklama</Label>
+                <Label className="text-xs">Açıklama</Label>
                 <Textarea
                   value={form.description}
                   onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
@@ -322,7 +322,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
                 />
               </div>
               <div>
-                <Label>Malzemeler</Label>
+                <Label className="text-xs">Malzemeler</Label>
                 <Textarea
                   value={form.ingredients}
                   onChange={(e) => setForm((f) => ({ ...f, ingredients: e.target.value }))}
@@ -330,9 +330,9 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
                   rows={2}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>Porsiyon Bilgisi</Label>
+                  <Label className="text-xs">Porsiyon Bilgisi</Label>
                   <Input
                     value={form.portionInfo}
                     onChange={(e) => setForm((f) => ({ ...f, portionInfo: e.target.value }))}
@@ -340,7 +340,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
                   />
                 </div>
                 <div>
-                  <Label>Alerjen Bilgisi</Label>
+                  <Label className="text-xs">Alerjen Bilgisi</Label>
                   <Input
                     value={form.allergenInfo}
                     onChange={(e) => setForm((f) => ({ ...f, allergenInfo: e.target.value }))}
@@ -348,9 +348,9 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>Fiyat</Label>
+                  <Label className="text-xs">Fiyat</Label>
                   <Input
                     type="number"
                     step="0.01"
@@ -366,7 +366,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
                   {errors.price && <p className="text-xs text-destructive mt-1">{errors.price}</p>}
                 </div>
                 <div>
-                  <Label>Kategori</Label>
+                  <Label className="text-xs">Kategori</Label>
                   <Select
                     value={form.categoryId}
                     onValueChange={(v) => {
@@ -389,20 +389,20 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
                 </div>
               </div>
               <div>
-                <Label>Görsel</Label>
-                <Input type="file" accept="image/*" onChange={handleImageUpload} />
-                {uploading && (
-                  <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                    <Loader2 className="w-3 h-3 animate-spin" /> Yükleniyor...
-                  </div>
-                )}
-                {form.imagePreview && !uploading && (
-                  <img
-                    src={form.imagePreview}
-                    alt="preview"
-                    className="w-20 h-20 rounded-xl object-cover mt-2"
-                  />
-                )}
+                <Label className="text-xs">Görsel</Label>
+                <div className="flex items-center gap-3">
+                  <Input type="file" accept="image/*" onChange={handleImageUpload} className="flex-1" />
+                  {uploading && (
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground shrink-0" />
+                  )}
+                  {form.imagePreview && !uploading && (
+                    <img
+                      src={form.imagePreview}
+                      alt="preview"
+                      className="w-10 h-10 rounded-lg object-cover shrink-0"
+                    />
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <Switch

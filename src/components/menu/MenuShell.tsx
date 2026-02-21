@@ -75,7 +75,7 @@ export function MenuShell({ restaurant }: MenuShellProps) {
       />
 
       {/* Footer */}
-      <div className="text-center py-8 text-xs text-muted-foreground">
+      <div className="text-center pt-16 pb-10 text-xs text-muted-foreground/60">
         <span className="font-semibold text-primary">© 2026 Lezzet-i Âlâ</span>
       </div>
     </div>

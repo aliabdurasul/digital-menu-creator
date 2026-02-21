@@ -1,52 +1,68 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
-  <!-- Background -->
-  <rect width="512" height="512" rx="96" fill="#1B2A4A"/>
+  <!-- Background — warm cream -->
+  <rect width="512" height="512" rx="96" fill="#F5F0E8"/>
 
-  <!-- Circular plate -->
-  <circle cx="256" cy="230" r="120" stroke="#C8A45C" stroke-width="5" fill="none"/>
-  <circle cx="256" cy="230" r="105" stroke="#C8A45C" stroke-width="1.5" fill="none" opacity="0.4"/>
+  <!-- Simplified QR-style icon (matches brand QR) -->
+  <g fill="#A0392D">
+    <!-- Top-left finder -->
+    <rect x="136" y="100" width="60" height="60" rx="4"/>
+    <rect x="148" y="112" width="36" height="36" rx="2" fill="#F5F0E8"/>
+    <rect x="158" y="122" width="16" height="16" rx="1"/>
 
-  <!-- Abstract QR pattern inside plate (geometric squares) -->
-  <g fill="#C8A45C" opacity="0.85">
-    <!-- Row 1 -->
-    <rect x="216" y="190" width="16" height="16" rx="2"/>
-    <rect x="236" y="190" width="16" height="16" rx="2"/>
-    <rect x="276" y="190" width="16" height="16" rx="2"/>
-    <!-- Row 2 -->
-    <rect x="216" y="210" width="16" height="16" rx="2"/>
-    <rect x="256" y="210" width="16" height="16" rx="2"/>
-    <rect x="276" y="210" width="16" height="16" rx="2"/>
-    <!-- Row 3 -->
-    <rect x="236" y="230" width="16" height="16" rx="2"/>
-    <rect x="256" y="230" width="16" height="16" rx="2"/>
-    <rect x="216" y="230" width="16" height="16" rx="2"/>
-    <!-- Row 4 -->
-    <rect x="256" y="250" width="16" height="16" rx="2"/>
-    <rect x="236" y="250" width="16" height="16" rx="2"/>
-    <rect x="276" y="250" width="16" height="16" rx="2"/>
+    <!-- Top-right finder -->
+    <rect x="316" y="100" width="60" height="60" rx="4"/>
+    <rect x="328" y="112" width="36" height="36" rx="2" fill="#F5F0E8"/>
+    <rect x="338" y="122" width="16" height="16" rx="1"/>
+
+    <!-- Bottom-left finder -->
+    <rect x="136" y="280" width="60" height="60" rx="4"/>
+    <rect x="148" y="292" width="36" height="36" rx="2" fill="#F5F0E8"/>
+    <rect x="158" y="302" width="16" height="16" rx="1"/>
+
+    <!-- Data modules (scattered) -->
+    <rect x="216" y="112" width="14" height="14" rx="1"/>
+    <rect x="240" y="100" width="14" height="14" rx="1"/>
+    <rect x="256" y="120" width="14" height="14" rx="1"/>
+    <rect x="228" y="140" width="14" height="14" rx="1"/>
+    <rect x="260" y="146" width="14" height="14" rx="1"/>
+    <rect x="290" y="140" width="14" height="14" rx="1"/>
+
+    <rect x="216" y="180" width="14" height="14" rx="1"/>
+    <rect x="246" y="174" width="14" height="14" rx="1"/>
+    <rect x="276" y="180" width="14" height="14" rx="1"/>
+    <rect x="310" y="186" width="14" height="14" rx="1"/>
+    <rect x="340" y="178" width="14" height="14" rx="1"/>
+    <rect x="362" y="174" width="14" height="14" rx="1"/>
+
+    <rect x="136" y="210" width="14" height="14" rx="1"/>
+    <rect x="166" y="216" width="14" height="14" rx="1"/>
+    <rect x="200" y="210" width="14" height="14" rx="1"/>
+    <rect x="230" y="220" width="14" height="14" rx="1"/>
+    <rect x="260" y="210" width="14" height="14" rx="1"/>
+    <rect x="290" y="220" width="14" height="14" rx="1"/>
+    <rect x="320" y="216" width="14" height="14" rx="1"/>
+    <rect x="352" y="210" width="14" height="14" rx="1"/>
+
+    <rect x="136" y="250" width="14" height="14" rx="1"/>
+    <rect x="170" y="256" width="14" height="14" rx="1"/>
+    <rect x="216" y="250" width="14" height="14" rx="1"/>
+    <rect x="250" y="260" width="14" height="14" rx="1"/>
+    <rect x="280" y="250" width="14" height="14" rx="1"/>
+
+    <rect x="220" y="290" width="14" height="14" rx="1"/>
+    <rect x="250" y="286" width="14" height="14" rx="1"/>
+    <rect x="280" y="296" width="14" height="14" rx="1"/>
+    <rect x="316" y="290" width="14" height="14" rx="1"/>
+    <rect x="346" y="280" width="14" height="14" rx="1"/>
+    <rect x="362" y="300" width="14" height="14" rx="1"/>
+
+    <rect x="220" y="320" width="14" height="14" rx="1"/>
+    <rect x="256" y="324" width="14" height="14" rx="1"/>
+    <rect x="290" y="318" width="14" height="14" rx="1"/>
+    <rect x="340" y="320" width="14" height="14" rx="1"/>
+    <rect x="370" y="326" width="14" height="14" rx="1"/>
   </g>
 
-  <!-- Fork (left) — thin line style -->
-  <g stroke="#C8A45C" stroke-width="3" stroke-linecap="round" fill="none">
-    <!-- Fork handle -->
-    <line x1="105" y1="310" x2="105" y2="200"/>
-    <!-- Fork tines -->
-    <line x1="95" y1="200" x2="95" y2="170"/>
-    <line x1="105" y1="200" x2="105" y2="170"/>
-    <line x1="115" y1="200" x2="115" y2="170"/>
-    <!-- Fork tine connectors -->
-    <line x1="95" y1="200" x2="115" y2="200"/>
-  </g>
-
-  <!-- Spoon (right) — thin line style -->
-  <g stroke="#C8A45C" stroke-width="3" stroke-linecap="round" fill="none">
-    <!-- Spoon handle -->
-    <line x1="407" y1="310" x2="407" y2="210"/>
-    <!-- Spoon bowl -->
-    <ellipse cx="407" cy="185" rx="15" ry="22"/>
-  </g>
-
-  <!-- Text: Lezzet-i Âlâ -->
-  <text x="256" y="400" text-anchor="middle" font-family="'Plus Jakarta Sans', 'Inter', 'Segoe UI', system-ui, sans-serif" font-size="42" font-weight="700" fill="#C8A45C" letter-spacing="1">Lezzet-i Âlâ</text>
-  <text x="256" y="430" text-anchor="middle" font-family="'Plus Jakarta Sans', 'Inter', 'Segoe UI', system-ui, sans-serif" font-size="14" font-weight="400" fill="#C8A45C" opacity="0.6" letter-spacing="3">DİJİTAL MENÜ</text>
+  <!-- Text: lezzet-i âlâ (lowercase, matching QR brand) -->
+  <text x="256" y="410" text-anchor="middle" font-family="'Plus Jakarta Sans', 'Inter', 'Segoe UI', system-ui, sans-serif" font-size="48" font-weight="700" fill="#A0392D" letter-spacing="2">lezzet-i âlâ</text>
 </svg>
