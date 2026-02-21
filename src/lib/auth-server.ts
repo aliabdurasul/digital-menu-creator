@@ -111,7 +111,7 @@ export async function getCurrentRestaurant(): Promise<Restaurant | null> {
             name: c.name,
             order: c.order,
           })),
-          products: (items || []).map((i: { id: string; name: string; description: string; price: number; image_url: string; category_id: string | null; is_available: boolean; order: number }) => ({
+          products: (items || []).map((i: { id: string; name: string; description: string; price: number; image_url: string; category_id: string | null; is_available: boolean; order: number; ingredients: string; portion_info: string; allergen_info: string }) => ({
             id: i.id,
             name: i.name,
             description: i.description,
@@ -120,6 +120,9 @@ export async function getCurrentRestaurant(): Promise<Restaurant | null> {
             categoryId: i.category_id,
             available: i.is_available,
             order: i.order,
+            ingredients: i.ingredients || "",
+            portionInfo: i.portion_info || "",
+            allergenInfo: i.allergen_info || "",
           })),
           plan: dbRestaurant.plan || "basic",
           active: dbRestaurant.active ?? true,

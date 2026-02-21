@@ -99,6 +99,9 @@ export default function RestaurantAdminPage() {
               category_id: string | null;
               is_available: boolean;
               order: number;
+              ingredients: string;
+              portion_info: string;
+              allergen_info: string;
             }) => ({
               id: i.id,
               name: i.name,
@@ -108,6 +111,9 @@ export default function RestaurantAdminPage() {
               categoryId: i.category_id,
               available: i.is_available,
               order: i.order,
+              ingredients: i.ingredients || "",
+              portionInfo: i.portion_info || "",
+              allergenInfo: i.allergen_info || "",
             })
           ),
           plan: dbRestaurant.plan || "basic",
