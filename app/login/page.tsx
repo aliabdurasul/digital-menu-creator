@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LogIn, Loader2, UtensilsCrossed } from "lucide-react";
-import { toast } from "sonner";
 
 export default function LoginPage() {
   return (
@@ -28,58 +27,39 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password.trim()) return;
 
     setLoading(true);
-    const supabase = createClient();
+    setError("");
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
+    try {
+      const supabase = createClient();
 
-    if (error) {
-      toast.error(error.message || "Invalid email or password");
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (signInError) {
+        setError(signInError.message || "Invalid email or password");
+        setLoading(false);
+        return;
+      }
+
+      // Auth succeeded — navigate and let middleware handle role routing.
+      // Middleware already redirects super_admin ↔ restaurant_admin,
+      // so NO client-side profile query needed here.
+      const redirectTo = searchParams?.get("redirect");
+
+      // Hard navigate to force a full request cycle with fresh cookies.
+      window.location.href = redirectTo || "/restaurant-admin";
+    } catch {
+      setError("Something went wrong. Please try again.");
       setLoading(false);
-      return;
-    }
-
-    // Honor the middleware-set redirect param if present
-    const redirectTo = searchParams?.get("redirect");
-    if (redirectTo) {
-      window.location.href = redirectTo;
-      return;
-    }
-
-    // No redirect param — resolve role for default destination
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      toast.error("Authentication failed. Please try again.");
-      setLoading(false);
-      return;
-    }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    // Hard navigate to force a full request with fresh cookies.
-    // router.replace() does a soft/client navigation that may reuse
-    // a stale prefetched response from before cookies were set.
-    if (profile?.role === "super_admin") {
-      window.location.href = "/super-admin";
-    } else if (profile?.role === "restaurant_admin") {
-      window.location.href = "/restaurant-admin";
-    } else {
-      window.location.href = "/";
     }
   };
 
@@ -95,6 +75,12 @@ function LoginForm() {
             Sign in to manage your restaurant
           </p>
         </div>
+
+        {error && (
+          <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm text-left">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleLogin} className="space-y-4 text-left">
           <div>
