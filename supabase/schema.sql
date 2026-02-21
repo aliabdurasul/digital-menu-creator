@@ -60,6 +60,8 @@ create table if not exists public.profiles (
 );
 
 -- ─── Auto-create profile on sign-up ────────────────────────
+-- Also syncs the role into auth.users.raw_app_meta_data so the
+-- JWT carries the role claim without a table query.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -67,7 +69,15 @@ security definer set search_path = ''
 as $$
 begin
   insert into public.profiles (id, email, role)
-  values (new.id, new.email, 'restaurant_admin');
+  values (new.id, new.email, 'restaurant_admin')
+  on conflict (id) do nothing;
+
+  -- Sync role into app_metadata so RLS can read it from JWT
+  update auth.users
+  set raw_app_meta_data =
+    coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role": "restaurant_admin"}'::jsonb
+  where id = new.id;
+
   return new;
 end;
 $$;
@@ -88,12 +98,57 @@ create index if not exists idx_profiles_restaurant    on public.profiles(restaur
 -- ============================================================
 -- Row Level Security (RLS)
 -- ============================================================
+-- IMPORTANT: All "is super admin?" checks use a helper function
+-- that reads the role from the JWT's app_metadata claim.
+-- This avoids the infinite recursion caused by querying the
+-- profiles table from inside a profiles RLS policy.
+-- ============================================================
+
+-- Helper: read current user's role from JWT (zero table queries)
+create or replace function public.user_role()
+returns text
+language sql
+stable
+as $$
+  select coalesce(
+    current_setting('request.jwt.claims', true)::json -> 'app_metadata' ->> 'role',
+    'anon'
+  );
+$$;
 
 -- Enable RLS on all tables
 alter table public.restaurants enable row level security;
 alter table public.categories  enable row level security;
 alter table public.menu_items  enable row level security;
 alter table public.profiles    enable row level security;
+
+-- ─── Profiles Policies ─────────────────────────────────────
+-- (defined first because other tables' policies don't reference profiles anymore)
+
+-- Users can read their own profile
+create policy "Users read own profile"
+  on public.profiles for select
+  using (id = auth.uid());
+
+-- Super admins can read all profiles (uses JWT, no recursion)
+create policy "Super admins read all profiles"
+  on public.profiles for select
+  using (public.user_role() = 'super_admin');
+
+-- Super admins can update any profile (assign roles, restaurants)
+create policy "Super admins update profiles"
+  on public.profiles for update
+  using (public.user_role() = 'super_admin');
+
+-- Super admins can insert profiles (needed for admin.createUser flow)
+create policy "Super admins insert profiles"
+  on public.profiles for insert
+  with check (public.user_role() = 'super_admin');
+
+-- Users can update their own profile (non-role fields only — enforce in app)
+create policy "Users update own profile"
+  on public.profiles for update
+  using (id = auth.uid());
 
 -- ─── Restaurants Policies ───────────────────────────────────
 
@@ -105,15 +160,9 @@ create policy "Public can read active restaurants"
 -- Super admins can do everything
 create policy "Super admins full access to restaurants"
   on public.restaurants for all
-  using (
-    exists (
-      select 1 from public.profiles
-      where profiles.id = auth.uid()
-        and profiles.role = 'super_admin'
-    )
-  );
+  using (public.user_role() = 'super_admin');
 
--- Restaurant admins can read/update their own restaurant
+-- Restaurant admins can read their own restaurant
 create policy "Restaurant admins read own restaurant"
   on public.restaurants for select
   using (
@@ -124,6 +173,7 @@ create policy "Restaurant admins read own restaurant"
     )
   );
 
+-- Restaurant admins can update their own restaurant
 create policy "Restaurant admins update own restaurant"
   on public.restaurants for update
   using (
@@ -161,13 +211,7 @@ create policy "Restaurant admins manage own categories"
 -- Super admins full access
 create policy "Super admins full access to categories"
   on public.categories for all
-  using (
-    exists (
-      select 1 from public.profiles
-      where profiles.id = auth.uid()
-        and profiles.role = 'super_admin'
-    )
-  );
+  using (public.user_role() = 'super_admin');
 
 -- ─── Menu Items Policies ────────────────────────────────────
 
@@ -196,42 +240,7 @@ create policy "Restaurant admins manage own menu items"
 -- Super admins full access
 create policy "Super admins full access to menu items"
   on public.menu_items for all
-  using (
-    exists (
-      select 1 from public.profiles
-      where profiles.id = auth.uid()
-        and profiles.role = 'super_admin'
-    )
-  );
-
--- ─── Profiles Policies ─────────────────────────────────────
-
--- Users can read their own profile
-create policy "Users read own profile"
-  on public.profiles for select
-  using (id = auth.uid());
-
--- Super admins can read all profiles
-create policy "Super admins read all profiles"
-  on public.profiles for select
-  using (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid()
-        and p.role = 'super_admin'
-    )
-  );
-
--- Super admins can update profiles (assign roles, restaurants)
-create policy "Super admins update profiles"
-  on public.profiles for update
-  using (
-    exists (
-      select 1 from public.profiles p
-      where p.id = auth.uid()
-        and p.role = 'super_admin'
-    )
-  );
+  using (public.user_role() = 'super_admin');
 
 -- ============================================================
 -- Storage Bucket (run separately if needed)
@@ -259,5 +268,8 @@ create policy "Super admins update profiles"
 -- 1. Create a user in Supabase Auth (Dashboard → Authentication → Users → Add User)
 -- 2. Update their profile to super_admin:
 --    update public.profiles set role = 'super_admin' where email = 'your-email@example.com';
--- 3. Create restaurant admin users similarly, then assign restaurant_id:
---    update public.profiles set restaurant_id = '<restaurant-uuid>' where email = 'admin@restaurant.com';
+-- 3. IMPORTANT: Also sync the role into app_metadata so JWT carries it:
+--    update auth.users
+--    set raw_app_meta_data = raw_app_meta_data || '{"role": "super_admin"}'::jsonb
+--    where email = 'your-email@example.com';
+-- 4. The user must sign out and back in to get a new JWT with the updated role.

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import type { Restaurant } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -32,6 +33,15 @@ import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
+import {
+  getAllRestaurantsAdmin,
+  createRestaurantWithAdmin,
+  deleteRestaurantFull,
+  toggleRestaurantActive,
+  changeRestaurantPlan,
+  renameRestaurant,
+  assignAdminToRestaurant,
+} from "@/lib/actions";
 
 export default function SuperAdminPage() {
   const router = useRouter();
@@ -39,25 +49,26 @@ export default function SuperAdminPage() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
+  const [newAdminEmail, setNewAdminEmail] = useState("");
+  const [newAdminPassword, setNewAdminPassword] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [assignOpen, setAssignOpen] = useState<string | null>(null);
   const [assignEmail, setAssignEmail] = useState("");
+  const [assignPassword, setAssignPassword] = useState("");
+  const [assignCreateNew, setAssignCreateNew] = useState(false);
 
   useEffect(() => {
     async function loadRestaurants() {
       try {
-        const supabase = createClient();
-        const { data: dbRestaurants, error } = await supabase
-          .from("restaurants")
-          .select("*")
-          .order("created_at", { ascending: false });
+        const result = await getAllRestaurantsAdmin();
 
-        if (error) {
+        if (!result.success) {
           toast({
             title: "Error",
-            description: "Failed to load restaurants: " + error.message,
+            description: result.error,
             variant: "destructive",
           });
           setLoading(false);
@@ -65,29 +76,18 @@ export default function SuperAdminPage() {
         }
 
         setRestaurants(
-          (dbRestaurants || []).map(
-            (r: {
-              id: string;
-              slug: string;
-              name: string;
-              logo_url: string;
-              cover_image_url: string;
-              plan: string;
-              active: boolean;
-              total_views: number;
-            }) => ({
-              id: r.id,
-              slug: r.slug,
-              name: r.name,
-              logo: r.logo_url || "",
-              coverImage: r.cover_image_url || "",
-              categories: [],
-              products: [],
-              plan: (r.plan || "basic") as "basic" | "pro",
-              active: r.active ?? true,
-              totalViews: r.total_views || 0,
-            })
-          )
+          result.data.map((r) => ({
+            id: r.id,
+            slug: r.slug,
+            name: r.name,
+            logo: r.logo_url || "",
+            coverImage: r.cover_image_url || "",
+            categories: [],
+            products: [],
+            plan: (r.plan || "basic") as "basic" | "pro",
+            active: r.active ?? true,
+            totalViews: r.total_views || 0,
+          }))
         );
       } catch {
         toast({
@@ -110,42 +110,33 @@ export default function SuperAdminPage() {
     router.push("/login");
   };
 
-  const createRestaurant = async () => {
+  const handleCreateRestaurant = async () => {
     if (!newName.trim()) return;
-    const slug = newName
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, "-");
+    setCreating(true);
 
-    const supabase = createClient();
-    const { data: newRow, error } = await supabase
-      .from("restaurants")
-      .insert({
-        name: newName.trim(),
-        slug,
-        logo_url: "",
-        cover_image_url: "",
-        plan: "basic",
-        active: true,
-        total_views: 0,
-      })
-      .select()
-      .single();
+    const result = await createRestaurantWithAdmin(
+      newName,
+      newAdminEmail.trim() || undefined,
+      newAdminPassword || undefined
+    );
 
-    if (error || !newRow) {
+    setCreating(false);
+
+    if (!result.success) {
       toast({
         title: "Error",
-        description: "Failed to create restaurant: " + (error?.message || "Unknown error"),
+        description: result.error,
         variant: "destructive",
       });
       return;
     }
 
+    const d = result.data;
     setRestaurants((prev) => [
       {
-        id: newRow.id,
-        slug: newRow.slug,
-        name: newRow.name,
+        id: d.id,
+        slug: d.slug,
+        name: d.name,
         logo: "",
         coverImage: "",
         categories: [],
@@ -156,25 +147,28 @@ export default function SuperAdminPage() {
       },
       ...prev,
     ]);
+
+    const msgs: string[] = [`Restaurant "${d.name}" created.`];
+    if (d.adminUserId) {
+      msgs.push(`Admin account (${newAdminEmail.trim()}) linked.`);
+    } else if (newAdminEmail.trim()) {
+      msgs.push("Warning: admin user could not be created. Assign one later.");
+    }
+
+    toast({ title: "Success", description: msgs.join(" ") });
     setNewName("");
+    setNewAdminEmail("");
+    setNewAdminPassword("");
     setOpen(false);
   };
 
-  const deleteRestaurant = async (id: string) => {
-    const supabase = createClient();
-    // Clear assignment
-    await supabase
-      .from("profiles")
-      .update({ restaurant_id: null })
-      .eq("restaurant_id", id);
-    await supabase.from("menu_items").delete().eq("restaurant_id", id);
-    await supabase.from("categories").delete().eq("restaurant_id", id);
-    const { error } = await supabase.from("restaurants").delete().eq("id", id);
+  const handleDeleteRestaurant = async (id: string) => {
+    const result = await deleteRestaurantFull(id);
 
-    if (error) {
+    if (!result.success) {
       toast({
         title: "Error",
-        description: "Failed to delete restaurant: " + error.message,
+        description: result.error,
         variant: "destructive",
       });
       return;
@@ -183,20 +177,16 @@ export default function SuperAdminPage() {
     setRestaurants((prev) => prev.filter((r) => r.id !== id));
   };
 
-  const toggleActive = async (id: string) => {
+  const handleToggleActive = async (id: string) => {
     const target = restaurants.find((r) => r.id === id);
     if (!target) return;
 
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("restaurants")
-      .update({ active: !target.active })
-      .eq("id", id);
+    const result = await toggleRestaurantActive(id, target.active);
 
-    if (error) {
+    if (!result.success) {
       toast({
         title: "Error",
-        description: "Failed to update status: " + error.message,
+        description: result.error,
         variant: "destructive",
       });
       return;
@@ -207,17 +197,13 @@ export default function SuperAdminPage() {
     );
   };
 
-  const changePlan = async (id: string, plan: "basic" | "pro") => {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("restaurants")
-      .update({ plan })
-      .eq("id", id);
+  const handleChangePlan = async (id: string, plan: "basic" | "pro") => {
+    const result = await changeRestaurantPlan(id, plan);
 
-    if (error) {
+    if (!result.success) {
       toast({
         title: "Error",
-        description: "Failed to change plan: " + error.message,
+        description: result.error,
         variant: "destructive",
       });
       return;
@@ -235,21 +221,13 @@ export default function SuperAdminPage() {
 
   const saveEdit = async () => {
     if (!editName.trim() || !editingId) return;
-    const newSlug = editName
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, "-");
 
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("restaurants")
-      .update({ name: editName.trim(), slug: newSlug })
-      .eq("id", editingId);
+    const result = await renameRestaurant(editingId, editName);
 
-    if (error) {
+    if (!result.success) {
       toast({
         title: "Error",
-        description: "Failed to rename restaurant: " + error.message,
+        description: result.error,
         variant: "destructive",
       });
       return;
@@ -258,42 +236,27 @@ export default function SuperAdminPage() {
     setRestaurants((prev) =>
       prev.map((r) =>
         r.id === editingId
-          ? { ...r, name: editName.trim(), slug: newSlug }
+          ? { ...r, name: editName.trim(), slug: result.data.slug }
           : r
       )
     );
     setEditingId(null);
   };
 
-  const assignAdmin = async (restaurantId: string) => {
+  const handleAssignAdmin = async (restaurantId: string) => {
     if (!assignEmail.trim()) return;
-    const supabase = createClient();
 
-    // Find user profile by email (match against auth.users via email)
-    const { data: profiles, error: pError } = await supabase
-      .from("profiles")
-      .select("id, email")
-      .eq("email", assignEmail.trim().toLowerCase());
+    const result = await assignAdminToRestaurant(
+      restaurantId,
+      assignEmail,
+      assignCreateNew && !!assignPassword,
+      assignPassword || undefined
+    );
 
-    if (pError || !profiles || profiles.length === 0) {
-      toast({
-        title: "User not found",
-        description:
-          "No account found with that email. The user must sign up first.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const { error } = await supabase
-      .from("profiles")
-      .update({ restaurant_id: restaurantId, role: "restaurant_admin" })
-      .eq("id", profiles[0].id);
-
-    if (error) {
+    if (!result.success) {
       toast({
         title: "Error",
-        description: "Failed to assign admin: " + error.message,
+        description: result.error,
         variant: "destructive",
       });
       return;
@@ -301,10 +264,12 @@ export default function SuperAdminPage() {
 
     toast({
       title: "Admin assigned",
-      description: `${assignEmail} is now admin of this restaurant.`,
+      description: `${result.data.email} is now admin of this restaurant.`,
     });
     setAssignOpen(null);
     setAssignEmail("");
+    setAssignPassword("");
+    setAssignCreateNew(false);
   };
 
   if (loading) {
@@ -347,13 +312,50 @@ export default function SuperAdminPage() {
                 <DialogTitle>Create Restaurant</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
-                <Input
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Restaurant name"
-                  onKeyDown={(e) => e.key === "Enter" && createRestaurant()}
-                />
-                <Button onClick={createRestaurant} className="w-full">
+                <div>
+                  <Label htmlFor="r-name">Restaurant Name</Label>
+                  <Input
+                    id="r-name"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="Restaurant name"
+                  />
+                </div>
+                <div className="border-t pt-4">
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Optionally create an admin account for this restaurant:
+                  </p>
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="admin-email">Admin Email</Label>
+                      <Input
+                        id="admin-email"
+                        type="email"
+                        value={newAdminEmail}
+                        onChange={(e) => setNewAdminEmail(e.target.value)}
+                        placeholder="admin@restaurant.com"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="admin-pass">Admin Password</Label>
+                      <Input
+                        id="admin-pass"
+                        type="password"
+                        value={newAdminPassword}
+                        onChange={(e) => setNewAdminPassword(e.target.value)}
+                        placeholder="Min 6 characters"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <Button
+                  onClick={handleCreateRestaurant}
+                  className="w-full"
+                  disabled={creating || !newName.trim()}
+                >
+                  {creating && (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  )}
                   Create
                 </Button>
               </div>
@@ -417,16 +419,23 @@ export default function SuperAdminPage() {
               </div>
 
               <div className="flex items-center gap-3 shrink-0">
-                {/* Assign Admin */}
                 <Dialog
                   open={assignOpen === r.id}
                   onOpenChange={(v) => {
                     setAssignOpen(v ? r.id : null);
-                    if (!v) setAssignEmail("");
+                    if (!v) {
+                      setAssignEmail("");
+                      setAssignPassword("");
+                      setAssignCreateNew(false);
+                    }
                   }}
                 >
                   <DialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-8 text-xs">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs"
+                    >
                       <UserPlus className="w-3 h-3 mr-1" /> Assign
                     </Button>
                   </DialogTrigger>
@@ -435,16 +444,41 @@ export default function SuperAdminPage() {
                       <DialogTitle>Assign Admin to {r.name}</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
-                      <Input
-                        value={assignEmail}
-                        onChange={(e) => setAssignEmail(e.target.value)}
-                        placeholder="Admin email address"
-                        onKeyDown={(e) =>
-                          e.key === "Enter" && assignAdmin(r.id)
-                        }
-                      />
+                      <div>
+                        <Label htmlFor="assign-email">Email</Label>
+                        <Input
+                          id="assign-email"
+                          value={assignEmail}
+                          onChange={(e) => setAssignEmail(e.target.value)}
+                          placeholder="Admin email address"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          id="create-new"
+                          checked={assignCreateNew}
+                          onCheckedChange={setAssignCreateNew}
+                        />
+                        <Label htmlFor="create-new" className="text-sm">
+                          Create new account if not found
+                        </Label>
+                      </div>
+                      {assignCreateNew && (
+                        <div>
+                          <Label htmlFor="assign-pass">Password</Label>
+                          <Input
+                            id="assign-pass"
+                            type="password"
+                            value={assignPassword}
+                            onChange={(e) =>
+                              setAssignPassword(e.target.value)
+                            }
+                            placeholder="Min 6 characters"
+                          />
+                        </div>
+                      )}
                       <Button
-                        onClick={() => assignAdmin(r.id)}
+                        onClick={() => handleAssignAdmin(r.id)}
                         className="w-full"
                       >
                         Assign
@@ -456,7 +490,7 @@ export default function SuperAdminPage() {
                 <Select
                   value={r.plan}
                   onValueChange={(v) =>
-                    changePlan(r.id, v as "basic" | "pro")
+                    handleChangePlan(r.id, v as "basic" | "pro")
                   }
                 >
                   <SelectTrigger className="w-24 h-8 text-xs">
@@ -474,12 +508,12 @@ export default function SuperAdminPage() {
                   </span>
                   <Switch
                     checked={r.active}
-                    onCheckedChange={() => toggleActive(r.id)}
+                    onCheckedChange={() => handleToggleActive(r.id)}
                   />
                 </div>
 
                 <button
-                  onClick={() => deleteRestaurant(r.id)}
+                  onClick={() => handleDeleteRestaurant(r.id)}
                   className="text-destructive hover:text-destructive/80 transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
