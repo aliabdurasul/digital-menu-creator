@@ -152,9 +152,9 @@ export async function createRestaurantWithAdmin(
       const email = adminEmail.trim().toLowerCase();
 
       // Check if user already exists
-      const { data: existingUsers } = await admin.auth.admin.listUsers();
-      const existingUser = existingUsers?.users?.find(
-        (u) => u.email?.toLowerCase() === email
+      const { data: listData } = await admin.auth.admin.listUsers();
+      const existingUser = (listData?.users ?? []).find(
+        (u: { email?: string }) => u.email?.toLowerCase() === email
       );
 
       if (existingUser) {
