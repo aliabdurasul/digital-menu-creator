@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { LogIn, Loader2, UtensilsCrossed } from "lucide-react";
 import { toast } from "sonner";
 
 export default function LoginPage() {
-  const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -33,7 +33,14 @@ export default function LoginPage() {
       return;
     }
 
-    // Fetch user profile to determine role
+    // Honor the middleware-set redirect param if present
+    const redirectTo = searchParams.get("redirect");
+    if (redirectTo) {
+      window.location.href = redirectTo;
+      return;
+    }
+
+    // No redirect param — resolve role for default destination
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -50,13 +57,15 @@ export default function LoginPage() {
       .eq("id", user.id)
       .single();
 
-    // Redirect based on role — use replace() only for login redirect
+    // Hard navigate to force a full request with fresh cookies.
+    // router.replace() does a soft/client navigation that may reuse
+    // a stale prefetched response from before cookies were set.
     if (profile?.role === "super_admin") {
-      router.replace("/super-admin");
+      window.location.href = "/super-admin";
     } else if (profile?.role === "restaurant_admin") {
-      router.replace("/restaurant-admin");
+      window.location.href = "/restaurant-admin";
     } else {
-      router.replace("/");
+      window.location.href = "/";
     }
   };
 

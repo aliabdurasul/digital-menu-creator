@@ -37,6 +37,16 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Helper: create a redirect that preserves Supabase auth cookies.
+  // Without this, token refreshes done inside getUser() are lost.
+  function redirect(url: URL) {
+    const res = NextResponse.redirect(url);
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      res.cookies.set(cookie.name, cookie.value, cookie);
+    });
+    return res;
+  }
+
   const { pathname } = request.nextUrl;
 
   // Protected routes
@@ -48,12 +58,11 @@ export async function updateSession(request: NextRequest) {
   if (isProtected && !user) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(loginUrl);
+    return redirect(loginUrl);
   }
 
   // If authenticated user visits /login → redirect to dashboard
   if (pathname === "/login" && user) {
-    // Fetch role from profiles
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
@@ -61,9 +70,9 @@ export async function updateSession(request: NextRequest) {
       .single();
 
     if (profile?.role === "super_admin") {
-      return NextResponse.redirect(new URL("/super-admin", request.url));
+      return redirect(new URL("/super-admin", request.url));
     }
-    return NextResponse.redirect(new URL("/restaurant-admin", request.url));
+    return redirect(new URL("/restaurant-admin", request.url));
   }
 
   // Role-based access enforcement
@@ -74,22 +83,18 @@ export async function updateSession(request: NextRequest) {
       .eq("id", user.id)
       .single();
 
-    // Restaurant admin cannot access super admin
     if (
       pathname.startsWith("/super-admin") &&
       profile?.role !== "super_admin"
     ) {
-      return NextResponse.redirect(
-        new URL("/restaurant-admin", request.url)
-      );
+      return redirect(new URL("/restaurant-admin", request.url));
     }
 
-    // Super admin cannot access restaurant admin (they use super-admin panel)
     if (
       pathname.startsWith("/restaurant-admin") &&
       profile?.role === "super_admin"
     ) {
-      return NextResponse.redirect(new URL("/super-admin", request.url));
+      return redirect(new URL("/super-admin", request.url));
     }
   }
 
