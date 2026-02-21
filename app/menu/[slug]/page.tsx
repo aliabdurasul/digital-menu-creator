@@ -17,14 +17,14 @@ export async function generateMetadata({
 }: MenuPageProps): Promise<Metadata> {
   const restaurant = await getRestaurantBySlug(params.slug);
   if (!restaurant) {
-    return { title: "Menu Not Found" };
+    return { title: "Menü Bulunamadı" };
   }
   return {
-    title: `${restaurant.name} — Digital Menu`,
-    description: `View the digital menu for ${restaurant.name}. Browse categories, see prices, and discover delicious dishes.`,
+    title: `${restaurant.name} — Lezzet-i Âlâ`,
+    description: `${restaurant.name} dijital menüsünü görüntüleyin. Kategorilere göz atın, fiyatları görün.`,
     openGraph: {
-      title: `${restaurant.name} — Digital Menu`,
-      description: `View the digital menu for ${restaurant.name}`,
+      title: `${restaurant.name} — Lezzet-i Âlâ`,
+      description: `${restaurant.name} dijital menüsünü görüntüleyin`,
       type: "website",
       ...(restaurant.coverImage && { images: [restaurant.coverImage] }),
     },
@@ -44,10 +44,10 @@ export default async function MenuPage({ params }: MenuPageProps) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background text-muted-foreground">
         <AlertTriangle className="w-12 h-12 mb-4 text-warning" />
-        <p className="text-lg font-semibold">Menu temporarily unavailable</p>
+        <p className="text-lg font-semibold">Menü geçici olarak kullanılamıyor</p>
         <p className="text-sm mt-2 text-muted-foreground">
-          This restaurant&apos;s menu is currently inactive. Please check back
-          later.
+          Bu restoranın menüsü şu anda aktif değil. Lütfen daha sonra tekrar
+          kontrol edin.
         </p>
       </div>
     );

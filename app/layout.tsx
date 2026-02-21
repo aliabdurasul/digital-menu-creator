@@ -11,13 +11,13 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Digital Menu",
+  title: "Lezzet-i Âlâ",
   description:
-    "Beautiful digital menus for modern restaurants. Manage, customize, and share with ease.",
+    "Restoranınız için modern dijital menü sistemi. Kolayca yönetin, özelleştirin ve paylaşın.",
   openGraph: {
-    title: "Digital Menu",
+    title: "Lezzet-i Âlâ",
     description:
-      "Beautiful digital menus for modern restaurants. Manage, customize, and share with ease.",
+      "Restoranınız için modern dijital menü sistemi. Kolayca yönetin, özelleştirin ve paylaşın.",
     type: "website",
   },
   twitter: {
@@ -31,7 +31,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="tr" suppressHydrationWarning>
       <body className={`${plusJakartaSans.variable} font-sans`}>
         <Providers>{children}</Providers>
         <Toaster />

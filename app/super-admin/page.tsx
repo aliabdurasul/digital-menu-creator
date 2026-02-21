@@ -67,7 +67,7 @@ export default function SuperAdminPage() {
 
         if (!result.success) {
           toast({
-            title: "Error",
+            title: "Hata",
             description: result.error,
             variant: "destructive",
           });
@@ -95,8 +95,8 @@ export default function SuperAdminPage() {
         );
       } catch {
         toast({
-          title: "Error",
-          description: "Failed to load restaurants",
+          title: "Hata",
+          description: "Restoranlar yüklenemedi",
           variant: "destructive",
         });
       } finally {
@@ -128,7 +128,7 @@ export default function SuperAdminPage() {
 
     if (!result.success) {
       toast({
-        title: "Error",
+        title: "Hata",
         description: result.error,
         variant: "destructive",
       });
@@ -156,14 +156,14 @@ export default function SuperAdminPage() {
       ...prev,
     ]);
 
-    const msgs: string[] = [`Restaurant "${d.name}" created.`];
+    const msgs: string[] = [`"${d.name}" restoranı oluşturuldu.`];
     if (d.adminUserId) {
-      msgs.push(`Admin account (${newAdminEmail.trim()}) linked.`);
+      msgs.push(`Yönetici hesabı (${newAdminEmail.trim()}) bağlandı.`);
     } else if (newAdminEmail.trim()) {
-      msgs.push("Warning: admin user could not be created. Assign one later.");
+      msgs.push("Uyarı: yönetici kullanıcı oluşturulamadı. Daha sonra atayın.");
     }
 
-    toast({ title: "Success", description: msgs.join(" ") });
+    toast({ title: "Başarılı", description: msgs.join(" ") });
     setNewName("");
     setNewAdminEmail("");
     setNewAdminPassword("");
@@ -175,7 +175,7 @@ export default function SuperAdminPage() {
 
     if (!result.success) {
       toast({
-        title: "Error",
+        title: "Hata",
         description: result.error,
         variant: "destructive",
       });
@@ -193,7 +193,7 @@ export default function SuperAdminPage() {
 
     if (!result.success) {
       toast({
-        title: "Error",
+        title: "Hata",
         description: result.error,
         variant: "destructive",
       });
@@ -210,7 +210,7 @@ export default function SuperAdminPage() {
 
     if (!result.success) {
       toast({
-        title: "Error",
+        title: "Hata",
         description: result.error,
         variant: "destructive",
       });
@@ -234,7 +234,7 @@ export default function SuperAdminPage() {
 
     if (!result.success) {
       toast({
-        title: "Error",
+        title: "Hata",
         description: result.error,
         variant: "destructive",
       });
@@ -263,7 +263,7 @@ export default function SuperAdminPage() {
 
     if (!result.success) {
       toast({
-        title: "Error",
+        title: "Hata",
         description: result.error,
         variant: "destructive",
       });
@@ -271,8 +271,8 @@ export default function SuperAdminPage() {
     }
 
     toast({
-      title: "Admin assigned",
-      description: `${result.data.email} is now admin of this restaurant.`,
+      title: "Yönetici atandı",
+      description: `${result.data.email} artık bu restoranın yöneticisi.`,
     });
     setAssignOpen(null);
     setAssignEmail("");
@@ -295,7 +295,7 @@ export default function SuperAdminPage() {
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
             <Shield className="w-5 h-5 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Super Admin</h1>
+          <h1 className="text-2xl font-bold text-foreground">Süper Yönetici</h1>
           <div className="ml-auto">
             <Button
               variant="ghost"
@@ -303,7 +303,7 @@ export default function SuperAdminPage() {
               onClick={handleLogout}
               className="text-muted-foreground hover:text-destructive"
             >
-              <LogOut className="w-4 h-4 mr-1" /> Sign Out
+              <LogOut className="w-4 h-4 mr-1" /> Çıkış Yap
             </Button>
           </div>
         </div>
@@ -373,7 +373,7 @@ export default function SuperAdminPage() {
 
         {restaurants.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
-            No restaurants yet. Create one to get started.
+            Henüz restoran yok. Başlamak için bir tane oluşturun.
           </div>
         )}
 
@@ -393,14 +393,14 @@ export default function SuperAdminPage() {
                       className="h-8"
                     />
                     <Button size="sm" variant="outline" onClick={saveEdit}>
-                      Save
+                      Kaydet
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => setEditingId(null)}
                     >
-                      Cancel
+                      İptal
                     </Button>
                   </div>
                 ) : (
@@ -444,21 +444,21 @@ export default function SuperAdminPage() {
                       size="sm"
                       className="h-8 text-xs"
                     >
-                      <UserPlus className="w-3 h-3 mr-1" /> Assign
+                      <UserPlus className="w-3 h-3 mr-1" /> Ata
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Assign Admin to {r.name}</DialogTitle>
+                      <DialogTitle>{r.name} için Yönetici Ata</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
-                        <Label htmlFor="assign-email">Email</Label>
+                        <Label htmlFor="assign-email">E-posta</Label>
                         <Input
                           id="assign-email"
                           value={assignEmail}
                           onChange={(e) => setAssignEmail(e.target.value)}
-                          placeholder="Admin email address"
+                          placeholder="Yönetici e-posta adresi"
                         />
                       </div>
                       <div className="flex items-center gap-2">
@@ -468,12 +468,12 @@ export default function SuperAdminPage() {
                           onCheckedChange={setAssignCreateNew}
                         />
                         <Label htmlFor="create-new" className="text-sm">
-                          Create new account if not found
+                          Bulunamazsa yeni hesap oluştur
                         </Label>
                       </div>
                       {assignCreateNew && (
                         <div>
-                          <Label htmlFor="assign-pass">Password</Label>
+                          <Label htmlFor="assign-pass">Şifre</Label>
                           <Input
                             id="assign-pass"
                             type="password"
@@ -481,7 +481,7 @@ export default function SuperAdminPage() {
                             onChange={(e) =>
                               setAssignPassword(e.target.value)
                             }
-                            placeholder="Min 6 characters"
+                            placeholder="En az 6 karakter"
                           />
                         </div>
                       )}
@@ -489,7 +489,7 @@ export default function SuperAdminPage() {
                         onClick={() => handleAssignAdmin(r.id)}
                         className="w-full"
                       >
-                        Assign
+                        Ata
                       </Button>
                     </div>
                   </DialogContent>
@@ -512,7 +512,7 @@ export default function SuperAdminPage() {
 
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">
-                    {r.active ? "Active" : "Inactive"}
+                    {r.active ? "Aktif" : "Pasif"}
                   </span>
                   <Switch
                     checked={r.active}

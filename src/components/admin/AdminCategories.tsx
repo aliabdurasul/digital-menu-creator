@@ -48,7 +48,7 @@ export function AdminCategories({ restaurant, setRestaurant }: Props) {
       if (error || !data) {
         toast({
           title: "Error",
-          description: "Failed to add category: " + (error?.message || "Unknown error"),
+          description: "Kategori eklenemedi: " + (error?.message || "Bilinmeyen hata"),
           variant: "destructive",
         });
         return;
@@ -62,7 +62,7 @@ export function AdminCategories({ restaurant, setRestaurant }: Props) {
       setRestaurant((r) => r ? { ...r, categories: [...r.categories, cat] } : r);
       setNewName("");
     } catch {
-      toast({ title: "Error", description: "Failed to add category", variant: "destructive" });
+      toast({ title: "Hata", description: "Kategori eklenemedi", variant: "destructive" });
     } finally {
       setAdding(false);
     }
@@ -107,7 +107,7 @@ export function AdminCategories({ restaurant, setRestaurant }: Props) {
     } catch {
       // Revert
       setRestaurant((r) => r ? { ...r, categories: prevCategories } : r);
-      toast({ title: "Error", description: "Failed to rename category", variant: "destructive" });
+      toast({ title: "Hata", description: "Kategori yeniden adlandırılamadı", variant: "destructive" });
     }
   };
 
@@ -136,24 +136,24 @@ export function AdminCategories({ restaurant, setRestaurant }: Props) {
     } catch {
       // Revert on failure
       setRestaurant((r) => r ? { ...r, categories: prev, products: prevProducts } : r);
-      toast({ title: "Error", description: "Failed to delete category", variant: "destructive" });
+      toast({ title: "Hata", description: "Kategori silinemedi", variant: "destructive" });
     }
   };
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-foreground mb-6">Categories</h1>
+      <h1 className="text-2xl font-bold text-foreground mb-6">Kategoriler</h1>
 
       <div className="flex gap-2 mb-6 max-w-md">
         <Input
-          placeholder="New category name..."
+          placeholder="Yeni kategori adı..."
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && addCategory()}
         />
         <Button onClick={addCategory} size="sm" disabled={adding}>
           {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
-          {adding ? "" : "Add"}
+          {adding ? "" : "Ekle"}
         </Button>
       </div>
 
@@ -209,7 +209,7 @@ export function AdminCategories({ restaurant, setRestaurant }: Props) {
           </div>
         ))}
         {sorted.length === 0 && (
-          <p className="text-sm text-muted-foreground">No categories yet. Add one above.</p>
+          <p className="text-sm text-muted-foreground">Henüz kategori yok. Yukarıdan ekleyin.</p>
         )}
       </div>
     </div>

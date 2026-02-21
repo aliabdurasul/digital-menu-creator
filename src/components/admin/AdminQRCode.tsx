@@ -53,11 +53,11 @@ export function AdminQRCode({ restaurant }: AdminQRCodeProps) {
             <AlertTriangle className="w-7 h-7 text-warning" />
           </div>
           <h2 className="text-xl font-bold text-foreground">
-            Subscription Inactive
+            Abonelik Pasif
           </h2>
           <p className="text-sm text-muted-foreground">
-            QR code generation is disabled while your subscription is inactive.
-            Please reactivate your subscription to use this feature.
+            Aboneliğiniz pasif olduğu için QR kod oluşturma devre dışıdır.
+            Bu özelliği kullanmak için lütfen aboneliğinizi yeniden etkinleştirin.
           </p>
         </div>
       </div>
@@ -75,7 +75,7 @@ export function AdminQRCode({ restaurant }: AdminQRCodeProps) {
     }
 
     if (!canvas) {
-      toast.error("Could not generate QR image. Please try again.");
+      toast.error("QR görüntüsü oluşturulamadı. Lütfen tekrar deneyin.");
       return;
     }
 
@@ -102,7 +102,7 @@ export function AdminQRCode({ restaurant }: AdminQRCodeProps) {
     link.click();
     document.body.removeChild(link);
 
-    toast.success("QR code downloaded successfully!");
+    toast.success("QR kod başarıyla indirildi!");
   }, [restaurant.slug]);
 
   return (
@@ -113,10 +113,10 @@ export function AdminQRCode({ restaurant }: AdminQRCodeProps) {
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
             <QrCode className="w-5 h-5 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Your QR Code</h1>
+          <h1 className="text-2xl font-bold text-foreground">QR Kodunuz</h1>
         </div>
         <p className="text-sm text-muted-foreground ml-[52px]">
-          Customers can scan this code to view your digital menu instantly.
+          Müşteriler bu kodu tarayarak dijital menünüzü anlık olarak görüntüleyebilir.
         </p>
       </div>
 
@@ -158,7 +158,7 @@ export function AdminQRCode({ restaurant }: AdminQRCodeProps) {
               size="lg"
             >
               <ExternalLink className="w-4 h-4" />
-              Preview Menu
+              Menüyü Önizle
             </Button>
             <Button
               onClick={handleDownload}
@@ -166,7 +166,7 @@ export function AdminQRCode({ restaurant }: AdminQRCodeProps) {
               size="lg"
             >
               <Download className="w-4 h-4" />
-              Download QR
+              QR İndir
             </Button>
           </div>
         </div>
@@ -175,21 +175,21 @@ export function AdminQRCode({ restaurant }: AdminQRCodeProps) {
       {/* Instructions */}
       <div className="mt-8 p-6 rounded-2xl bg-muted/50 border border-border/50">
         <h3 className="text-sm font-semibold text-foreground mb-2">
-          How to use
+          Nasıl kullanılır
         </h3>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          Print this QR code and place it on your tables so customers can access
-          your menu instantly. For best results, print at minimum 3×3 cm size on
-          a white background. The QR code links directly to your live digital
-          menu.
+          Bu QR kodu yazdırın ve masalarınıza yerleştirin, böylece müşterileriniz
+          menünüze anlık olarak erişebilir. En iyi sonuç için beyaz zemin üzerine
+          en az 3×3 cm boyutunda yazdırın. QR kod doğrudan canlı dijital
+          menünüze yönlendirir.
         </p>
       </div>
 
       {/* Print Preview Hint */}
       <div className="mt-4 p-4 rounded-xl border border-dashed border-border/60 text-center">
         <p className="text-xs text-muted-foreground">
-          💡 <span className="font-medium">Tip:</span> Use the download button
-          to get a high-resolution PNG perfect for professional printing.
+          💡 <span className="font-medium">İpucu:</span> Profesyonel baskı için
+          indirme düğmesini kullanarak yüksek çözünürlüklü PNG dosyası alın.
         </p>
       </div>
     </div>

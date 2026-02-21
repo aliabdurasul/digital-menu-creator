@@ -5,6 +5,8 @@ import type { Restaurant } from "@/types";
 import { CategoryTabs } from "@/components/menu/CategoryTabs";
 import { ProductCard } from "@/components/menu/ProductCard";
 import { createClient } from "@/lib/supabase/client";
+import { LanguageProvider } from "@/components/menu/LanguageProvider";
+import { LanguageToggle } from "@/components/menu/LanguageToggle";
 
 interface MenuContentProps {
   restaurant: Restaurant;
@@ -60,6 +62,7 @@ export function MenuContent({ restaurant }: MenuContentProps) {
   }, [restaurant]);
 
   return (
+    <LanguageProvider>
     <div className="max-w-[480px] mx-auto min-h-screen bg-background shadow-sm">
       {/* Cover */}
       <div className="relative w-full h-44 sm:h-56 overflow-hidden">
@@ -95,13 +98,20 @@ export function MenuContent({ restaurant }: MenuContentProps) {
         </div>
       </div>
 
-      {/* Category Tabs */}
+      {/* Category Tabs + Language Toggle */}
       <div className="sticky top-0 z-20 mt-4 border-b border-border bg-background">
-        <CategoryTabs
-          categories={sortedCategories}
-          activeId={activeCat}
-          onSelect={handleCatSelect}
-        />
+        <div className="flex items-center">
+          <div className="flex-1 overflow-hidden">
+            <CategoryTabs
+              categories={sortedCategories}
+              activeId={activeCat}
+              onSelect={handleCatSelect}
+            />
+          </div>
+          <div className="px-2 shrink-0">
+            <LanguageToggle />
+          </div>
+        </div>
       </div>
 
       {/* Products */}
@@ -140,9 +150,9 @@ export function MenuContent({ restaurant }: MenuContentProps) {
 
       {/* Footer */}
       <div className="text-center py-8 text-xs text-muted-foreground">
-        Powered by{" "}
-        <span className="font-semibold text-primary">Digital Menu</span>
+        <span className="font-semibold text-primary">Lezzet-i Âlâ</span>
       </div>
     </div>
+    </LanguageProvider>
   );
 }

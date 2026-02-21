@@ -54,10 +54,10 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
   // ── Validation ──
   const validate = (): FormErrors => {
     const errs: FormErrors = {};
-    if (!form.name.trim()) errs.name = "Product name is required";
-    if (!form.categoryId) errs.categoryId = "Category is required";
+    if (!form.name.trim()) errs.name = "Ürün adı gereklidir";
+    if (!form.categoryId) errs.categoryId = "Kategori gereklidir";
     const price = parseFloat(form.price);
-    if (!form.price || isNaN(price) || price < 0) errs.price = "Valid price is required";
+    if (!form.price || isNaN(price) || price < 0) errs.price = "Geçerli bir fiyat gereklidir";
     return errs;
   };
 
@@ -90,7 +90,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
         .upload(path, file, { upsert: true });
 
       if (error) {
-        toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+        toast({ title: "Yükleme başarısız", description: error.message, variant: "destructive" });
         return;
       }
 
@@ -98,7 +98,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
       const publicUrl = `${data.publicUrl}?v=${Date.now()}`;
       setForm((f) => ({ ...f, imagePreview: publicUrl }));
     } catch {
-      toast({ title: "Upload failed", description: "Could not upload image", variant: "destructive" });
+      toast({ title: "Yükleme başarısız", description: "Görsel yüklenemedi", variant: "destructive" });
     } finally {
       setUploading(false);
     }
@@ -168,7 +168,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
           .eq("id", editingProduct.id);
 
         if (error) {
-          toast({ title: "Error", description: "Failed to update product: " + error.message, variant: "destructive" });
+          toast({ title: "Hata", description: "Ürün güncellenemedi: " + error.message, variant: "destructive" });
           return;
         }
 
@@ -185,7 +185,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
         setRestaurant((r) =>
           r ? { ...r, products: r.products.map((p) => (p.id === editingProduct.id ? updated : p)) } : r
         );
-        toast({ title: "Updated", description: `"${updated.name}" saved.` });
+        toast({ title: "Güncellendi", description: `"${updated.name}" kaydedildi.` });
       } else {
         // ── INSERT ──
         const { data, error } = await supabase
@@ -195,7 +195,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
           .single();
 
         if (error || !data) {
-          toast({ title: "Error", description: "Failed to add product: " + (error?.message || "Unknown error"), variant: "destructive" });
+          toast({ title: "Hata", description: "Ürün eklenemedi: " + (error?.message || "Bilinmeyen hata"), variant: "destructive" });
           return;
         }
 
@@ -211,14 +211,14 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
         };
 
         setRestaurant((r) => r ? { ...r, products: [...r.products, product] } : r);
-        toast({ title: "Added", description: `"${product.name}" created.` });
+        toast({ title: "Eklendi", description: `"${product.name}" oluşturuldu.` });
       }
 
       setForm(emptyForm);
       setEditingProduct(null);
       setOpen(false);
     } catch {
-      toast({ title: "Error", description: "Failed to save product", variant: "destructive" });
+      toast({ title: "Hata", description: "Ürün kaydedilemedi", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -236,7 +236,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
       if (error) throw error;
     } catch {
       setRestaurant((r) => r ? { ...r, products: prev } : r);
-      toast({ title: "Error", description: "Failed to delete product", variant: "destructive" });
+      toast({ title: "Hata", description: "Ürün silinemedi", variant: "destructive" });
     }
   };
 
@@ -265,50 +265,50 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
       if (error) throw error;
     } catch {
       setRestaurant((r) => r ? { ...r, products: prev } : r);
-      toast({ title: "Error", description: "Failed to update availability", variant: "destructive" });
+      toast({ title: "Hata", description: "Durum güncellenemedi", variant: "destructive" });
     }
   };
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Products</h1>
+        <h1 className="text-2xl font-bold text-foreground">Ürünler</h1>
         <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
             <Button size="sm" onClick={openAdd}>
-              <Plus className="w-4 h-4 mr-1" /> Add Product
+              <Plus className="w-4 h-4 mr-1" /> Ürün Ekle
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{isEditing ? "Edit Product" : "Add Product"}</DialogTitle>
+              <DialogTitle>{isEditing ? "Ürünü Düzenle" : "Ürün Ekle"}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label>Name</Label>
+                <Label>Ad</Label>
                 <Input
                   value={form.name}
                   onChange={(e) => {
                     setForm((f) => ({ ...f, name: e.target.value }));
                     clearFieldError("name");
                   }}
-                  placeholder="Product name"
+                  placeholder="Ürün adı"
                   className={errors.name ? "border-destructive" : ""}
                 />
                 {errors.name && <p className="text-xs text-destructive mt-1">{errors.name}</p>}
               </div>
               <div>
-                <Label>Description</Label>
+                <Label>Açıklama</Label>
                 <Textarea
                   value={form.description}
                   onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  placeholder="Short description"
+                  placeholder="Kısa açıklama"
                   rows={2}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Price</Label>
+                  <Label>Fiyat</Label>
                   <Input
                     type="number"
                     step="0.01"
@@ -324,7 +324,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
                   {errors.price && <p className="text-xs text-destructive mt-1">{errors.price}</p>}
                 </div>
                 <div>
-                  <Label>Category</Label>
+                  <Label>Kategori</Label>
                   <Select
                     value={form.categoryId}
                     onValueChange={(v) => {
@@ -333,7 +333,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
                     }}
                   >
                     <SelectTrigger className={errors.categoryId ? "border-destructive" : ""}>
-                      <SelectValue placeholder="Select..." />
+                      <SelectValue placeholder="Seç..." />
                     </SelectTrigger>
                     <SelectContent>
                       {restaurant.categories.map((cat) => (
@@ -347,11 +347,11 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
                 </div>
               </div>
               <div>
-                <Label>Image</Label>
+                <Label>Görsel</Label>
                 <Input type="file" accept="image/*" onChange={handleImageUpload} />
                 {uploading && (
                   <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                    <Loader2 className="w-3 h-3 animate-spin" /> Uploading...
+                    <Loader2 className="w-3 h-3 animate-spin" /> Yükleniyor...
                   </div>
                 )}
                 {form.imagePreview && !uploading && (
@@ -367,7 +367,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
                   checked={form.available}
                   onCheckedChange={(v) => setForm((f) => ({ ...f, available: v }))}
                 />
-                <Label>Available</Label>
+                <Label>Mevcut</Label>
               </div>
               <Button
                 onClick={saveProduct}
@@ -375,7 +375,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
                 disabled={saving || uploading || !isFormValid}
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                {isEditing ? "Save Changes" : "Add Product"}
+                {isEditing ? "Değişiklikleri Kaydet" : "Ürün Ekle"}
               </Button>
             </div>
           </DialogContent>
@@ -397,8 +397,8 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm text-foreground truncate">{product.name}</p>
               <p className="text-xs text-muted-foreground">
-                ${product.price.toFixed(2)} ·{" "}
-                {restaurant.categories.find((c) => c.id === product.categoryId)?.name || "Uncategorized"}
+                ₺{product.price.toFixed(2)} ·{" "}
+                {restaurant.categories.find((c) => c.id === product.categoryId)?.name || "Kategorisiz"}
               </p>
             </div>
             <Switch
@@ -420,7 +420,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
           </div>
         ))}
         {sorted.length === 0 && (
-          <p className="text-sm text-muted-foreground">No products yet. Add one above.</p>
+          <p className="text-sm text-muted-foreground">Henüz ürün yok. Yukarıdan ekleyin.</p>
         )}
       </div>
     </div>

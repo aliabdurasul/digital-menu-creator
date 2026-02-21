@@ -30,7 +30,7 @@ export default function RestaurantAdminPage() {
         const myProfile = await getMyProfile();
 
         if (!myProfile) {
-          setError("Not authenticated");
+          setError("Kimlik doğrulanmadı");
           setLoading(false);
           return;
         }
@@ -56,7 +56,7 @@ export default function RestaurantAdminPage() {
           .single();
 
         if (rError || !dbRestaurant) {
-          setError("Failed to load restaurant data");
+          setError("Restoran verileri yüklenemedi");
           setLoading(false);
           return;
         }
@@ -116,7 +116,7 @@ export default function RestaurantAdminPage() {
           totalViews: dbRestaurant.total_views || 0,
         });
       } catch {
-        setError("Something went wrong loading your restaurant");
+        setError("Restoranınız yüklenirken bir hata oluştu");
       } finally {
         setLoading(false);
       }
@@ -143,13 +143,13 @@ export default function RestaurantAdminPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-muted/30 gap-4 p-6 text-center">
         <AlertTriangle className="w-12 h-12 text-yellow-500" />
-        <h2 className="text-xl font-bold">No Restaurant Assigned</h2>
+        <h2 className="text-xl font-bold">Restoran Atanmadı</h2>
         <p className="text-muted-foreground max-w-md">
-          Your account doesn&apos;t have a restaurant assigned yet. Please
-          contact the super admin to get set up.
+          Hesabınıza henüz bir restoran atanmamış. Kurulum için
+          süper yönetici ile iletişime geçin.
         </p>
         <Button variant="outline" onClick={handleLogout}>
-          <LogOut className="w-4 h-4 mr-2" /> Sign Out
+          <LogOut className="w-4 h-4 mr-2" /> Çıkış Yap
         </Button>
       </div>
     );
@@ -159,10 +159,10 @@ export default function RestaurantAdminPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-muted/30 gap-4 p-6 text-center">
         <AlertTriangle className="w-12 h-12 text-destructive" />
-        <h2 className="text-xl font-bold">Error</h2>
-        <p className="text-muted-foreground">{error || "Unknown error"}</p>
+        <h2 className="text-xl font-bold">Hata</h2>
+        <p className="text-muted-foreground">{error || "Bilinmeyen hata"}</p>
         <Button variant="outline" onClick={handleLogout}>
-          <LogOut className="w-4 h-4 mr-2" /> Sign Out
+          <LogOut className="w-4 h-4 mr-2" /> Çıkış Yap
         </Button>
       </div>
     );

@@ -16,21 +16,21 @@ export function AdminDashboard({ restaurant }: Props) {
   const publicUrl = `${appUrl}/menu/${restaurant.slug}`;
 
   const stats = [
-    { label: "Total Views", value: restaurant.totalViews.toLocaleString(), icon: Eye },
-    { label: "Active Products", value: activeProducts, icon: Package },
-    { label: "Categories", value: restaurant.categories.length, icon: FolderOpen },
+    { label: "Toplam Görüntülenme", value: restaurant.totalViews.toLocaleString(), icon: Eye },
+    { label: "Aktif Ürünler", value: activeProducts, icon: Package },
+    { label: "Kategoriler", value: restaurant.categories.length, icon: FolderOpen },
   ];
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-foreground">Gösterge Paneli</h1>
         <Button
           size="sm"
           variant="outline"
           onClick={() => window.open(publicUrl, "_blank")}
         >
-          <ExternalLink className="w-4 h-4 mr-1" /> Preview Menu
+          <ExternalLink className="w-4 h-4 mr-1" /> Menüyü Önizle
         </Button>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

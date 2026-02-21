@@ -11,18 +11,18 @@ export default function HomePage() {
           <UtensilsCrossed className="w-8 h-8 text-primary" />
         </div>
         <h1 className="text-4xl sm:text-5xl font-extrabold text-foreground tracking-tight">
-          Digital Menu
+          Lezzet-i Âlâ
         </h1>
         <p className="mt-4 text-lg text-muted-foreground max-w-md">
-          Beautiful digital menus for modern restaurants. Manage, customize, and
-          share with ease.
+          Restoranınız için modern dijital menü sistemi. Kolayca yönetin,
+          özelleştirin ve paylaşın.
         </p>
 
         <div className="mt-10 grid gap-4 w-full max-w-sm">
           <Link href="/login">
             <Button className="w-full h-12 text-base gap-2" size="lg">
               <LogIn className="w-5 h-5" />
-              Sign In
+              Giriş Yap
               <ArrowRight className="w-4 h-4 ml-auto" />
             </Button>
           </Link>
@@ -31,7 +31,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <div className="text-center py-6 text-xs text-muted-foreground">
-        Digital Menu &middot; Production
+        Lezzet-i Âlâ
       </div>
     </div>
   );

@@ -1,11 +1,15 @@
+"use client";
+
 import Image from "next/image";
 import type { Product } from "@/types";
+import { useLanguage } from "@/components/menu/LanguageProvider";
 
 interface ProductCardProps {
   product: Product;
 }
 
 export function ProductCard({ product }: ProductCardProps) {
+  const { t } = useLanguage();
   const hasImage = product.image && product.image !== "/placeholder.svg";
 
   return (
@@ -26,13 +30,13 @@ export function ProductCard({ product }: ProductCardProps) {
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
-            No image
+            {t.noImage}
           </div>
         )}
         {!product.available && (
           <div className="absolute inset-0 flex items-center justify-center bg-foreground/40 backdrop-blur-sm">
             <span className="text-xs font-bold text-primary-foreground bg-destructive px-2 py-1 rounded-full">
-              Sold Out
+              {t.soldOut}
             </span>
           </div>
         )}
@@ -47,7 +51,7 @@ export function ProductCard({ product }: ProductCardProps) {
           </p>
         )}
         <p className="font-bold text-primary mt-2 text-sm sm:text-base">
-          ${product.price.toFixed(2)}
+          {t.currency}{product.price.toFixed(2)}
         </p>
       </div>
     </div>

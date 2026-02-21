@@ -2,6 +2,7 @@ import Image from "next/image";
 import type { Restaurant } from "@/types";
 import { ProductCard } from "@/components/menu/ProductCard";
 import { MenuInteractions } from "@/components/menu/MenuInteractions";
+import { LanguageProvider } from "@/components/menu/LanguageProvider";
 
 interface MenuShellProps {
   restaurant: Restaurant;
@@ -73,32 +74,34 @@ export function MenuShell({ restaurant }: MenuShellProps) {
         </div>
       </div>
 
-      {/* Client island: sticky tabs + scroll spy + view tracking */}
-      <MenuInteractions
-        categories={sortedCategories}
-        slug={restaurant.slug}
-      />
+      {/* Language provider wraps all client-interactive content */}
+      <LanguageProvider>
+        {/* Client island: sticky tabs + scroll spy + view tracking + language toggle */}
+        <MenuInteractions
+          categories={sortedCategories}
+          slug={restaurant.slug}
+        />
 
-      {/* Products — fully server-rendered, zero JS */}
-      <div className="px-3 py-4 space-y-8">
-        {categorySections.map((cat) => (
-          <div key={cat.id} data-cat-id={cat.id}>
-            <h2 className="text-lg font-bold text-foreground mb-3">
-              {cat.name}
-            </h2>
-            <div className="space-y-3">
-              {cat.products.map((p) => (
-                <ProductCard key={p.id} product={p} />
-              ))}
+        {/* Products — ProductCard is a client component for language support */}
+        <div className="px-3 py-4 space-y-8">
+          {categorySections.map((cat) => (
+            <div key={cat.id} data-cat-id={cat.id}>
+              <h2 className="text-lg font-bold text-foreground mb-3">
+                {cat.name}
+              </h2>
+              <div className="space-y-3">
+                {cat.products.map((p) => (
+                  <ProductCard key={p.id} product={p} />
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </LanguageProvider>
 
       {/* Footer */}
       <div className="text-center py-8 text-xs text-muted-foreground">
-        Powered by{" "}
-        <span className="font-semibold text-primary">Digital Menu</span>
+        <span className="font-semibold text-primary">Lezzet-i Âlâ</span>
       </div>
     </div>
   );

@@ -26,10 +26,10 @@ export default async function QRCodePage() {
       <div className="flex flex-col items-center justify-center min-h-screen bg-background">
         <AlertTriangle className="w-12 h-12 mb-4 text-destructive" />
         <p className="text-lg font-semibold text-foreground">
-          Restaurant not found
+          Restoran bulunamadı
         </p>
         <p className="text-sm text-muted-foreground mt-2">
-          Unable to load your restaurant data.
+          Restoran verileriniz yüklenemedi.
         </p>
       </div>
     );

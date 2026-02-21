@@ -46,7 +46,7 @@ function LoginForm() {
       });
 
       if (signInError || !signInData.user) {
-        setError(signInError?.message || "Invalid email or password");
+        setError(signInError?.message || "Geçersiz e-posta veya şifre");
         setLoading(false);
         return;
       }
@@ -68,12 +68,12 @@ function LoginForm() {
         console.log("[login] → Redirecting to", dest);
         window.location.href = dest;
       } else {
-        setError("Could not determine account role. Please contact the administrator.");
+        setError("Hesap rolü belirlenemedi. Lütfen yönetici ile iletişime geçin.");
         setLoading(false);
         return;
       }
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError("Bir hata oluştu. Lütfen tekrar deneyin.");
       setLoading(false);
     }
   };
@@ -85,9 +85,9 @@ function LoginForm() {
           <UtensilsCrossed className="w-7 h-7 text-primary" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-foreground">Welcome Back</h1>
+          <h1 className="text-xl font-bold text-foreground">Tekrar Hoş Geldiniz</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Sign in to manage your restaurant
+            Restoranınızı yönetmek için giriş yapın
           </p>
         </div>
 
@@ -99,19 +99,19 @@ function LoginForm() {
 
         <form onSubmit={handleLogin} className="space-y-4 text-left">
           <div>
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">E-posta</Label>
             <Input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@restaurant.com"
+              placeholder="siz@restoran.com"
               required
               autoComplete="email"
             />
           </div>
           <div>
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">Şifre</Label>
             <Input
               id="password"
               type="password"
@@ -128,7 +128,7 @@ function LoginForm() {
             ) : (
               <LogIn className="w-4 h-4 mr-2" />
             )}
-            Sign In
+            Giriş Yap
           </Button>
         </form>
       </div>

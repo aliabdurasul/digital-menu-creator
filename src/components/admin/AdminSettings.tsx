@@ -84,7 +84,7 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
 
   const saveSettings = async () => {
     if (!name.trim()) {
-      toast({ title: "Error", description: "Restaurant name is required", variant: "destructive" });
+      toast({ title: "Hata", description: "Restoran adı gereklidir", variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -116,9 +116,9 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
             }
           : r
       );
-      toast({ title: "Saved", description: "Settings updated." });
+      toast({ title: "Kaydedildi", description: "Ayarlar güncellendi." });
     } catch {
-      toast({ title: "Error", description: "Failed to save settings", variant: "destructive" });
+      toast({ title: "Hata", description: "Ayarlar kaydedilemedi", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -126,12 +126,12 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-foreground mb-6">Settings</h1>
+      <h1 className="text-2xl font-bold text-foreground mb-6">Ayarlar</h1>
 
       <div className="space-y-8 max-w-lg">
         {/* Logo */}
         <div>
-          <Label className="mb-2 block">Restaurant Logo</Label>
+          <Label className="mb-2 block">Restoran Logosu</Label>
           <label className="relative w-24 h-24 rounded-2xl bg-muted border-2 border-dashed border-border flex items-center justify-center cursor-pointer overflow-hidden group">
             {logoPreview ? (
               <img src={logoPreview} alt="logo" className="w-full h-full object-cover" />
@@ -152,7 +152,7 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
 
         {/* Cover Image */}
         <div>
-          <Label className="mb-2 block">Cover Image</Label>
+          <Label className="mb-2 block">Kapak Görseli</Label>
           <label className="relative w-full h-40 rounded-2xl bg-muted border-2 border-dashed border-border flex items-center justify-center cursor-pointer overflow-hidden group">
             {coverPreview ? (
               <img src={coverPreview} alt="cover" className="w-full h-full object-cover" />
@@ -173,17 +173,17 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
 
         {/* Restaurant Name */}
         <div>
-          <Label className="mb-2 block">Restaurant Name</Label>
+          <Label className="mb-2 block">Restoran Adı</Label>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Restaurant name"
+            placeholder="Restoran adı"
           />
         </div>
 
         {/* Slug (read-only) */}
         <div>
-          <Label className="mb-2 block">Slug (URL identifier)</Label>
+          <Label className="mb-2 block">Slug (URL tanımlayıcısı)</Label>
           <Input
             value={restaurant.slug}
             readOnly
@@ -193,11 +193,11 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
 
         {/* Description */}
         <div>
-          <Label className="mb-2 block">Short Description</Label>
+          <Label className="mb-2 block">Kısa Açıklama</Label>
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="A brief description of your restaurant"
+            placeholder="Restoranınız hakkında kısa bir açıklama"
             rows={3}
           />
         </div>
@@ -205,31 +205,31 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
         {/* Phone */}
         <div>
           <Label className="mb-2 block">
-            Phone <span className="text-xs text-muted-foreground">(not shown on public menu)</span>
+            Telefon <span className="text-xs text-muted-foreground">(herkese açık menüde gösterilmez)</span>
           </Label>
           <Input
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="+1 (555) 000-0000"
+            placeholder="+90 (5XX) 000 0000"
           />
         </div>
 
         {/* Address */}
         <div>
           <Label className="mb-2 block">
-            Address <span className="text-xs text-muted-foreground">(not shown on public menu)</span>
+            Adres <span className="text-xs text-muted-foreground">(herkese açık menüde gösterilmez)</span>
           </Label>
           <Input
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            placeholder="123 Main St, City"
+            placeholder="Atatürk Cd. No:1, İstanbul"
           />
         </div>
 
         {/* Menu Status */}
         <div>
-          <Label className="mb-2 block">Menu Status</Label>
+          <Label className="mb-2 block">Menü Durumu</Label>
           <div className="flex gap-2">
             <Button
               type="button"
@@ -237,7 +237,7 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
               size="sm"
               onClick={() => setMenuStatus("active")}
             >
-              Active
+              Aktif
             </Button>
             <Button
               type="button"
@@ -245,7 +245,7 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
               size="sm"
               onClick={() => setMenuStatus("paused")}
             >
-              Paused
+              Duraklatıldı
             </Button>
           </div>
         </div>
@@ -253,7 +253,7 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
         {/* Save */}
         <Button onClick={saveSettings} disabled={saving} className="w-full">
           {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-          Save Changes
+          Değişiklikleri Kaydet
         </Button>
       </div>
     </div>

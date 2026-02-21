@@ -1,5 +1,5 @@
 -- ============================================================
--- Digital Menu Creator — Supabase Database Schema
+-- Lezzet-i Âlâ — Supabase Database Schema
 -- ============================================================
 -- Run this in the Supabase SQL Editor to create all tables,
 -- RLS policies, and the trigger for auto-creating profiles.

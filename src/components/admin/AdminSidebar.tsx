@@ -11,11 +11,11 @@ interface AdminSidebarProps {
 }
 
 const navItems: { id: AdminTab; label: string; icon: React.ElementType }[] = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "categories", label: "Categories", icon: FolderOpen },
-  { id: "products", label: "Products", icon: Package },
-  { id: "qr", label: "QR Code", icon: QrCode },
-  { id: "settings", label: "Settings", icon: Settings },
+  { id: "dashboard", label: "Gösterge Paneli", icon: LayoutDashboard },
+  { id: "categories", label: "Kategoriler", icon: FolderOpen },
+  { id: "products", label: "Ürünler", icon: Package },
+  { id: "qr", label: "QR Kod", icon: QrCode },
+  { id: "settings", label: "Ayarlar", icon: Settings },
 ];
 
 export function AdminSidebar({ activeTab, onTabChange }: AdminSidebarProps) {
@@ -36,7 +36,7 @@ export function AdminSidebar({ activeTab, onTabChange }: AdminSidebarProps) {
     >
       <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
         {!collapsed && (
-          <span className="font-bold text-sm text-sidebar-foreground">Admin Panel</span>
+          <span className="font-bold text-sm text-sidebar-foreground">Yönetim Paneli</span>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
@@ -73,7 +73,7 @@ export function AdminSidebar({ activeTab, onTabChange }: AdminSidebarProps) {
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:bg-destructive/10 hover:text-destructive transition-all duration-200"
         >
           <LogOut className="w-4 h-4 shrink-0" />
-          {!collapsed && <span>Sign Out</span>}
+          {!collapsed && <span>Çıkış Yap</span>}
         </button>
       </div>
     </aside>

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import type { Category } from "@/types";
 import { cn } from "@/lib/utils";
+import { LanguageToggle } from "@/components/menu/LanguageToggle";
 
 interface MenuInteractionsProps {
   categories: Category[];
@@ -84,25 +85,28 @@ export function MenuInteractions({ categories, slug }: MenuInteractionsProps) {
 
   return (
     <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b">
-      <div
-        ref={tabsRef}
-        className="flex gap-1 overflow-x-auto px-3 py-2 scrollbar-hide"
-      >
-        {categories.map((cat) => (
-          <button
-            key={cat.id}
-            data-tab={cat.id}
-            onClick={() => handleTabClick(cat.id)}
-            className={cn(
-              "min-h-[44px] whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors",
-              activeCat === cat.id
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            )}
-          >
-            {cat.name}
-          </button>
-        ))}
+      <div className="flex items-center gap-1 px-3 py-2">
+        <div
+          ref={tabsRef}
+          className="flex gap-1 overflow-x-auto flex-1 scrollbar-hide"
+        >
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              data-tab={cat.id}
+              onClick={() => handleTabClick(cat.id)}
+              className={cn(
+                "min-h-[44px] whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors",
+                activeCat === cat.id
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              )}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
+        <LanguageToggle />
       </div>
     </div>
   );
