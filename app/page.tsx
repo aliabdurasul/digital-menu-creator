@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { UtensilsCrossed, Shield, Store, ArrowRight } from "lucide-react";
+import { UtensilsCrossed, LogIn, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
@@ -19,32 +19,10 @@ export default function HomePage() {
         </p>
 
         <div className="mt-10 grid gap-4 w-full max-w-sm">
-          <Link href="/menu/bella-cucina">
+          <Link href="/login">
             <Button className="w-full h-12 text-base gap-2" size="lg">
-              <Store className="w-5 h-5" />
-              View Demo Menu
-              <ArrowRight className="w-4 h-4 ml-auto" />
-            </Button>
-          </Link>
-          <Link href="/restaurant-admin">
-            <Button
-              variant="outline"
-              className="w-full h-12 text-base gap-2"
-              size="lg"
-            >
-              <UtensilsCrossed className="w-5 h-5" />
-              Restaurant Admin
-              <ArrowRight className="w-4 h-4 ml-auto" />
-            </Button>
-          </Link>
-          <Link href="/super-admin">
-            <Button
-              variant="outline"
-              className="w-full h-12 text-base gap-2"
-              size="lg"
-            >
-              <Shield className="w-5 h-5" />
-              Super Admin
+              <LogIn className="w-5 h-5" />
+              Sign In
               <ArrowRight className="w-4 h-4 ml-auto" />
             </Button>
           </Link>
@@ -53,7 +31,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <div className="text-center py-6 text-xs text-muted-foreground">
-        Digital Menu · Production
+        Digital Menu &middot; Production
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { getCurrentRestaurant, getCurrentUser } from "@/lib/auth";
+import { getCurrentRestaurant, getCurrentUser } from "@/lib/auth-server";
 import { redirect } from "next/navigation";
 import { AdminQRCode } from "@/components/admin/AdminQRCode";
 import { AlertTriangle } from "lucide-react";
@@ -6,24 +6,20 @@ import { AlertTriangle } from "lucide-react";
 /**
  * Dedicated QR Code page at /restaurant-admin/qr
  *
- * Server Component shell that:
- * 1. Validates authentication (mock for now)
+ * Server Component that:
+ * 1. Validates authentication via Supabase
  * 2. Fetches restaurant data server-side
- * 3. Checks subscription status
- * 4. Renders the QR code client component
- *
- * When Supabase is configured, this becomes a real server-side
- * auth check + database query.
+ * 3. Renders the QR code client component
  */
-export default function QRCodePage() {
-  const user = getCurrentUser();
+export default async function QRCodePage() {
+  const user = await getCurrentUser();
 
   // Auth check — redirect to login if not authenticated
-  if (!user || user.role !== "restaurant-admin") {
-    redirect("/restaurant-admin");
+  if (!user || user.role !== "restaurant_admin") {
+    redirect("/login");
   }
 
-  const restaurant = getCurrentRestaurant();
+  const restaurant = await getCurrentRestaurant();
 
   if (!restaurant) {
     return (

@@ -33,8 +33,65 @@ export async function updateSession(request: NextRequest) {
   // supabase.auth.getUser(). A simple mistake could make it very hard to debug
   // issues with users being randomly logged out.
 
-  // TODO: Uncomment when Supabase Auth is configured
-  // const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { pathname } = request.nextUrl;
+
+  // Protected routes
+  const isProtected =
+    pathname.startsWith("/restaurant-admin") ||
+    pathname.startsWith("/super-admin");
+
+  // If accessing protected route without auth → redirect to login
+  if (isProtected && !user) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // If authenticated user visits /login → redirect to dashboard
+  if (pathname === "/login" && user) {
+    // Fetch role from profiles
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.role === "super_admin") {
+      return NextResponse.redirect(new URL("/super-admin", request.url));
+    }
+    return NextResponse.redirect(new URL("/restaurant-admin", request.url));
+  }
+
+  // Role-based access enforcement
+  if (isProtected && user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    // Restaurant admin cannot access super admin
+    if (
+      pathname.startsWith("/super-admin") &&
+      profile?.role !== "super_admin"
+    ) {
+      return NextResponse.redirect(
+        new URL("/restaurant-admin", request.url)
+      );
+    }
+
+    // Super admin cannot access restaurant admin (they use super-admin panel)
+    if (
+      pathname.startsWith("/restaurant-admin") &&
+      profile?.role === "super_admin"
+    ) {
+      return NextResponse.redirect(new URL("/super-admin", request.url));
+    }
+  }
 
   return supabaseResponse;
 }

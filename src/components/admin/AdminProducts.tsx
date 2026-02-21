@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { createClient } from "@/lib/supabase/client";
 
 interface Props {
   restaurant: Restaurant;
@@ -49,10 +50,11 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
     }
   };
 
-  const addProduct = () => {
+  const addProduct = async () => {
     if (!form.name.trim() || !form.categoryId) return;
+    const tempId = `p-${Date.now()}`;
     const product: Product = {
-      id: `p-${Date.now()}`,
+      id: tempId,
       name: form.name.trim(),
       description: form.description.trim(),
       price: parseFloat(form.price) || 0,
@@ -61,25 +63,75 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
       available: form.available,
       order: restaurant.products.length,
     };
+
+    // Optimistic UI update
     setRestaurant((r) => ({ ...r, products: [...r.products, product] }));
     setForm(emptyProduct);
     setOpen(false);
+
+    // Persist to Supabase
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("menu_items")
+        .insert({
+          restaurant_id: restaurant.id,
+          category_id: product.categoryId,
+          name: product.name,
+          description: product.description,
+          price: product.price,
+          image_url: product.image,
+          is_available: product.available,
+          order: product.order,
+        })
+        .select("id")
+        .single();
+
+      if (data) {
+        setRestaurant((r) => ({
+          ...r,
+          products: r.products.map((p) =>
+            p.id === tempId ? { ...p, id: data.id } : p
+          ),
+        }));
+      }
+    } catch {
+      // DB not ready — local state is fine
+    }
   };
 
-  const deleteProduct = (id: string) => {
+  const deleteProduct = async (id: string) => {
     setRestaurant((r) => ({
       ...r,
       products: r.products.filter((p) => p.id !== id),
     }));
+
+    try {
+      const supabase = createClient();
+      await supabase.from("menu_items").delete().eq("id", id);
+    } catch {
+      // DB not ready
+    }
   };
 
-  const toggleAvailability = (id: string) => {
+  const toggleAvailability = async (id: string) => {
+    const target = restaurant.products.find((p) => p.id === id);
     setRestaurant((r) => ({
       ...r,
       products: r.products.map((p) =>
         p.id === id ? { ...p, available: !p.available } : p
       ),
     }));
+
+    try {
+      const supabase = createClient();
+      await supabase
+        .from("menu_items")
+        .update({ is_available: !(target?.available ?? true) })
+        .eq("id", id);
+    } catch {
+      // DB not ready
+    }
   };
 
   return (

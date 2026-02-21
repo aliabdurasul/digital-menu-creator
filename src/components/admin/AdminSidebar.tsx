@@ -1,5 +1,7 @@
-import { LayoutDashboard, FolderOpen, Package, Settings, ChevronLeft, ChevronRight, QrCode } from "lucide-react";
+import { LayoutDashboard, FolderOpen, Package, Settings, ChevronLeft, ChevronRight, QrCode, LogOut } from "lucide-react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 export type AdminTab = "dashboard" | "categories" | "products" | "settings" | "qr";
 
@@ -18,6 +20,13 @@ const navItems: { id: AdminTab; label: string; icon: React.ElementType }[] = [
 
 export function AdminSidebar({ activeTab, onTabChange }: AdminSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
 
   return (
     <aside
@@ -56,6 +65,17 @@ export function AdminSidebar({ activeTab, onTabChange }: AdminSidebarProps) {
           );
         })}
       </nav>
+
+      {/* Logout */}
+      <div className="p-2 border-t border-sidebar-border">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:bg-destructive/10 hover:text-destructive transition-all duration-200"
+        >
+          <LogOut className="w-4 h-4 shrink-0" />
+          {!collapsed && <span>Sign Out</span>}
+        </button>
+      </div>
     </aside>
   );
 }

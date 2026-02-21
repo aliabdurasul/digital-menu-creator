@@ -3,6 +3,7 @@ import type { Restaurant } from "@/types";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Camera } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 interface Props {
   restaurant: Restaurant;
@@ -13,21 +14,62 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
   const [logoPreview, setLogoPreview] = useState(restaurant.logo);
   const [coverPreview, setCoverPreview] = useState(restaurant.coverImage);
 
-  const handleLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setLogoPreview(url);
-      setRestaurant((r) => ({ ...r, logo: url }));
+  const uploadImage = async (file: File, path: string): Promise<string | null> => {
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.storage
+        .from("images")
+        .upload(path, file, { upsert: true });
+      if (error) return null;
+      const { data } = supabase.storage.from("images").getPublicUrl(path);
+      return `${data.publicUrl}?v=${Date.now()}`;
+    } catch {
+      return null;
     }
   };
 
-  const handleCover = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setCoverPreview(url);
-      setRestaurant((r) => ({ ...r, coverImage: url }));
+    if (!file) return;
+    const localUrl = URL.createObjectURL(file);
+    setLogoPreview(localUrl);
+    setRestaurant((r) => ({ ...r, logo: localUrl }));
+
+    // Try uploading to Supabase storage
+    const publicUrl = await uploadImage(file, `${restaurant.id}/logo`);
+    if (publicUrl) {
+      setLogoPreview(publicUrl);
+      setRestaurant((r) => ({ ...r, logo: publicUrl }));
+      // Persist URL to restaurant row
+      try {
+        const supabase = createClient();
+        await supabase
+          .from("restaurants")
+          .update({ logo_url: publicUrl })
+          .eq("id", restaurant.id);
+      } catch { /* DB not ready */ }
+    }
+  };
+
+  const handleCover = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const localUrl = URL.createObjectURL(file);
+    setCoverPreview(localUrl);
+    setRestaurant((r) => ({ ...r, coverImage: localUrl }));
+
+    // Try uploading to Supabase storage
+    const publicUrl = await uploadImage(file, `${restaurant.id}/cover`);
+    if (publicUrl) {
+      setCoverPreview(publicUrl);
+      setRestaurant((r) => ({ ...r, coverImage: publicUrl }));
+      try {
+        const supabase = createClient();
+        await supabase
+          .from("restaurants")
+          .update({ cover_image_url: publicUrl })
+          .eq("id", restaurant.id);
+      } catch { /* DB not ready */ }
     }
   };
 

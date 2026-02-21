@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AdminSidebar, type AdminTab } from "@/components/admin/AdminSidebar";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { AdminCategories } from "@/components/admin/AdminCategories";
@@ -9,37 +9,101 @@ import { AdminSettings } from "@/components/admin/AdminSettings";
 import { AdminQRCode } from "@/components/admin/AdminQRCode";
 import { mockRestaurants } from "@/lib/mockData";
 import type { Restaurant } from "@/types";
-import { LogIn } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/client";
+import { Loader2 } from "lucide-react";
 
 export default function RestaurantAdminPage() {
-  const [loggedIn, setLoggedIn] = useState(false);
   const [activeTab, setActiveTab] = useState<AdminTab>("dashboard");
-  const [restaurant, setRestaurant] = useState<Restaurant>(() => ({
-    ...mockRestaurants[0],
-    categories: [...mockRestaurants[0].categories],
-    products: [...mockRestaurants[0].products],
-  }));
+  const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  if (!loggedIn) {
+  useEffect(() => {
+    async function loadRestaurant() {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          // Try to get the user's restaurant from profiles
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("restaurant_id")
+            .eq("id", user.id)
+            .single();
+
+          if (profile?.restaurant_id) {
+            // Try to fetch real restaurant data
+            const { data: dbRestaurant } = await supabase
+              .from("restaurants")
+              .select("*")
+              .eq("id", profile.restaurant_id)
+              .single();
+
+            if (dbRestaurant) {
+              const { data: categories } = await supabase
+                .from("categories")
+                .select("*")
+                .eq("restaurant_id", dbRestaurant.id)
+                .order("order");
+
+              const { data: items } = await supabase
+                .from("menu_items")
+                .select("*")
+                .eq("restaurant_id", dbRestaurant.id)
+                .order("order");
+
+              setRestaurant({
+                id: dbRestaurant.id,
+                slug: dbRestaurant.slug,
+                name: dbRestaurant.name,
+                logo: dbRestaurant.logo_url || "",
+                coverImage: dbRestaurant.cover_image_url || "",
+                categories: (categories || []).map((c: { id: string; name: string; order: number }) => ({
+                  id: c.id,
+                  name: c.name,
+                  order: c.order,
+                })),
+                products: (items || []).map((i: { id: string; name: string; description: string; price: number; image_url: string; category_id: string; is_available: boolean; order: number }) => ({
+                  id: i.id,
+                  name: i.name,
+                  description: i.description,
+                  price: i.price,
+                  image: i.image_url || "",
+                  categoryId: i.category_id,
+                  available: i.is_available,
+                  order: i.order,
+                })),
+                plan: dbRestaurant.plan || "basic",
+                active: dbRestaurant.active ?? true,
+                totalViews: dbRestaurant.total_views || 0,
+              });
+              setLoading(false);
+              return;
+            }
+          }
+        }
+      } catch {
+        // DB not ready — fall through to mock
+      }
+
+      // TODO: Remove mock fallback when DB is ready
+      setRestaurant({
+        ...mockRestaurants[0],
+        categories: [...mockRestaurants[0].categories],
+        products: [...mockRestaurants[0].products],
+      });
+      setLoading(false);
+    }
+
+    loadRestaurant();
+  }, []);
+
+  if (loading || !restaurant) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="w-full max-w-sm p-8 rounded-2xl bg-card border border-border shadow-lg text-center space-y-6">
-          <div className="w-14 h-14 bg-primary/10 rounded-2xl mx-auto flex items-center justify-center">
-            <LogIn className="w-7 h-7 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">
-              Restaurant Admin
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Sign in to manage your menu
-            </p>
-          </div>
-          <Button onClick={() => setLoggedIn(true)} className="w-full">
-            Sign In (Demo)
-          </Button>
-        </div>
+      <div className="flex items-center justify-center min-h-screen bg-muted/30">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
