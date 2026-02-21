@@ -50,13 +50,32 @@ function LoginForm() {
         return;
       }
 
-      // Auth succeeded — navigate and let middleware handle role routing.
-      // Middleware already redirects super_admin ↔ restaurant_admin,
-      // so NO client-side profile query needed here.
+      // Determine where to navigate based on user role
       const redirectTo = searchParams?.get("redirect");
 
-      // Hard navigate to force a full request cycle with fresh cookies.
-      window.location.href = redirectTo || "/restaurant-admin";
+      if (redirectTo) {
+        // Explicit redirect takes priority — middleware will enforce roles
+        window.location.href = redirectTo;
+        return;
+      }
+
+      // Query profile to route to the correct dashboard
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+
+        if (profile?.role === "super_admin") {
+          window.location.href = "/super-admin";
+          return;
+        }
+      }
+
+      // Default: restaurant admin
+      window.location.href = "/restaurant-admin";
     } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);

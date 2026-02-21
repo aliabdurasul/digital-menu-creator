@@ -36,9 +36,15 @@ export default function RestaurantAdminPage() {
 
         const { data: profile } = await supabase
           .from("profiles")
-          .select("restaurant_id")
+          .select("restaurant_id, role")
           .eq("id", user.id)
           .single();
+
+        // Super admins should be on /super-admin, not here
+        if (profile?.role === "super_admin") {
+          window.location.href = "/super-admin";
+          return;
+        }
 
         if (!profile?.restaurant_id) {
           setError("NO_RESTAURANT");
