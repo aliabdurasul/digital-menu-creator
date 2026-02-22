@@ -91,6 +91,7 @@ export default function SuperAdminPage() {
             active: r.active ?? true,
             menuStatus: (r.menu_status || "active") as "active" | "paused",
             totalViews: r.total_views || 0,
+            customDomain: r.custom_domain || null,
           }))
         );
       } catch {
@@ -152,6 +153,7 @@ export default function SuperAdminPage() {
         active: true,
         menuStatus: "active",
         totalViews: 0,
+        customDomain: null,
       },
       ...prev,
     ]);

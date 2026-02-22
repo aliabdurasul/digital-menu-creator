@@ -120,6 +120,7 @@ export default function RestaurantAdminPage() {
           active: dbRestaurant.active ?? true,
           menuStatus: dbRestaurant.menu_status || "active",
           totalViews: dbRestaurant.total_views || 0,
+          customDomain: dbRestaurant.custom_domain || null,
         });
       } catch {
         setError("Restoranınız yüklenirken bir hata oluştu");
