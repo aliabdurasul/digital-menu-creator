@@ -153,17 +153,22 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
     if (saving) return;
     setSaving(true);
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       category_id: form.categoryId || null,
       name: form.name.trim(),
       description: form.description.trim(),
       price: parseFloat(form.price) || 0,
       image_url: form.imagePreview || "/placeholder.svg",
       is_available: form.available,
-      ingredients: form.ingredients.trim(),
-      portion_info: form.portionInfo.trim(),
-      allergen_info: form.allergenInfo.trim(),
     };
+
+    // Only include new columns when non-empty (avoids PostgREST schema cache miss)
+    const _ingredients = form.ingredients.trim();
+    const _portionInfo = form.portionInfo.trim();
+    const _allergenInfo = form.allergenInfo.trim();
+    if (_ingredients) payload.ingredients = _ingredients;
+    if (_portionInfo) payload.portion_info = _portionInfo;
+    if (_allergenInfo) payload.allergen_info = _allergenInfo;
 
     try {
       const supabase = createClient();
@@ -184,15 +189,15 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
 
         const updated: Product = {
           ...editingProduct,
-          name: payload.name,
-          description: payload.description,
-          price: payload.price,
-          image: payload.image_url,
-          categoryId: payload.category_id,
-          available: payload.is_available,
-          ingredients: payload.ingredients,
-          portionInfo: payload.portion_info,
-          allergenInfo: payload.allergen_info,
+          name: payload.name as string,
+          description: payload.description as string,
+          price: payload.price as number,
+          image: payload.image_url as string,
+          categoryId: payload.category_id as string | null,
+          available: payload.is_available as boolean,
+          ingredients: _ingredients || editingProduct.ingredients,
+          portionInfo: _portionInfo || editingProduct.portionInfo,
+          allergenInfo: _allergenInfo || editingProduct.allergenInfo,
         };
 
         setRestaurant((r) =>
@@ -214,16 +219,16 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
 
         const product: Product = {
           id: data.id,
-          name: payload.name,
-          description: payload.description,
-          price: payload.price,
-          image: payload.image_url,
-          categoryId: payload.category_id,
-          available: payload.is_available,
+          name: payload.name as string,
+          description: payload.description as string,
+          price: payload.price as number,
+          image: payload.image_url as string,
+          categoryId: payload.category_id as string | null,
+          available: payload.is_available as boolean,
           order: restaurant.products.length,
-          ingredients: payload.ingredients,
-          portionInfo: payload.portion_info,
-          allergenInfo: payload.allergen_info,
+          ingredients: _ingredients,
+          portionInfo: _portionInfo,
+          allergenInfo: _allergenInfo,
         };
 
         setRestaurant((r) => r ? { ...r, products: [...r.products, product] } : r);

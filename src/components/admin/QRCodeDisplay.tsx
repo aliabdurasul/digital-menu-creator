@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback, forwardRef, useImperativeHandle } from "react";
+import { useRef, useCallback, forwardRef, useImperativeHandle, useState, useEffect } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 
 export interface QRCodeDisplayHandle {
@@ -8,30 +8,29 @@ export interface QRCodeDisplayHandle {
 }
 
 interface QRCodeDisplayProps {
-  /** The full URL to encode in the QR code */
   url: string;
-  /** Display size in CSS pixels (canvas renders at 2x for print quality) */
   size?: number;
-  /** Optional logo URL to overlay in the center (Pro plan feature) */
   logoUrl?: string;
-  /** Background color */
   bgColor?: string;
-  /** Foreground (pattern) color */
   fgColor?: string;
 }
 
-/**
- * Modular QR Code display component.
- *
- * Uses canvas-based rendering for high-quality PNG export.
- * Renders at 2x internal resolution for crisp printing.
- *
- * Future extensions:
- * - Add restaurant logo inside QR center (imageSettings prop)
- * - Different QR styles (Pro plan)
- * - QR scan tracking via URL parameters
- * - Analytics integration
- */
+/** Convert external URL → data-URL so canvas stays CORS-clean. */
+async function toDataUrl(src: string): Promise<string | undefined> {
+  try {
+    const res = await fetch(src, { mode: "cors" });
+    if (!res.ok) return undefined;
+    const blob = await res.blob();
+    return await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return undefined;
+  }
+}
+
 const QRCodeDisplay = forwardRef<QRCodeDisplayHandle, QRCodeDisplayProps>(
   function QRCodeDisplay(
     {
@@ -45,6 +44,18 @@ const QRCodeDisplay = forwardRef<QRCodeDisplayHandle, QRCodeDisplayProps>(
   ) {
     const containerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const [safeLogoUrl, setSafeLogoUrl] = useState<string | undefined>(undefined);
+
+    // Pre-fetch logo as data-URL to avoid CORS-tainted canvas
+    useEffect(() => {
+      setSafeLogoUrl(undefined);
+      if (!logoUrl) return;
+      let cancelled = false;
+      toDataUrl(logoUrl).then((dataUrl) => {
+        if (!cancelled) setSafeLogoUrl(dataUrl);
+      });
+      return () => { cancelled = true; };
+    }, [logoUrl]);
 
     const setCanvasRef = useCallback((node: HTMLCanvasElement | null) => {
       canvasRef.current = node;
@@ -67,12 +78,12 @@ const QRCodeDisplay = forwardRef<QRCodeDisplayHandle, QRCodeDisplayProps>(
           size={size}
           bgColor={bgColor}
           fgColor={fgColor}
-          level="H" // High error correction — supports up to 30% damage, needed for future logo overlay
+          level="H"
           marginSize={2}
           imageSettings={
-            logoUrl
+            safeLogoUrl
               ? {
-                  src: logoUrl,
+                  src: safeLogoUrl,
                   x: undefined,
                   y: undefined,
                   height: size * 0.2,

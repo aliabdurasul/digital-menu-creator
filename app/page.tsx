@@ -8,17 +8,18 @@ export default function HomePage() {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Hero */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-20 text-center">
-        <div className="w-24 h-24 rounded-2xl overflow-hidden mb-6 shadow-lg">
+        <div className="w-20 h-20 mb-5">
           <Image
             src="/logo.svg"
             alt="Lezzet-i Âlâ"
-            width={96}
-            height={96}
+            width={80}
+            height={80}
             priority
           />
         </div>
-        <h1 className="text-4xl sm:text-5xl font-extrabold text-foreground tracking-tight">
-          Lezzet-i Âlâ
+        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight">
+          <span className="text-primary">Lezzet-i</span>{" "}
+          <span className="text-foreground">Âlâ</span>
         </h1>
         <p className="mt-4 text-lg text-muted-foreground max-w-md">
           Restoranınız için modern dijital menü sistemi. Kolayca yönetin,
