@@ -252,5 +252,6 @@ function toRestaurant(r: any, categories: any[], items: any[]): Restaurant {
     active: r.active ?? true,
     menuStatus: r.menu_status || "active",
     totalViews: r.total_views || 0,
+    customDomain: r.custom_domain || null,
   };
 }

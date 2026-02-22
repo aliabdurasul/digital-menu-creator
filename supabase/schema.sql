@@ -26,6 +26,7 @@ create table if not exists public.restaurants (
   active        boolean default true,
   menu_status   text default 'active' check (menu_status in ('active', 'paused')),
   total_views   integer default 0,
+  custom_domain text unique default null,
   created_at    timestamptz default now(),
   updated_at    timestamptz default now()
 );
@@ -100,6 +101,7 @@ create index if not exists idx_categories_restaurant on public.categories(restau
 create index if not exists idx_menu_items_restaurant on public.menu_items(restaurant_id);
 create index if not exists idx_menu_items_category   on public.menu_items(category_id);
 create index if not exists idx_restaurants_slug       on public.restaurants(slug);
+create index if not exists idx_restaurants_custom_domain on public.restaurants(custom_domain) where custom_domain is not null;
 create index if not exists idx_profiles_restaurant    on public.profiles(restaurant_id);
 
 -- ============================================================

@@ -4,9 +4,11 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Camera, Loader2 } from "lucide-react";
+import { Camera, Loader2, Globe, AlertCircle, Crown, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { evaluateFeature } from "@/lib/features/engine";
+import { setCustomDomain, removeCustomDomain, verifyCustomDomainDns } from "@/lib/actions-domains";
 
 interface Props {
   restaurant: Restaurant;
@@ -25,6 +27,15 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
   const [menuStatus, setMenuStatus] = useState<"active" | "paused">(restaurant.menuStatus);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+
+  // Feature flags — evaluated client-side from known plan
+  const canUseCustomDomain = evaluateFeature("custom_domain", { plan: restaurant.plan });
+  const canUseCustomBranding = evaluateFeature("custom_branding", { plan: restaurant.plan });
+
+  // Custom domain state
+  const [customDomain, setCustomDomain_] = useState(restaurant.customDomain || "");
+  const [domainSaving, setDomainSaving] = useState(false);
+  const [dnsInstructions, setDnsInstructions] = useState<string | null>(null);
 
   const uploadImage = async (file: File, path: string): Promise<string | null> => {
     try {
@@ -248,6 +259,126 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
               Duraklatıldı
             </Button>
           </div>
+        </div>
+
+        {/* Custom Domain — Feature Gated */}
+        <div className="border rounded-lg p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Globe className="w-5 h-5 text-primary" />
+            <Label className="text-base font-semibold">Özel Alan Adı</Label>
+            {!canUseCustomDomain && (
+              <span className="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-800 rounded-full px-2 py-0.5">
+                <Crown className="w-3 h-3" />
+                Pro
+              </span>
+            )}
+          </div>
+
+          {canUseCustomDomain ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Kendi alan adınızı bağlayarak menünüzü özelleştirin (örn. menu.restoraniniz.com).
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  value={customDomain}
+                  onChange={(e) => setCustomDomain_(e.target.value)}
+                  placeholder="menu.restoraniniz.com"
+                  className="flex-1"
+                />
+                {restaurant.customDomain ? (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    disabled={domainSaving}
+                    onClick={async () => {
+                      setDomainSaving(true);
+                      try {
+                        const result = await removeCustomDomain(restaurant.id);
+                        if (result.success) {
+                          setCustomDomain_("");
+                          setDnsInstructions(null);
+                          setRestaurant((r) => r ? { ...r, customDomain: null } : r);
+                          toast({ title: "Kaldırıldı", description: "Özel alan adı kaldırıldı." });
+                        } else {
+                          toast({ title: "Hata", description: result.error, variant: "destructive" });
+                        }
+                      } finally {
+                        setDomainSaving(false);
+                      }
+                    }}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={domainSaving || !customDomain.trim()}
+                  onClick={async () => {
+                    setDomainSaving(true);
+                    try {
+                      const result = await setCustomDomain(restaurant.id, customDomain);
+                      if (result.success) {
+                        setDnsInstructions(result.data.dnsInstructions);
+                        setRestaurant((r) => r ? { ...r, customDomain: result.data.domain } : r);
+                        toast({ title: "Kaydedildi", description: "Özel alan adı ayarlandı." });
+                      } else {
+                        toast({ title: "Hata", description: result.error, variant: "destructive" });
+                      }
+                    } finally {
+                      setDomainSaving(false);
+                    }
+                  }}
+                >
+                  {domainSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Kaydet"}
+                </Button>
+              </div>
+
+              {dnsInstructions && (
+                <div className="bg-muted rounded-lg p-3 text-sm whitespace-pre-line">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                    <div>{dnsInstructions}</div>
+                  </div>
+                </div>
+              )}
+
+              {restaurant.customDomain && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={domainSaving}
+                  onClick={async () => {
+                    setDomainSaving(true);
+                    try {
+                      const result = await verifyCustomDomainDns(restaurant.id);
+                      if (result.success) {
+                        toast({
+                          title: result.data.verified ? "Doğrulandı" : "Bekliyor",
+                          description: result.data.message,
+                          variant: result.data.verified ? "default" : "destructive",
+                        });
+                      }
+                    } finally {
+                      setDomainSaving(false);
+                    }
+                  }}
+                >
+                  DNS Doğrula
+                </Button>
+              )}
+            </>
+          ) : (
+            <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
+              <p>
+                Özel alan adı desteği <span className="font-semibold text-foreground">Pro plan</span> ile kullanılabilir.
+                Kendi alan adınızı bağlayarak markanızı güçlendirin.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Save */}
