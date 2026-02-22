@@ -21,7 +21,7 @@ export async function getRestaurantBySlug(
       .select(`
         *,
         categories ( id, restaurant_id, name, "order", created_at ),
-        menu_items ( id, restaurant_id, category_id, name, description, price, image_url, is_available, "order", created_at, updated_at )
+        menu_items ( id, restaurant_id, category_id, name, description, price, image_url, is_available, "order", ingredients, portion_info, allergen_info, created_at, updated_at )
       `)
       .eq("slug", slug)
       .single();

@@ -160,15 +160,14 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
       price: parseFloat(form.price) || 0,
       image_url: form.imagePreview || "/placeholder.svg",
       is_available: form.available,
+      ingredients: form.ingredients.trim(),
+      portion_info: form.portionInfo.trim(),
+      allergen_info: form.allergenInfo.trim(),
     };
 
-    // Only include new columns when non-empty (avoids PostgREST schema cache miss)
     const _ingredients = form.ingredients.trim();
     const _portionInfo = form.portionInfo.trim();
     const _allergenInfo = form.allergenInfo.trim();
-    if (_ingredients) payload.ingredients = _ingredients;
-    if (_portionInfo) payload.portion_info = _portionInfo;
-    if (_allergenInfo) payload.allergen_info = _allergenInfo;
 
     try {
       const supabase = createClient();
