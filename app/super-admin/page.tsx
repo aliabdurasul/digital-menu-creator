@@ -24,6 +24,7 @@ import {
   Plus,
   Trash2,
   Eye,
+  ExternalLink,
   Shield,
   Loader2,
   LogOut,
@@ -429,6 +430,16 @@ export default function SuperAdminPage() {
               </div>
 
               <div className="flex items-center gap-3 shrink-0">
+                <a
+                  href={`/super-admin/preview/${r.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 h-8 px-2.5 text-xs font-medium rounded-md border border-border bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Önizle</span>
+                </a>
+
                 <Dialog
                   open={assignOpen === r.id}
                   onOpenChange={(v) => {

@@ -1,14 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import type { Product, Category } from "@/types";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Utensils, Scale, AlertTriangle } from "lucide-react";
+import { Utensils, Scale, AlertTriangle, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ProductListProps {
   products: Product[];
@@ -16,11 +12,22 @@ interface ProductListProps {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Mobile-first product cards                                        */
-/*  Collapsed : image (16:9) → name + price → 2-line desc → chevron   */
-/*  Expanded  : full desc, ingredients, portion, allergens             */
+/*  Premium 2-col grid — aspect-square images, no cropping issues     */
+/*                                                                    */
+/*  WHY aspect-square instead of fixed height (h-48) or aspect-video: */
+/*  • aspect-square is responsive — it scales with the column width   */
+/*    so the frame is always a perfect 1:1 ratio regardless of screen */
+/*    size. A fixed h-48 would crop differently on every viewport.    */
+/*  • Square frames work universally: landscape, portrait, and square */
+/*    source images all look clean inside them with object-cover.     */
+/*  • 1:1 grids feel premium (Instagram, DoorDash, Uber Eats all use */
+/*    square thumbnails) and create visual rhythm.                    */
+/*  • No stretching: the image is never distorted — object-cover     */
+/*    fills the square by cropping the overflow, keeping aspect ratio.*/
 /* ------------------------------------------------------------------ */
 export function ProductList({ products, categories }: ProductListProps) {
+  const [expanded, setExpanded] = useState<string | null>(null);
+
   const sortedCategories = [...categories].sort((a, b) => a.order - b.order);
 
   const categorySections = sortedCategories
@@ -35,112 +42,118 @@ export function ProductList({ products, categories }: ProductListProps) {
   const hasImage = (p: Product) =>
     p.image && p.image !== "/placeholder.svg";
 
+  const toggle = (id: string) =>
+    setExpanded((prev) => (prev === id ? null : id));
+
   return (
     <div className="px-3 py-4 space-y-8">
-      <Accordion type="single" collapsible className="w-full">
-        {categorySections.map((cat) => (
-          <div key={cat.id} data-cat-id={cat.id}>
-            <h2 className="text-base font-semibold text-muted-foreground/70 uppercase tracking-wide mb-3 mt-6 first:mt-0">
-              {cat.name}
-            </h2>
+      {categorySections.map((cat) => (
+        <div key={cat.id} data-cat-id={cat.id}>
+          <h2 className="text-[13px] font-semibold text-neutral-400 uppercase tracking-widest mb-4 mt-2 first:mt-0">
+            {cat.name}
+          </h2>
 
-            <div className="space-y-3">
-              {cat.products.map((product) => (
-                <AccordionItem
+          {/* ── 2-column grid ── */}
+          <div className="grid grid-cols-2 gap-3">
+            {cat.products.map((product) => {
+              const isExpanded = expanded === product.id;
+
+              return (
+                <div
                   key={product.id}
-                  value={product.id}
-                  className="border-0"
+                  className={cn(
+                    "group rounded-2xl bg-card border border-border/40 overflow-hidden shadow-sm transition-shadow duration-200 hover:shadow-lg",
+                    !product.available && "opacity-50"
+                  )}
                 >
-                  {/* ── Card shell ── */}
-                  <div
-                    className={`rounded-2xl bg-card border border-border/40 overflow-hidden shadow-sm ${
-                      !product.available ? "opacity-50" : ""
-                    }`}
-                  >
-                    {/* Image — 16 : 9 */}
-                    {hasImage(product) && (
-                      <div className="relative w-full aspect-video bg-muted">
-                        <Image
-                          src={product.image}
-                          alt={product.name}
-                          fill
-                          sizes="(max-width:480px) 100vw, 440px"
-                          className="object-cover"
-                          loading="lazy"
-                        />
-                      </div>
+                  {/* ── Image — perfect square ── */}
+                  {hasImage(product) && (
+                    <div className="relative aspect-square overflow-hidden rounded-t-2xl bg-muted">
+                      <Image
+                        src={product.image}
+                        alt={product.name}
+                        fill
+                        sizes="(max-width:480px) 50vw, 220px"
+                        className="object-cover transition-transform duration-300 group-hover:scale-105"
+                        loading="lazy"
+                      />
+                    </div>
+                  )}
+
+                  {/* ── Info ── */}
+                  <div className="px-3 pt-2.5 pb-3 space-y-1">
+                    <h3 className="font-semibold text-card-foreground text-[13px] leading-tight line-clamp-2">
+                      {product.name}
+                    </h3>
+
+                    <p className="font-bold text-primary text-sm">
+                      ₺{product.price.toFixed(2)}
+                    </p>
+
+                    {product.description && (
+                      <p className="text-muted-foreground text-[11px] leading-relaxed line-clamp-2">
+                        {product.description}
+                      </p>
                     )}
 
-                    {/* Trigger — name + price + desc + chevron */}
-                    <AccordionTrigger className="w-full px-4 py-3 hover:no-underline">
-                      <div className="flex flex-col min-w-0 flex-1 text-left gap-0.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <h3 className="font-semibold text-card-foreground text-[15px] leading-snug truncate">
-                            {product.name}
-                          </h3>
-                          <span className="font-bold text-primary text-[15px] whitespace-nowrap">
-                            ₺{product.price.toFixed(2)}
-                          </span>
-                        </div>
+                    {!product.available && (
+                      <span className="text-[10px] font-medium text-destructive">
+                        Tükendi
+                      </span>
+                    )}
 
-                        {product.description && (
-                          <p className="text-muted-foreground text-xs leading-relaxed line-clamp-2">
-                            {product.description}
-                          </p>
-                        )}
-
-                        {!product.available && (
-                          <span className="text-[11px] font-medium text-destructive">
-                            Tükendi
-                          </span>
-                        )}
-                      </div>
-                    </AccordionTrigger>
+                    {/* Expandable details toggle */}
+                    {(product.ingredients || product.portionInfo || product.allergenInfo) && (
+                      <button
+                        onClick={() => toggle(product.id)}
+                        className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors pt-1"
+                      >
+                        Detaylar
+                        <ChevronDown
+                          className={cn(
+                            "w-3 h-3 transition-transform duration-200",
+                            isExpanded && "rotate-180"
+                          )}
+                        />
+                      </button>
+                    )}
 
                     {/* Expanded details */}
-                    <AccordionContent className="px-4 pb-4">
-                      <div className="space-y-3 border-t border-border/30 pt-3">
-                        {/* Ingredients */}
+                    {isExpanded && (
+                      <div className="space-y-2 pt-2 border-t border-border/30 animate-in fade-in-0 slide-in-from-top-1 duration-200">
                         {product.ingredients && (
-                          <div className="flex items-start gap-2">
-                            <Utensils className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                            <div>
-                              <p className="text-xs font-medium text-foreground">Malzemeler</p>
-                              <p className="text-xs text-muted-foreground">{product.ingredients}</p>
-                            </div>
+                          <div className="flex items-start gap-1.5">
+                            <Utensils className="w-3 h-3 text-muted-foreground mt-0.5 shrink-0" />
+                            <p className="text-[10px] text-muted-foreground leading-relaxed">
+                              {product.ingredients}
+                            </p>
                           </div>
                         )}
-
-                        {/* Portion */}
                         {product.portionInfo && (
-                          <div className="flex items-start gap-2">
-                            <Scale className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                            <div>
-                              <p className="text-xs font-medium text-foreground">Porsiyon</p>
-                              <p className="text-xs text-muted-foreground">{product.portionInfo}</p>
-                            </div>
+                          <div className="flex items-start gap-1.5">
+                            <Scale className="w-3 h-3 text-muted-foreground mt-0.5 shrink-0" />
+                            <p className="text-[10px] text-muted-foreground leading-relaxed">
+                              {product.portionInfo}
+                            </p>
                           </div>
                         )}
-
-                        {/* Allergens */}
                         {product.allergenInfo && (
-                          <div className="flex items-start gap-2">
-                            <AlertTriangle className="w-3.5 h-3.5 text-amber-500 mt-0.5 shrink-0" />
-                            <div>
-                              <p className="text-xs font-medium text-foreground">Alerjenler</p>
-                              <p className="text-xs text-muted-foreground">{product.allergenInfo}</p>
-                            </div>
+                          <div className="flex items-start gap-1.5">
+                            <AlertTriangle className="w-3 h-3 text-amber-500 mt-0.5 shrink-0" />
+                            <p className="text-[10px] text-muted-foreground leading-relaxed">
+                              {product.allergenInfo}
+                            </p>
                           </div>
                         )}
                       </div>
-                    </AccordionContent>
+                    )}
                   </div>
-                </AccordionItem>
-              ))}
-            </div>
+                </div>
+              );
+            })}
           </div>
-        ))}
-      </Accordion>
+        </div>
+      ))}
     </div>
   );
 }

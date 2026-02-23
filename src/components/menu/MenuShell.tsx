@@ -19,9 +19,9 @@ export function MenuShell({ restaurant }: MenuShellProps) {
   );
 
   return (
-    <div className="max-w-[480px] mx-auto min-h-screen bg-background shadow-sm">
-      {/* Cover — LCP image: priority + eager loading */}
-      <div className="relative w-full h-44 sm:h-56 overflow-hidden">
+    <div className="max-w-[480px] mx-auto min-h-screen bg-white shadow-sm">
+      {/* ── Hero cover — 220px with rounded bottom ── */}
+      <div className="relative w-full h-[220px] overflow-hidden rounded-b-[2rem]">
         {restaurant.coverImage ? (
           <Image
             src={restaurant.coverImage}
@@ -32,51 +32,50 @@ export function MenuShell({ restaurant }: MenuShellProps) {
             className="object-cover"
           />
         ) : (
-          <div className="w-full h-full bg-muted" />
+          <div className="w-full h-full bg-neutral-200" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
-      </div>
+        <div className="absolute inset-0 bg-black/30" />
 
-      {/* Header */}
-      <div className="relative -mt-10 px-4">
-        <div className="flex items-end gap-4">
-          <div className="w-20 h-20 rounded-2xl bg-card border-4 border-background flex items-center justify-center shadow-lg overflow-hidden relative">
+        {/* Centered branding on cover */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+          <div className="w-[72px] h-[72px] rounded-2xl bg-white/95 backdrop-blur flex items-center justify-center shadow-xl overflow-hidden relative">
             {restaurant.logo ? (
               <Image
                 src={restaurant.logo}
                 alt="logo"
                 fill
-                sizes="80px"
+                sizes="72px"
                 className="object-cover"
               />
             ) : (
-              <span className="text-2xl font-extrabold text-primary">
+              <span className="text-2xl font-extrabold text-neutral-900">
                 {restaurant.name.charAt(0)}
               </span>
             )}
           </div>
-          <div className="pb-1">
-            <h1 className="text-xl sm:text-2xl font-extrabold text-foreground">
-              {restaurant.name}
-            </h1>
-          </div>
+          <h1 className="text-xl sm:text-2xl font-extrabold text-white text-center drop-shadow-lg px-4">
+            {restaurant.name}
+          </h1>
+          {restaurant.description && (
+            <p className="text-white/80 text-xs text-center max-w-[280px] leading-relaxed">
+              {restaurant.description}
+            </p>
+          )}
         </div>
       </div>
 
       {/* Client island: sticky tabs + scroll spy */}
-      <MenuInteractions
-        categories={sortedCategories}
-      />
+      <MenuInteractions categories={sortedCategories} />
 
-      {/* Accordion product list */}
+      {/* Product grid */}
       <ProductList
         products={restaurant.products}
         categories={sortedCategories}
       />
 
       {/* Footer */}
-      <div className="text-center pt-16 pb-10 text-xs text-muted-foreground/60">
-        <span className="font-semibold text-primary">© 2026 Lezzet-i Âlâ</span>
+      <div className="text-center pt-16 pb-10">
+        <span className="text-xs text-neutral-300 font-medium">© 2026 Lezzet-i Âlâ</span>
       </div>
     </div>
   );

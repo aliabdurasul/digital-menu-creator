@@ -71,11 +71,11 @@ export function MenuInteractions({ categories }: MenuInteractionsProps) {
   }
 
   return (
-    <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b">
-      <div className="flex items-center gap-1 px-3 py-2">
+    <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-md">
+      <div className="flex items-center gap-1 px-3 py-2.5">
         <div
           ref={tabsRef}
-          className="flex gap-1 overflow-x-auto flex-1 scrollbar-hide"
+          className="flex gap-2 overflow-x-auto flex-1 scrollbar-hide"
         >
           {categories.map((cat) => (
             <button
@@ -83,10 +83,10 @@ export function MenuInteractions({ categories }: MenuInteractionsProps) {
               data-tab={cat.id}
               onClick={() => handleTabClick(cat.id)}
               className={cn(
-                "min-h-[44px] whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors",
+                "min-h-[40px] whitespace-nowrap px-4 py-2 rounded-full text-[13px] font-medium transition-all duration-200",
                 activeCat === cat.id
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  ? "bg-neutral-900 text-white shadow-sm"
+                  : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-700"
               )}
             >
               {cat.name}
@@ -94,6 +94,7 @@ export function MenuInteractions({ categories }: MenuInteractionsProps) {
           ))}
         </div>
       </div>
+      <div className="h-px bg-neutral-100" />
     </div>
   );
 }
