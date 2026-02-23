@@ -9,9 +9,7 @@ interface MenuShellProps {
 
 /**
  * Server Component — renders the entire menu as static HTML.
- * Only the thin <MenuInteractions> island ships JS for:
- *   - sticky category tab highlighting
- *   - smooth-scroll on tab click
+ * Only <MenuInteractions> and <ProductList> ship JS (sticky tabs + bottom sheet).
  */
 export function MenuShell({ restaurant }: MenuShellProps) {
   const sortedCategories = [...restaurant.categories].sort(
@@ -19,7 +17,7 @@ export function MenuShell({ restaurant }: MenuShellProps) {
   );
 
   return (
-    <div className="max-w-[480px] mx-auto min-h-screen bg-white shadow-sm">
+    <div className="max-w-md mx-auto min-h-screen bg-white">
       {/* ── Hero cover — 220px with rounded bottom ── */}
       <div className="relative w-full h-[220px] overflow-hidden rounded-b-[2rem]">
         {restaurant.coverImage ? (
@@ -67,7 +65,7 @@ export function MenuShell({ restaurant }: MenuShellProps) {
       {/* Client island: sticky tabs + scroll spy */}
       <MenuInteractions categories={sortedCategories} />
 
-      {/* Product grid */}
+      {/* Product grid with bottom sheet */}
       <ProductList
         products={restaurant.products}
         categories={sortedCategories}
