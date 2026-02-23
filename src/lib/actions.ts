@@ -319,6 +319,7 @@ export async function getAllRestaurantsAdmin(): Promise<
     active: boolean;
     menu_status: string;
     total_views: number;
+    custom_domain: string | null;
   }>>
 > {
   try {
