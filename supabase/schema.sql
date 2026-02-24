@@ -26,7 +26,6 @@ create table if not exists public.restaurants (
   active        boolean default true,
   menu_status   text default 'active' check (menu_status in ('active', 'paused')),
   total_views   integer default 0,
-  custom_domain text unique default null,
   created_at    timestamptz default now(),
   updated_at    timestamptz default now()
 );

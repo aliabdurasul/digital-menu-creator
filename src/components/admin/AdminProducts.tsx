@@ -327,7 +327,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
                 />
               </div>
               <div>
-                <Label className="text-xs">İçindekiler</Label>
+                <Label className="text-xs">Malzemeler</Label>
                 <Textarea
                   value={form.ingredients}
                   onChange={(e) => setForm((f) => ({ ...f, ingredients: e.target.value }))}

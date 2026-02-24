@@ -13,7 +13,6 @@ export interface DbRestaurant {
   active: boolean;
   menu_status: "active" | "paused";
   total_views: number;
-  custom_domain: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -90,7 +89,6 @@ export interface Restaurant {
   active: boolean;
   menuStatus: "active" | "paused";
   totalViews: number;
-  customDomain: string | null;
 }
 
 /* ─── Converters ─── */
@@ -132,7 +130,6 @@ export function toLegacyRestaurant(
     active: r.active,
     menuStatus: r.menu_status || "active",
     totalViews: r.total_views,
-    customDomain: r.custom_domain || null,
   };
 }
 

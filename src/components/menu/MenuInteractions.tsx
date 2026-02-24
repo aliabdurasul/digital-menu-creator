@@ -71,7 +71,7 @@ export function MenuInteractions({ categories }: MenuInteractionsProps) {
   }
 
   return (
-    <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-md">
+    <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b">
       <div className="flex items-center gap-1 px-3 py-2.5">
         <div
           ref={tabsRef}
@@ -85,8 +85,8 @@ export function MenuInteractions({ categories }: MenuInteractionsProps) {
               className={cn(
                 "min-h-[40px] whitespace-nowrap px-4 py-2 rounded-full text-[13px] font-medium transition-all duration-200",
                 activeCat === cat.id
-                  ? "bg-neutral-900 text-white shadow-sm"
-                  : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-700"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
               )}
             >
               {cat.name}
@@ -94,7 +94,6 @@ export function MenuInteractions({ categories }: MenuInteractionsProps) {
           ))}
         </div>
       </div>
-      <div className="h-px bg-neutral-100" />
     </div>
   );
 }

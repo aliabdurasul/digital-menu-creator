@@ -17,9 +17,9 @@ export function MenuShell({ restaurant }: MenuShellProps) {
   );
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-white">
-      {/* ── Hero cover — 220px with rounded bottom ── */}
-      <div className="relative w-full h-[220px] overflow-hidden rounded-b-[2rem]">
+    <div className="max-w-[480px] mx-auto min-h-screen bg-background shadow-sm">
+      {/* Hero Cover */}
+      <div className="relative w-full h-44 sm:h-56 overflow-hidden">
         {restaurant.coverImage ? (
           <Image
             src={restaurant.coverImage}
@@ -30,42 +30,44 @@ export function MenuShell({ restaurant }: MenuShellProps) {
             className="object-cover"
           />
         ) : (
-          <div className="w-full h-full bg-neutral-200" />
+          <div className="w-full h-full bg-muted" />
         )}
-        <div className="absolute inset-0 bg-black/30" />
+        <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
 
-        {/* Centered branding on cover */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-          <div className="w-[72px] h-[72px] rounded-2xl bg-white/95 backdrop-blur flex items-center justify-center shadow-xl overflow-hidden relative">
+        {/* Left-aligned branding */}
+        <div className="absolute bottom-4 left-4 flex items-center gap-3">
+          <div className="w-12 h-12 rounded-xl bg-background flex items-center justify-center shadow-lg overflow-hidden relative">
             {restaurant.logo ? (
               <Image
                 src={restaurant.logo}
                 alt="logo"
                 fill
-                sizes="72px"
+                sizes="48px"
                 className="object-cover"
               />
             ) : (
-              <span className="text-2xl font-extrabold text-neutral-900">
+              <span className="text-lg font-bold text-foreground">
                 {restaurant.name.charAt(0)}
               </span>
             )}
           </div>
-          <h1 className="text-xl sm:text-2xl font-extrabold text-white text-center drop-shadow-lg px-4">
-            {restaurant.name}
-          </h1>
-          {restaurant.description && (
-            <p className="text-white/80 text-xs text-center max-w-[280px] leading-relaxed">
-              {restaurant.description}
-            </p>
-          )}
+          <div>
+            <h1 className="text-xl font-bold text-primary-foreground drop-shadow-md">
+              {restaurant.name}
+            </h1>
+            {restaurant.description && (
+              <p className="text-primary-foreground/80 text-xs mt-0.5">
+                {restaurant.description}
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Client island: sticky tabs + scroll spy */}
       <MenuInteractions categories={sortedCategories} />
 
-      {/* Product grid with bottom sheet */}
+      {/* Product list */}
       <ProductList
         products={restaurant.products}
         categories={sortedCategories}
@@ -73,7 +75,7 @@ export function MenuShell({ restaurant }: MenuShellProps) {
 
       {/* Footer */}
       <div className="text-center pt-16 pb-10">
-        <span className="text-xs text-neutral-300 font-medium">© 2026 Lezzet-i Âlâ</span>
+        <span className="text-xs text-muted-foreground">© 2026 Lezzet-i Âlâ</span>
       </div>
     </div>
   );
