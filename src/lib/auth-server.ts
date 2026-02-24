@@ -128,6 +128,10 @@ export async function getCurrentRestaurant(): Promise<Restaurant | null> {
           active: dbRestaurant.active ?? true,
           menuStatus: dbRestaurant.menu_status || "active",
           totalViews: dbRestaurant.total_views || 0,
+          customDomain: dbRestaurant.custom_domain || null,
+          domainStatus: dbRestaurant.domain_status || "pending",
+          defaultLanguage: dbRestaurant.default_language || "tr",
+          enabledLanguages: dbRestaurant.enabled_languages || ["tr"],
         };
       }
     }
