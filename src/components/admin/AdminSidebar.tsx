@@ -1,24 +1,29 @@
-import { LayoutDashboard, FolderOpen, Package, Settings, ChevronLeft, ChevronRight, QrCode, LogOut } from "lucide-react";
+import { LayoutDashboard, FolderOpen, Package, Settings, ChevronLeft, ChevronRight, QrCode, LogOut, Languages } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { canUseFeature } from "@/lib/features/engine";
+import { ProBadge } from "@/lib/features/hooks";
+import type { PlanType } from "@/lib/features/flags";
 
-export type AdminTab = "dashboard" | "categories" | "products" | "settings" | "qr";
+export type AdminTab = "dashboard" | "categories" | "products" | "settings" | "qr" | "translations";
 
 interface AdminSidebarProps {
   activeTab: AdminTab;
   onTabChange: (tab: AdminTab) => void;
+  plan?: PlanType;
 }
 
-const navItems: { id: AdminTab; label: string; icon: React.ElementType }[] = [
+const navItems: { id: AdminTab; label: string; icon: React.ElementType; proOnly?: boolean }[] = [
   { id: "dashboard", label: "Gösterge Paneli", icon: LayoutDashboard },
   { id: "categories", label: "Kategoriler", icon: FolderOpen },
   { id: "products", label: "Ürünler", icon: Package },
   { id: "qr", label: "QR Kod", icon: QrCode },
+  { id: "translations", label: "Çeviriler", icon: Languages, proOnly: true },
   { id: "settings", label: "Ayarlar", icon: Settings },
 ];
 
-export function AdminSidebar({ activeTab, onTabChange }: AdminSidebarProps) {
+export function AdminSidebar({ activeTab, onTabChange, plan = "basic" }: AdminSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const router = useRouter();
 
@@ -49,18 +54,26 @@ export function AdminSidebar({ activeTab, onTabChange }: AdminSidebarProps) {
       <nav className="flex-1 p-2 space-y-1">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
+          const isLocked = item.proOnly && !canUseFeature(plan, "translations");
           return (
             <button
               key={item.id}
-              onClick={() => onTabChange(item.id)}
+              onClick={() => !isLocked && onTabChange(item.id)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                isActive
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                isLocked
+                  ? "text-sidebar-foreground/40 cursor-not-allowed"
+                  : isActive
+                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
               }`}
             >
               <item.icon className="w-4 h-4 shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
+              {!collapsed && (
+                <span className="flex items-center gap-2">
+                  {item.label}
+                  {item.proOnly && <ProBadge />}
+                </span>
+              )}
             </button>
           );
         })}

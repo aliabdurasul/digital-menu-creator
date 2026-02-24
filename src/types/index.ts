@@ -13,6 +13,10 @@ export interface DbRestaurant {
   active: boolean;
   menu_status: "active" | "paused";
   total_views: number;
+  custom_domain: string | null;
+  domain_status: "pending" | "dns_verified" | "active" | "rejected";
+  default_language: "tr" | "en";
+  enabled_languages: string[];
   created_at: string;
   updated_at: string;
 }
@@ -52,6 +56,37 @@ export interface Profile {
 
 export type UserRole = "restaurant_admin" | "super_admin";
 
+/* ─── Translation DB Types ─── */
+
+export interface DbRestaurantTranslation {
+  id: string;
+  restaurant_id: string;
+  language: string;
+  name: string;
+  description: string;
+  created_at: string;
+}
+
+export interface DbCategoryTranslation {
+  id: string;
+  category_id: string;
+  language: string;
+  name: string;
+  created_at: string;
+}
+
+export interface DbMenuItemTranslation {
+  id: string;
+  menu_item_id: string;
+  language: string;
+  name: string;
+  description: string;
+  ingredients: string;
+  portion_info: string;
+  allergen_info: string;
+  created_at: string;
+}
+
 /* ─── Legacy UI Types (used by existing components) ─── */
 
 export interface Product {
@@ -89,6 +124,19 @@ export interface Restaurant {
   active: boolean;
   menuStatus: "active" | "paused";
   totalViews: number;
+  customDomain: string | null;
+  domainStatus: "pending" | "dns_verified" | "active" | "rejected";
+  defaultLanguage: "tr" | "en";
+  enabledLanguages: string[];
+}
+
+/* ─── Tenant Resolution ─── */
+
+export interface TenantInfo {
+  type: "domain" | "slug" | "none";
+  restaurantId?: string;
+  slug?: string;
+  domain?: string;
 }
 
 /* ─── Converters ─── */
@@ -130,6 +178,10 @@ export function toLegacyRestaurant(
     active: r.active,
     menuStatus: r.menu_status || "active",
     totalViews: r.total_views,
+    customDomain: r.custom_domain || null,
+    domainStatus: r.domain_status || "pending",
+    defaultLanguage: r.default_language || "tr",
+    enabledLanguages: r.enabled_languages || ["tr"],
   };
 }
 

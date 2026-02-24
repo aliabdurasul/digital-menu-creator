@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
+import { resolveTenantByDomain, isIgnoredHost, TENANT_HEADERS } from "@/lib/tenant";
 
 /**
  * Query profile role using the service-role key (bypasses RLS).
@@ -24,6 +25,27 @@ async function getProfileRole(userId: string): Promise<string | null> {
 }
 
 export async function updateSession(request: NextRequest) {
+  /* ── Domain-based tenant resolution (before auth) ── */
+  const host = request.headers.get("host") ?? "";
+  if (host && !isIgnoredHost(host)) {
+    try {
+      const tenant = await resolveTenantByDomain(host);
+      if (tenant.type === "domain" && tenant.restaurantId && tenant.slug) {
+        // Rewrite to internal /_tenant route, passing tenant info as headers
+        const url = request.nextUrl.clone();
+        url.pathname = "/_tenant";
+        const headers = new Headers(request.headers);
+        headers.set(TENANT_HEADERS.id, tenant.restaurantId);
+        headers.set(TENANT_HEADERS.slug, tenant.slug);
+        headers.set(TENANT_HEADERS.domain, tenant.domain ?? host);
+        return NextResponse.rewrite(url, { request: { headers } });
+      }
+    } catch (err) {
+      console.error("[middleware] Domain resolution error:", err);
+      // Fall through to normal routing
+    }
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });

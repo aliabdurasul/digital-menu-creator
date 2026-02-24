@@ -7,6 +7,7 @@ import { AdminCategories } from "@/components/admin/AdminCategories";
 import { AdminProducts } from "@/components/admin/AdminProducts";
 import { AdminSettings } from "@/components/admin/AdminSettings";
 import { AdminQRCode } from "@/components/admin/AdminQRCode";
+import { AdminTranslations } from "@/components/admin/AdminTranslations";
 import type { Restaurant } from "@/types";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, AlertTriangle, LogOut } from "lucide-react";
@@ -120,6 +121,10 @@ export default function RestaurantAdminPage() {
           active: dbRestaurant.active ?? true,
           menuStatus: dbRestaurant.menu_status || "active",
           totalViews: dbRestaurant.total_views || 0,
+          customDomain: dbRestaurant.custom_domain || null,
+          domainStatus: dbRestaurant.domain_status || "pending",
+          defaultLanguage: dbRestaurant.default_language || "tr",
+          enabledLanguages: dbRestaurant.enabled_languages || ["tr"],
         });
       } catch {
         setError("Restoranınız yüklenirken bir hata oluştu");
@@ -201,12 +206,19 @@ export default function RestaurantAdminPage() {
         );
       case "qr":
         return <AdminQRCode restaurant={restaurant} />;
+      case "translations":
+        return (
+          <AdminTranslations
+            restaurant={restaurant}
+            setRestaurant={setRestaurant}
+          />
+        );
     }
   };
 
   return (
     <div className="flex min-h-screen bg-muted/30">
-      <AdminSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+      <AdminSidebar activeTab={activeTab} onTabChange={setActiveTab} plan={restaurant.plan} />
       <main className="flex-1 p-6 sm:p-8 overflow-auto">
         {renderContent()}
       </main>

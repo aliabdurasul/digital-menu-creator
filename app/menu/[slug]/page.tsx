@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getRestaurantBySlug } from "@/lib/db";
+import { getRestaurantBySlug, getRestaurantBySlugTranslated } from "@/lib/db";
 import { MenuShell } from "@/components/menu/MenuShell";
 import { AlertTriangle } from "lucide-react";
 import type { Metadata } from "next";
@@ -9,13 +9,20 @@ export const revalidate = 60;
 
 interface MenuPageProps {
   params: { slug: string };
+  searchParams: { lang?: string };
 }
 
 /** Dynamic SEO metadata per restaurant */
 export async function generateMetadata({
   params,
+  searchParams,
 }: MenuPageProps): Promise<Metadata> {
-  const restaurant = await getRestaurantBySlug(params.slug);
+  const lang = searchParams.lang || "tr";
+  const restaurant =
+    lang !== "tr"
+      ? await getRestaurantBySlugTranslated(params.slug, lang)
+      : await getRestaurantBySlug(params.slug);
+
   if (!restaurant) {
     return { title: "Menü Bulunamadı" };
   }
@@ -32,8 +39,12 @@ export async function generateMetadata({
 }
 
 /** Server Component — renders full HTML on server, minimal JS shipped */
-export default async function MenuPage({ params }: MenuPageProps) {
-  const restaurant = await getRestaurantBySlug(params.slug);
+export default async function MenuPage({ params, searchParams }: MenuPageProps) {
+  const lang = searchParams.lang || "tr";
+  const restaurant =
+    lang !== "tr"
+      ? await getRestaurantBySlugTranslated(params.slug, lang)
+      : await getRestaurantBySlug(params.slug);
 
   if (!restaurant) {
     notFound();

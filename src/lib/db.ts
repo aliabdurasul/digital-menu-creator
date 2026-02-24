@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Restaurant } from "@/types";
+import { toLegacyRestaurant } from "@/types";
 
 /**
  * Data access layer — all data from Supabase only.
@@ -29,7 +30,108 @@ export async function getRestaurantBySlug(
     if (error || !dbRestaurant) throw new Error("Not found");
 
     const { categories, menu_items, ...rest } = dbRestaurant;
-    return toRestaurant(rest, categories || [], menu_items || []);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return toLegacyRestaurant(rest as any, categories || [], menu_items || []);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch a restaurant by slug with translations merged for a given language.
+ * Falls back to base (Turkish) content when no translation exists.
+ */
+export async function getRestaurantBySlugTranslated(
+  slug: string,
+  language: string
+): Promise<Restaurant | null> {
+  // If language is Turkish, no translation needed
+  if (language === "tr") return getRestaurantBySlug(slug);
+
+  try {
+    const supabase = createClient();
+
+    // Fetch restaurant + base data + translations in one query
+    const { data: dbRestaurant, error } = await supabase
+      .from("restaurants")
+      .select(`
+        *,
+        categories ( id, restaurant_id, name, "order", created_at ),
+        menu_items ( id, restaurant_id, category_id, name, description, price, image_url, is_available, "order", ingredients, portion_info, allergen_info, created_at, updated_at ),
+        restaurant_translations ( language, name, description )
+      `)
+      .eq("slug", slug)
+      .single();
+
+    if (error || !dbRestaurant) throw new Error("Not found");
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = dbRestaurant as any;
+    const categories = raw.categories || [];
+    const menuItems = raw.menu_items || [];
+    const catIds = categories.map((c: any) => c.id);
+    const itemIds = menuItems.map((i: any) => i.id);
+
+    // Fetch category + menu item translations separately (simpler than nested joins)
+    const [catTransRes, itemTransRes] = await Promise.all([
+      catIds.length > 0
+        ? supabase
+            .from("category_translations")
+            .select("category_id, name")
+            .in("category_id", catIds)
+            .eq("language", language)
+        : { data: [] },
+      itemIds.length > 0
+        ? supabase
+            .from("menu_item_translations")
+            .select("menu_item_id, name, description, ingredients, portion_info, allergen_info")
+            .in("menu_item_id", itemIds)
+            .eq("language", language)
+        : { data: [] },
+    ]);
+
+    // Build lookup maps
+    const catTransMap = new Map<string, string>();
+    for (const ct of (catTransRes.data || []) as any[]) {
+      if (ct.name) catTransMap.set(ct.category_id, ct.name);
+    }
+
+    const itemTransMap = new Map<string, Record<string, string>>();
+    for (const mt of (itemTransRes.data || []) as any[]) {
+      itemTransMap.set(mt.menu_item_id, mt);
+    }
+
+    // Find restaurant-level translation
+    const rTrans = (raw.restaurant_translations || []).find(
+      (t: { language: string }) => t.language === language
+    );
+
+    // Merge translations over base data
+    const { categories: _c, menu_items: _m, restaurant_translations: _rt, ...restFields } = raw;
+    if (rTrans) {
+      if (rTrans.name) restFields.name = rTrans.name;
+      if (rTrans.description) restFields.description = rTrans.description;
+    }
+
+    const translatedCategories = categories.map((c: any) => ({
+      ...c,
+      name: catTransMap.get(c.id) || c.name,
+    }));
+
+    const translatedItems = menuItems.map((i: any) => {
+      const t = itemTransMap.get(i.id);
+      if (!t) return i;
+      return {
+        ...i,
+        name: t.name || i.name,
+        description: t.description || i.description,
+        ingredients: t.ingredients || i.ingredients,
+        portion_info: t.portion_info || i.portion_info,
+        allergen_info: t.allergen_info || i.allergen_info,
+      };
+    });
+
+    return toLegacyRestaurant(restFields, translatedCategories, translatedItems);
   } catch {
     return null;
   }
@@ -48,7 +150,7 @@ export async function getAllRestaurants(): Promise<Restaurant[]> {
     if (error || !restaurants) throw new Error("Query failed");
 
     // For list views we don't need full categories/products
-    return restaurants.map((r) => toRestaurant(r, [], []));
+    return restaurants.map((r) => toLegacyRestaurant(r as any, [], []));
   } catch {
     return [];
   }
@@ -78,7 +180,7 @@ export async function createRestaurant(data: {
       .single();
 
     if (error) throw error;
-    return toRestaurant(newRestaurant, [], []);
+    return toLegacyRestaurant(newRestaurant as any, [], []);
   } catch {
     return null;
   }
@@ -215,42 +317,4 @@ export async function toggleMenuItemAvailability(
   isAvailable: boolean
 ): Promise<boolean> {
   return updateMenuItem(id, { is_available: isAvailable });
-}
-
-/* ─── Helpers ─── */
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function toRestaurant(r: any, categories: any[], items: any[]): Restaurant {
-  return {
-    id: r.id,
-    slug: r.slug,
-    name: r.name,
-    description: r.description || "",
-    phone: r.phone || "",
-    address: r.address || "",
-    logo: r.logo_url || "",
-    coverImage: r.cover_image_url || "",
-    categories: categories.map((c) => ({
-      id: c.id,
-      name: c.name,
-      order: c.order,
-    })),
-    products: items.map((i) => ({
-      id: i.id,
-      name: i.name,
-      description: i.description || "",
-      price: i.price,
-      image: i.image_url || "",
-      categoryId: i.category_id,
-      available: i.is_available ?? true,
-      order: i.order,
-      ingredients: i.ingredients || "",
-      portionInfo: i.portion_info || "",
-      allergenInfo: i.allergen_info || "",
-    })),
-    plan: r.plan || "basic",
-    active: r.active ?? true,
-    menuStatus: r.menu_status || "active",
-    totalViews: r.total_views || 0,
-  };
 }
