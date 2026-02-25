@@ -4,6 +4,7 @@ import { ProductList } from "@/components/menu/ProductList";
 import { MenuInteractions } from "@/components/menu/MenuInteractions";
 import { LanguageProvider } from "@/components/menu/LanguageProvider";
 import { MenuHeroBranding } from "@/components/menu/MenuHeroBranding";
+import { LanguageToggle } from "@/components/menu/LanguageToggle";
 
 interface MenuShellProps {
   restaurant: Restaurant;
@@ -35,6 +36,11 @@ export function MenuShell({ restaurant, restaurantEn = null }: MenuShellProps) {
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
 
+          {/* Top-right language toggle */}
+          <div className="absolute top-3 right-4 z-10">
+            <LanguageToggle />
+          </div>
+
           {/* Left-aligned branding */}
           <div className="absolute bottom-4 left-4 flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-background flex items-center justify-center shadow-lg overflow-hidden relative">
@@ -57,7 +63,7 @@ export function MenuShell({ restaurant, restaurantEn = null }: MenuShellProps) {
           </div>
         </div>
 
-        {/* Client island: sticky tabs + scroll spy + language toggle */}
+        {/* Client island: sticky tabs + scroll spy */}
         <MenuInteractions />
 
         {/* Product list */}

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/components/menu/LanguageProvider";
-import { LanguageToggle } from "@/components/menu/LanguageToggle";
+
 
 /**
  * Thin client island.
@@ -11,8 +11,8 @@ import { LanguageToggle } from "@/components/menu/LanguageToggle";
  *   1. Sticky category tabs (read from LanguageProvider context)
  *   2. Scroll-spy with IntersectionObserver on [data-cat-id] sections
  *   3. Smooth scroll-to on tab click
- *   4. Language toggle pill (right-aligned)
  */
+
 export function MenuInteractions() {
   const { restaurant } = useLanguage();
   const categories = useMemo(
@@ -97,7 +97,6 @@ export function MenuInteractions() {
             </button>
           ))}
         </div>
-        <LanguageToggle />
       </div>
     </div>
   );
