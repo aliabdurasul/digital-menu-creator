@@ -94,10 +94,7 @@ export function MenuContent({ restaurant }: MenuContentProps) {
       </div>
 
       {/* Products */}
-      <ProductList
-        products={restaurant.products}
-        categories={sortedCategories}
-      />
+      <ProductList />
 
       {/* Footer */}
       <div className="text-center py-8 text-xs text-muted-foreground">

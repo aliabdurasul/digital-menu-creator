@@ -1,11 +1,25 @@
 import { notFound } from "next/navigation";
 import { getTenantFromHeaders } from "@/lib/tenant";
-import { getRestaurantBySlug } from "@/lib/db";
+import { getRestaurantBySlug, getRestaurantBySlugTranslated } from "@/lib/db";
 import { MenuShell } from "@/components/menu/MenuShell";
 import { AlertTriangle } from "lucide-react";
+import type { Restaurant } from "@/types";
 
 /** ISR — regenerate every 60 seconds */
 export const revalidate = 60;
+
+function hasEnglishContent(tr: Restaurant, en: Restaurant): boolean {
+  if (tr.name !== en.name || tr.description !== en.description) return true;
+  for (let i = 0; i < tr.categories.length; i++) {
+    if (tr.categories[i]?.name !== en.categories[i]?.name) return true;
+  }
+  for (let i = 0; i < tr.products.length; i++) {
+    const tp = tr.products[i];
+    const ep = en.products[i];
+    if (tp?.name !== ep?.name || tp?.description !== ep?.description) return true;
+  }
+  return false;
+}
 
 /**
  * Internal page rendered when middleware rewrites a custom-domain request
@@ -18,13 +32,16 @@ export default async function TenantPage() {
     notFound();
   }
 
-  const restaurant = await getRestaurantBySlug(tenant.slug);
+  const [restaurantTr, restaurantEn] = await Promise.all([
+    getRestaurantBySlug(tenant.slug),
+    getRestaurantBySlugTranslated(tenant.slug, "en"),
+  ]);
 
-  if (!restaurant) {
+  if (!restaurantTr) {
     notFound();
   }
 
-  if (!restaurant.active) {
+  if (!restaurantTr.active) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background text-muted-foreground">
         <AlertTriangle className="w-12 h-12 mb-4 text-warning" />
@@ -37,5 +54,10 @@ export default async function TenantPage() {
     );
   }
 
-  return <MenuShell restaurant={restaurant} />;
+  const enData =
+    restaurantEn && hasEnglishContent(restaurantTr, restaurantEn)
+      ? restaurantEn
+      : null;
+
+  return <MenuShell restaurant={restaurantTr} restaurantEn={enData} />;
 }

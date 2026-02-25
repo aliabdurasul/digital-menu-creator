@@ -1,43 +1,56 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import Image from "next/image";
-import type { Product, Category } from "@/types";
+import type { Product } from "@/types";
 import { X } from "lucide-react";
+import { useLanguage, UI_LABELS } from "@/components/menu/LanguageProvider";
 
-interface ProductListProps {
-  products: Product[];
-  categories: Category[];
-}
+export function ProductList() {
+  const { restaurant, language } = useLanguage();
+  const { products } = restaurant;
 
-export function ProductList({ products, categories }: ProductListProps) {
+  const sortedCategories = useMemo(
+    () => [...restaurant.categories].sort((a, b) => a.order - b.order),
+    [restaurant.categories]
+  );
+
   const [selected, setSelected] = useState<Product | null>(null);
 
-  const sortedCategories = [...categories].sort((a, b) => a.order - b.order);
-  const categorySections = sortedCategories
-    .map((cat) => ({
-      ...cat,
-      products: products
-        .filter((p) => p.categoryId === cat.id)
-        .sort((a, b) => a.order - b.order),
-    }))
-    .filter((cat) => cat.products.length > 0);
+  // Keep modal product synced with language switch
+  const activeSelected = useMemo(() => {
+    if (!selected) return null;
+    return products.find((p) => p.id === selected.id) ?? selected;
+  }, [selected, products]);
+
+  const categorySections = useMemo(
+    () =>
+      sortedCategories
+        .map((cat) => ({
+          ...cat,
+          products: products
+            .filter((p) => p.categoryId === cat.id)
+            .sort((a, b) => a.order - b.order),
+        }))
+        .filter((cat) => cat.products.length > 0),
+    [sortedCategories, products]
+  );
 
   const hasImage = (p: Product) => p.image && p.image !== "/placeholder.svg";
   const close = useCallback(() => setSelected(null), []);
 
   useEffect(() => {
-    if (selected) document.body.style.overflow = "hidden";
+    if (activeSelected) document.body.style.overflow = "hidden";
     else document.body.style.overflow = "";
     return () => { document.body.style.overflow = ""; };
-  }, [selected]);
+  }, [activeSelected]);
 
   useEffect(() => {
-    if (!selected) return;
+    if (!activeSelected) return;
     const h = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [selected, close]);
+  }, [activeSelected, close]);
 
   return (
     <>
@@ -99,7 +112,7 @@ export function ProductList({ products, categories }: ProductListProps) {
       </div>
 
       {/* ── Centered modal ── */}
-      {selected && (
+      {activeSelected && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           onClick={close}
@@ -118,11 +131,11 @@ export function ProductList({ products, categories }: ProductListProps) {
               <X className="w-4 h-4 text-foreground" />
             </button>
 
-            {hasImage(selected) && (
+            {hasImage(activeSelected) && (
               <div className="relative aspect-[4/3] bg-muted">
                 <Image
-                  src={selected.image}
-                  alt={selected.name}
+                  src={activeSelected.image}
+                  alt={activeSelected.name}
                   fill
                   sizes="400px"
                   className="object-cover"
@@ -133,39 +146,39 @@ export function ProductList({ products, categories }: ProductListProps) {
             <div className="p-5 space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <h3 className="text-lg font-bold text-foreground leading-tight">
-                  {selected.name}
+                  {activeSelected.name}
                 </h3>
                 <span className="shrink-0 text-primary font-bold text-base">
-                  ₺{selected.price.toFixed(2)}
+                  ₺{activeSelected.price.toFixed(2)}
                 </span>
               </div>
 
-              {selected.ingredients && (
+              {activeSelected.ingredients && (
                 <div>
                   <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-                    Malzemeler
+                    {UI_LABELS.ingredients[language]}
                   </span>
                   <p className="text-sm text-foreground/80 mt-0.5 leading-relaxed">
-                    {selected.ingredients}
+                    {activeSelected.ingredients}
                   </p>
                 </div>
               )}
 
-              {selected.description && (
+              {activeSelected.description && (
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  {selected.description}
+                  {activeSelected.description}
                 </p>
               )}
 
-              {selected.portionInfo && (
+              {activeSelected.portionInfo && (
                 <p className="text-xs text-muted-foreground">
-                  Porsiyon: {selected.portionInfo}
+                  {UI_LABELS.portion[language]} {activeSelected.portionInfo}
                 </p>
               )}
 
-              {selected.allergenInfo && (
+              {activeSelected.allergenInfo && (
                 <p className="text-xs text-amber-600">
-                  ⚠ {selected.allergenInfo}
+                  ⚠ {activeSelected.allergenInfo}
                 </p>
               )}
             </div>

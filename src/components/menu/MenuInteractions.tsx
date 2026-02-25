@@ -1,21 +1,25 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import type { Category } from "@/types";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
-
-interface MenuInteractionsProps {
-  categories: Category[];
-}
+import { useLanguage } from "@/components/menu/LanguageProvider";
+import { LanguageToggle } from "@/components/menu/LanguageToggle";
 
 /**
- * Thin client island (~2 KB JS).
+ * Thin client island.
  * Responsibilities:
- *   1. Sticky category tabs
+ *   1. Sticky category tabs (read from LanguageProvider context)
  *   2. Scroll-spy with IntersectionObserver on [data-cat-id] sections
  *   3. Smooth scroll-to on tab click
+ *   4. Language toggle pill (right-aligned)
  */
-export function MenuInteractions({ categories }: MenuInteractionsProps) {
+export function MenuInteractions() {
+  const { restaurant } = useLanguage();
+  const categories = useMemo(
+    () => [...restaurant.categories].sort((a, b) => a.order - b.order),
+    [restaurant.categories]
+  );
+
   const [activeCat, setActiveCat] = useState(categories[0]?.id ?? "");
   const tabsRef = useRef<HTMLDivElement>(null);
   const isClickingRef = useRef(false);
@@ -93,6 +97,7 @@ export function MenuInteractions({ categories }: MenuInteractionsProps) {
             </button>
           ))}
         </div>
+        <LanguageToggle />
       </div>
     </div>
   );

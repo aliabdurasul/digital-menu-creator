@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { getRestaurantBySlug, getRestaurantBySlugTranslated } from "@/lib/db";
 import { MenuShell } from "@/components/menu/MenuShell";
 import { AlertTriangle } from "lucide-react";
-import type { Metadata } from "next";
+import type { Metadata, } from "next";
+import type { Restaurant } from "@/types";
 
 /** ISR: regenerate every 60 seconds */
 export const revalidate = 60;
@@ -15,13 +16,8 @@ interface MenuPageProps {
 /** Dynamic SEO metadata per restaurant */
 export async function generateMetadata({
   params,
-  searchParams,
 }: MenuPageProps): Promise<Metadata> {
-  const lang = searchParams.lang || "tr";
-  const restaurant =
-    lang !== "tr"
-      ? await getRestaurantBySlugTranslated(params.slug, lang)
-      : await getRestaurantBySlug(params.slug);
+  const restaurant = await getRestaurantBySlug(params.slug);
 
   if (!restaurant) {
     return { title: "Menü Bulunamadı" };
@@ -38,20 +34,38 @@ export async function generateMetadata({
   };
 }
 
-/** Server Component — renders full HTML on server, minimal JS shipped */
-export default async function MenuPage({ params, searchParams }: MenuPageProps) {
-  const lang = searchParams.lang || "tr";
-  const restaurant =
-    lang !== "tr"
-      ? await getRestaurantBySlugTranslated(params.slug, lang)
-      : await getRestaurantBySlug(params.slug);
+/**
+ * Detect whether the EN restaurant data has any meaningful translations
+ * compared to the base TR data (at least one name or description differs).
+ */
+function hasEnglishContent(tr: Restaurant, en: Restaurant): boolean {
+  if (tr.name !== en.name) return true;
+  if (tr.description !== en.description) return true;
+  for (let i = 0; i < tr.categories.length; i++) {
+    if (tr.categories[i]?.name !== en.categories[i]?.name) return true;
+  }
+  for (let i = 0; i < tr.products.length; i++) {
+    const tp = tr.products[i];
+    const ep = en.products[i];
+    if (tp?.name !== ep?.name || tp?.description !== ep?.description) return true;
+  }
+  return false;
+}
 
-  if (!restaurant) {
+/** Server Component — renders full HTML on server, minimal JS shipped */
+export default async function MenuPage({ params }: MenuPageProps) {
+  // Dual-fetch: TR (base) + EN (translated) in parallel
+  const [restaurantTr, restaurantEn] = await Promise.all([
+    getRestaurantBySlug(params.slug),
+    getRestaurantBySlugTranslated(params.slug, "en"),
+  ]);
+
+  if (!restaurantTr) {
     notFound();
   }
 
   // Inactive restaurant — fully server-rendered, zero JS
-  if (!restaurant.active) {
+  if (!restaurantTr.active) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background text-muted-foreground">
         <AlertTriangle className="w-12 h-12 mb-4 text-warning" />
@@ -64,5 +78,11 @@ export default async function MenuPage({ params, searchParams }: MenuPageProps) 
     );
   }
 
-  return <MenuShell restaurant={restaurant} />;
+  // Only pass EN data if meaningful translations exist
+  const enData =
+    restaurantEn && hasEnglishContent(restaurantTr, restaurantEn)
+      ? restaurantEn
+      : null;
+
+  return <MenuShell restaurant={restaurantTr} restaurantEn={enData} />;
 }
