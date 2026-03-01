@@ -13,6 +13,11 @@ import {
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 
+const WA = "https://wa.me/905338402051?text=";
+const WA_BASVURU_YAP = `${WA}${encodeURIComponent("Merhaba, Lezzet-i Âlâ dijital menü sistemine başvuru yapmak istiyorum. Restoran bilgilerimi paylaşmaya hazırım.")}`;
+const WA_DIJITALLESTIR = `${WA}${encodeURIComponent("Merhaba, restoranım için QR Dijital Menü sistemi hakkında bilgi almak ve kuruluma başlamak istiyorum. Detayları paylaşabilir misiniz?")}`;
+const WA_HEMEN_BASVUR = `${WA}${encodeURIComponent("Merhaba, Lezzet-i Âlâ Dijital Menü Sistemi için başvuru yapmak istiyorum. Restoranımı dijitalleştirmek istiyorum. Süreç hakkında bilgi alabilir miyim?")}`;
+
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -71,7 +76,7 @@ export default function HomePage() {
               <ArrowRight className="w-4 h-4" />
             </Button>
           </Link>
-          <Link href="/login" className="flex-1">
+          <Link href={WA_BASVURU_YAP} target="_blank" className="flex-1">
             <Button className="w-full h-12 text-base gap-2" size="lg">
               Başvuru Yap
               <ArrowRight className="w-4 h-4" />
@@ -167,7 +172,7 @@ export default function HomePage() {
           <p className="text-xl sm:text-2xl font-bold tracking-tight">
             Restoranlar artık dijital menüye geçiyor.
           </p>
-          <Link href="/login" className="inline-block mt-6">
+          <Link href={WA_DIJITALLESTIR} target="_blank" className="inline-block mt-6">
             <Button className="h-12 px-8 text-base gap-2" size="lg">
               Restoranımı Dijitalleştir
               <ArrowRight className="w-4 h-4" />
@@ -183,7 +188,7 @@ export default function HomePage() {
             Restoranınız Hazır mı?
           </h2>
           <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/login">
+            <Link href={WA_HEMEN_BASVUR} target="_blank">
               <Button className="h-12 px-8 text-base gap-2" size="lg">
                 Hemen Başvur
                 <ArrowRight className="w-4 h-4" />
@@ -202,7 +207,7 @@ export default function HomePage() {
       {/* ── Footer ── */}
       <footer className="border-t border-border">
         <div className="max-w-5xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
-          <span>© 2026 Lezzet-i Âlâ</span>
+          <span>Powered by PrestigeYazilim</span>
           <div className="flex items-center gap-4">
             <Link href="mailto:info@lezzet.app" className="hover:text-foreground transition-colors">
               İletişim
