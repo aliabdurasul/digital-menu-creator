@@ -98,7 +98,7 @@ export function MenuContent({ restaurant }: MenuContentProps) {
 
       {/* Footer */}
       <div className="text-center py-8 text-xs text-muted-foreground">
-        <span className="font-semibold text-primary">© 2026 Lezzet-i Âlâ</span>
+        <span className="font-semibold text-primary">© 2026 Powered by Prestige Yazilim</span>
       </div>
     </div>
   );

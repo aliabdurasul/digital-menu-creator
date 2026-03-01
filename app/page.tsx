@@ -207,7 +207,7 @@ export default function HomePage() {
       {/* ── Footer ── */}
       <footer className="border-t border-border">
         <div className="max-w-5xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
-          <span>Powered by PrestigeYazilim</span>
+          <span>© 2026 Powered by Prestige Yazilim</span>
           <div className="flex items-center gap-4">
             <Link href="mailto:info@lezzet.app" className="hover:text-foreground transition-colors">
               İletişim

@@ -71,7 +71,7 @@ export function MenuShell({ restaurant, restaurantEn = null }: MenuShellProps) {
 
         {/* Footer */}
         <div className="text-center pt-16 pb-10">
-          <span className="text-xs text-muted-foreground">© 2026 Lezzet-i Âlâ</span>
+          <span className="text-xs text-muted-foreground">© 2026 Powered by Prestige Yazilim</span>
         </div>
       </div>
     </LanguageProvider>
