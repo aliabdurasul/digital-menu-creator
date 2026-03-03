@@ -53,21 +53,36 @@ export default function TalepFormu() {
     setYukleniyor(true);
 
     try {
-      const res = await fetch("/api/talep", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
+      const res = await fetch(
+        "https://formsubmit.co/ajax/info@prestigeyazilim.app",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            _subject: `Yeni Talep: ${form.restoranAdi}`,
+            _template: "table",
+            "Restoran / İşletme Adı": form.restoranAdi,
+            "Yetkili Kişi": form.yetkili,
+            Telefon: form.telefon,
+            "E-posta": form.eposta || "—",
+            "İşletme Tipi": form.isletmeTipi,
+            "İstenen Modüller": form.moduller.join(", ") || "—",
+            "Ek Notlar": form.notlar || "—",
+          }),
+        }
+      );
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Bir hata oluştu.");
-      }
+      if (!res.ok) throw new Error("Gönderilemedi.");
 
       setGonderildi(true);
     } catch (err) {
       setHata(
-        err instanceof Error ? err.message : "Bir hata oluştu. Lütfen tekrar deneyin."
+        err instanceof Error
+          ? err.message
+          : "Bir hata oluştu. Lütfen tekrar deneyin."
       );
     } finally {
       setYukleniyor(false);
