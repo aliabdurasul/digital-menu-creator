@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, CheckCircle2 } from "lucide-react";
+import { ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 
 const ISLETME_TIPLERI = [
   "Restoran",
@@ -35,6 +35,8 @@ export default function TalepFormu() {
     notlar: "",
   });
   const [gonderildi, setGonderildi] = useState(false);
+  const [yukleniyor, setYukleniyor] = useState(false);
+  const [hata, setHata] = useState("");
 
   function toggleModul(m: string) {
     setForm((prev) => ({
@@ -45,33 +47,31 @@ export default function TalepFormu() {
     }));
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setHata("");
+    setYukleniyor(true);
 
-    const mesaj = [
-      `🏢 *Profesyonel Talep Formu*`,
-      ``,
-      `📌 Restoran Adı: ${form.restoranAdi}`,
-      `👤 Yetkili: ${form.yetkili}`,
-      `📞 Telefon: ${form.telefon}`,
-      `📧 E-posta: ${form.eposta}`,
-      `🏪 İşletme Tipi: ${form.isletmeTipi}`,
-      ``,
-      `📦 İstenen Modüller:`,
-      form.moduller.length > 0
-        ? form.moduller.map((m) => `  • ${m}`).join("\n")
-        : "  Belirtilmedi",
-      ``,
-      form.notlar ? `📝 Ek Notlar: ${form.notlar}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
+    try {
+      const res = await fetch("/api/talep", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
 
-    window.open(
-      `https://wa.me/905338402051?text=${encodeURIComponent(mesaj)}`,
-      "_blank"
-    );
-    setGonderildi(true);
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Bir hata oluştu.");
+      }
+
+      setGonderildi(true);
+    } catch (err) {
+      setHata(
+        err instanceof Error ? err.message : "Bir hata oluştu. Lütfen tekrar deneyin."
+      );
+    } finally {
+      setYukleniyor(false);
+    }
   }
 
   if (gonderildi) {
@@ -81,7 +81,7 @@ export default function TalepFormu() {
           <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
         </div>
         <h3 className="text-xl font-bold text-foreground">
-          Talebiniz İletildi!
+          Talebiniz Başarıyla Gönderildi!
         </h3>
         <p className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">
           En kısa sürede size özel çözüm planımızla iletişime geçeceğiz.
@@ -242,10 +242,31 @@ export default function TalepFormu() {
         />
       </div>
 
+      {/* Hata mesajı */}
+      {hata && (
+        <p className="text-sm text-destructive text-center bg-destructive/10 rounded-lg px-4 py-2">
+          {hata}
+        </p>
+      )}
+
       {/* Submit */}
-      <Button type="submit" size="lg" className="w-full h-12 text-base gap-2 mt-1">
-        Talebimi Gönder
-        <ArrowRight className="w-4 h-4" />
+      <Button
+        type="submit"
+        size="lg"
+        className="w-full h-12 text-base gap-2 mt-1"
+        disabled={yukleniyor}
+      >
+        {yukleniyor ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Gönderiliyor...
+          </>
+        ) : (
+          <>
+            Talebimi Gönder
+            <ArrowRight className="w-4 h-4" />
+          </>
+        )}
       </Button>
       <p className="text-[11px] text-muted-foreground text-center -mt-2">
         Bilgileriniz gizli tutulur ve yalnızca teklif oluşturmak için kullanılır.
