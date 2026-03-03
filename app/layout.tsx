@@ -11,29 +11,29 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "QR Menü Sistemi | Restoran Otomasyon ve Dijital Menü Yazılımı",
+  title: "Lezzet-i Âlâ QR Menü Sistemi | Dijital Menü — Restoran, Kafe İşletmeler İçin",
   description:
-    "Restoran, kafe ve işletmeler için QR menü sistemi, adisyon programı, fiş yazıcı ve barkod entegrasyonu. Mobil uyumlu restoran otomasyon yazılımı.",
+    "Restoran, kafe ve işletmeler için QR menü sistemi ve dijital menü çözümü. Müşteriler QR kodu okutarak menüye anında ulaşır. 5 dakikada kurulum, teknik bilgi gerekmez. Gelecekte tam restoran otomasyonu.",
   keywords: [
     "qr menü sistemi",
+    "dijital menü",
+    "qr menü",
+    "restoran dijital menü",
+    "kafe qr menü",
+    "mobil menü",
     "restoran otomasyon",
     "adisyon programı",
-    "cafe otomasyon",
-    "barkodlu satış sistemi",
     "fiş yazıcı entegrasyonu",
-    "restoran yazılımı",
-    "dijital menü",
-    "pos sistemi",
-    "masa takip sistemi",
+    "barkodlu satış sistemi",
   ],
   icons: {
     icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
     apple: "/favicon.svg",
   },
   openGraph: {
-    title: "QR Menü Sistemi | Restoran Otomasyon ve Dijital Menü Yazılımı",
+    title: "Lezzet-i Âlâ QR Menü Sistemi | Dijital Menü — Restoran, Kafe İşletmeler İçin",
     description:
-      "Restoran, kafe ve işletmeler için QR menü sistemi, adisyon programı, fiş yazıcı ve barkod entegrasyonu. Mobil uyumlu restoran otomasyon yazılımı.",
+      "Restoran, kafe ve işletmeler için QR menü sistemi ve dijital menü çözümü. 5 dakikada kurulum, teknik bilgi gerekmez.",
     type: "website",
   },
   twitter: {
@@ -57,11 +57,11 @@ export default function RootLayout({
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "SoftwareApplication",
-              name: "Lezzet-i Âlâ QR Menü",
+              name: "Lezzet-i Âlâ QR Menü Sistemi",
               applicationCategory: "BusinessApplication",
               operatingSystem: "Web",
               description:
-                "Restoran ve kafe için QR menü sistemi, adisyon programı ve restoran otomasyon yazılımı.",
+                "Restoran, kafe ve işletmeler için QR menü ve dijital menü sistemi. Müşteriler QR kodu okutarak menüye anında ulaşır.",
               offers: {
                 "@type": "Offer",
                 price: "0",
