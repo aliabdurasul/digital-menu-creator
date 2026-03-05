@@ -6,8 +6,9 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogIn, Loader2, UtensilsCrossed } from "lucide-react";
+import { LogIn, Loader2, UtensilsCrossed, ArrowLeft } from "lucide-react";
 import { getMyRole } from "@/lib/actions";
+import Link from "next/link";
 
 export default function LoginPage() {
   return (
@@ -79,7 +80,14 @@ function LoginForm() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background">
+    <div className="flex items-center justify-center min-h-screen bg-background relative">
+      <Link
+        href="/"
+        className="absolute top-5 left-5 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Ana Sayfa
+      </Link>
       <div className="w-full max-w-sm p-8 rounded-2xl bg-card border border-border shadow-lg text-center space-y-6">
         <div className="w-14 h-14 bg-primary/10 rounded-2xl mx-auto flex items-center justify-center">
           <UtensilsCrossed className="w-7 h-7 text-primary" />

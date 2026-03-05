@@ -11,6 +11,9 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL || "https://digital-menu-creator.vercel.app"
+  ),
   title: "Lezzet-i Âlâ QR Menü Sistemi | Dijital Menü — Restoran, Kafe İşletmeler İçin",
   description:
     "Restoran, kafe ve işletmeler için QR menü sistemi ve dijital menü çözümü. Müşteriler QR kodu okutarak menüye anında ulaşır. 5 dakikada kurulum, teknik bilgi gerekmez. Gelecekte tam restoran otomasyonu.",

@@ -11,7 +11,6 @@ import {
   Palette,
   Receipt,
   Printer,
-  ScanBarcode,
   LayoutGrid,
   Monitor,
   Globe,
@@ -21,6 +20,9 @@ import {
   Shield,
   Zap,
   Send,
+  UtensilsCrossed,
+  ChefHat,
+  Crown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
@@ -36,8 +38,8 @@ const FAQ_ITEMS = [
     a: "QR Menü hazır ve çalışıyor — menünüzü yükleyin, QR kodunuzu alın, hemen kullanmaya başlayın. Tam restoran otomasyonu ise her işletmeye özel çözümlerle devreye alınır.",
   },
   {
-    q: "Fiş yazıcı ve barkod okuyucu ile çalışır mı?",
-    a: "Evet. Termal fiş yazıcılar ve barkod okuyucularla tam entegrasyon sağlanır. İşletmenize özel yapılandırma ile devreye alınır.",
+    q: "Premium özellikler neler?",
+    a: "Fiş yazıcı entegrasyonu, masada sipariş sistemi, mutfak ekranı entegrasyonu, adisyon yönetimi, masa takip ve mobil POS gibi premium modüller işletmenize özel olarak devreye alınır.",
   },
   {
     q: "Çoklu dil desteği var mı?",
@@ -153,7 +155,6 @@ export default function HomePage() {
               { icon: X, text: "Menü güncellemesi pahalı ve yavaş" },
               { icon: AlertCircle, text: "Adisyon hataları, kayıp siparişler" },
               { icon: Languages, text: "Çoklu dil desteği yok — yabancı müşteri kaybediyorsunuz" },
-              { icon: X, text: "Fiş yazıcı ve barkod entegrasyonu yok" },
               { icon: AlertCircle, text: "Modern görünmüyor, müşteri deneyimi zayıf" },
             ].map(({ icon: Icon, text }) => (
               <div
@@ -215,12 +216,16 @@ export default function HomePage() {
             ))}
           </div>
 
-          {/* ── Yönetim & Entegrasyon ── */}
+          {/* ── Yönetim & Entegrasyon — Premium ── */}
           <div className="mt-14">
+            <div className="inline-flex items-center gap-1.5 bg-gradient-to-r from-amber-500/10 to-primary/10 text-amber-600 dark:text-amber-400 text-[11px] font-bold px-3.5 py-1 rounded-full mb-5 border border-amber-500/20">
+              <Crown className="w-3 h-3" />
+              Premium
+            </div>
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-5">
               Yönetim & Entegrasyon
             </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               {[
                 {
                   icon: Settings,
@@ -238,17 +243,22 @@ export default function HomePage() {
                   desc: "Termal fiş yazıcılarla mutfak ve kasa fişi.",
                 },
                 {
-                  icon: ScanBarcode,
-                  title: "Barkod Okuyucu",
-                  desc: "Opsiyonel modül olarak barkodlu satış sistemi.",
+                  icon: UtensilsCrossed,
+                  title: "Masada Sipariş Sistemi",
+                  desc: "Müşteriler masadan sipariş verir, mutfağa anında iletilir.",
+                },
+                {
+                  icon: ChefHat,
+                  title: "Mutfak Ekranı Entegrasyonu",
+                  desc: "Siparişler mutfak ekranına düşer, takip ve hazırlık kolaylaşır.",
                 },
               ].map(({ icon: Icon, title, desc }) => (
                 <div
                   key={title}
-                  className="text-left bg-muted/40 rounded-xl border border-border/30 p-4 hover:bg-muted/60 transition-colors duration-200"
+                  className="text-left bg-gradient-to-b from-amber-50/50 to-background dark:from-amber-950/10 dark:to-background rounded-xl border border-amber-200/30 dark:border-amber-800/20 p-4 hover:border-amber-300/50 hover:shadow-md transition-all duration-200"
                 >
-                  <div className="w-9 h-9 rounded-lg bg-background border border-border/50 flex items-center justify-center mb-2.5">
-                    <Icon className="w-4 h-4 text-muted-foreground" />
+                  <div className="w-9 h-9 rounded-lg bg-amber-100/60 dark:bg-amber-900/20 border border-amber-200/40 dark:border-amber-800/30 flex items-center justify-center mb-2.5">
+                    <Icon className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                   </div>
                   <h3 className="text-xs font-bold text-foreground">{title}</h3>
                   <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed">
@@ -261,17 +271,18 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══ 4. OTOMASYON MODÜLLERİ ═══ */}
+      {/* ═══ 4. OTOMASYON MODÜLLERİ — PREMIUM ═══ */}
       <section className="px-6 py-16 sm:py-24 bg-muted/40">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-1.5 bg-primary/10 text-primary text-[11px] font-semibold px-3 py-1 rounded-full mb-5 border border-primary/20">
-            İşletmenize Özel
+          <div className="inline-flex items-center gap-1.5 bg-gradient-to-r from-amber-500/10 to-primary/10 text-amber-600 dark:text-amber-400 text-[11px] font-bold px-3.5 py-1 rounded-full mb-5 border border-amber-500/20">
+            <Crown className="w-3 h-3" />
+            Premium
           </div>
           <h2 className="text-2xl sm:text-4xl font-bold tracking-tight">
             Tam Restoran Otomasyonu
           </h2>
           <p className="mt-3 text-sm sm:text-base text-muted-foreground max-w-lg mx-auto">
-            QR Menü&apos;nüze ek olarak her işletmeye özel çözümlerle
+            QR Menü&apos;nüze ek olarak premium çözümlerle
             tam otomasyon devreye alınır.
           </p>
           <div className="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -279,7 +290,8 @@ export default function HomePage() {
               { icon: QrCode, label: "QR Menü Sistemi", active: true },
               { icon: Receipt, label: "Adisyon Yönetimi", active: false },
               { icon: Printer, label: "Fiş Yazıcı Entegrasyonu", active: false },
-              { icon: ScanBarcode, label: "Barkod Okuyucu", active: false },
+              { icon: UtensilsCrossed, label: "Masada Sipariş", active: false },
+              { icon: ChefHat, label: "Mutfak Ekranı", active: false },
               { icon: LayoutGrid, label: "Masa Takip Sistemi", active: false },
               { icon: Monitor, label: "Mobil POS Uyumu", active: false },
               { icon: Globe, label: "Çoklu Dil Desteği", active: true },
@@ -290,18 +302,18 @@ export default function HomePage() {
                 className={`relative flex flex-col items-center gap-2.5 rounded-xl p-5 border transition-all duration-200 ${
                   active
                     ? "bg-background border-primary/20 shadow-sm"
-                    : "bg-background/60 border-border/30 hover:border-border/50"
+                    : "bg-gradient-to-b from-amber-50/50 to-background dark:from-amber-950/10 dark:to-background border-amber-200/30 dark:border-amber-800/20 hover:border-amber-300/50 hover:shadow-md"
                 }`}
               >
                 {!active && (
-                  <span className="absolute -top-2.5 right-2 bg-foreground text-background text-[9px] font-bold px-2 py-0.5 rounded-full">
-                    İşletmeye Özel
+                  <span className="absolute -top-2.5 right-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-[9px] font-bold px-2.5 py-0.5 rounded-full shadow-sm">
+                    Premium
                   </span>
                 )}
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                  active ? "bg-primary/10" : "bg-muted"
+                  active ? "bg-primary/10" : "bg-amber-100/60 dark:bg-amber-900/20"
                 }`}>
-                  <Icon className={`w-5 h-5 ${active ? "text-primary" : "text-muted-foreground"}`} />
+                  <Icon className={`w-5 h-5 ${active ? "text-primary" : "text-amber-600 dark:text-amber-400"}`} />
                 </div>
                 <span className="text-xs font-semibold text-foreground text-center leading-tight">
                   {label}
@@ -312,32 +324,29 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══ 5. 3 ADIMDA QR MENÜ ═══ */}
+      {/* ═══ 5. 3 ADIMDA DİJİTAL MENÜ ═══ */}
       <section className="px-6 py-16 sm:py-24">
         <div className="max-w-3xl mx-auto text-center">
           <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-3">Nasıl Çalışır</p>
           <h2 className="text-2xl sm:text-4xl font-bold tracking-tight">
-            3 Adımda Kullanım
+            3 Adımda Dijital Menünüz Hazır
           </h2>
-          <p className="mt-3 text-sm sm:text-base text-muted-foreground">
-            Hızlı, kolay ve hatasız.
-          </p>
           <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl mx-auto text-left">
             {[
               {
                 step: "1",
-                title: "Müşteri QR kodu okutur",
-                desc: "Dijital menü anında telefonda açılır.",
+                title: "Menünü Oluştur",
+                desc: "Restoran menünü sisteme ekle. Kategoriler, ürünler ve fiyatlar birkaç dakika içinde hazır.",
               },
               {
                 step: "2",
-                title: "Sipariş alınır",
-                desc: "Sistem otomatik adisyon oluşturur. Hata sıfır.",
+                title: "QR Kodunu İndir ve Masalara Yerleştir",
+                desc: "Sistem otomatik olarak sana özel QR kodu oluşturur. İndir, yazdır ve masalara yerleştir.",
               },
               {
                 step: "3",
-                title: "Ödeme",
-                desc: "Barkodlu ödeme ve hızlı fiş ile satış tamam.",
+                title: "Müşteriler Anında Erişsin",
+                desc: "Müşteriler QR kodu okutur ve menün telefonlarında anında açılır. Çoklu dil desteği sayesinde herkes rahatça inceleyebilir.",
               },
             ].map(({ step, title, desc }) => (
               <div

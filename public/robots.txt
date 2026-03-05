@@ -1,8 +1,16 @@
 User-agent: Googlebot
 Allow: /
+Disallow: /api/
+Disallow: /restaurant-admin
+Disallow: /super-admin
+Disallow: /_tenant
 
 User-agent: Bingbot
 Allow: /
+Disallow: /api/
+Disallow: /restaurant-admin
+Disallow: /super-admin
+Disallow: /_tenant
 
 User-agent: Twitterbot
 Allow: /
@@ -12,3 +20,9 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /restaurant-admin
+Disallow: /super-admin
+Disallow: /_tenant
+
+Sitemap: https://digital-menu-creator.vercel.app/sitemap.xml
