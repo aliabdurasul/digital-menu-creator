@@ -41,7 +41,7 @@ export function AdminQRCode({ restaurant }: AdminQRCodeProps) {
   const appUrl =
     typeof window !== "undefined"
       ? window.location.origin
-      : process.env.NEXT_PUBLIC_APP_URL || "https://yourdomain.com";
+      : process.env.NEXT_PUBLIC_APP_URL || "https://lezzetiala.prestigeyazilim.app";
   const publicUrl = `${appUrl}/menu/${restaurant.slug}`;
 
   // ── Subscription check ──

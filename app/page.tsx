@@ -111,7 +111,7 @@ export default function HomePage() {
 
           <div className="mt-10 flex flex-col sm:flex-row items-center gap-3 w-full max-w-md mx-auto">
             <Link
-              href="https://lezzet-i-ala-qr.vercel.app/menu/kebapci"
+              href="https://lezzetiala.prestigeyazilim.app/menu/kebapci"
               target="_blank"
               className="w-full sm:w-auto sm:flex-1"
             >

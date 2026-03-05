@@ -99,7 +99,7 @@ export async function verifyDomainDns(
   const domain = restaurant.custom_domain;
   const appHost = process.env.NEXT_PUBLIC_APP_URL
     ? new URL(process.env.NEXT_PUBLIC_APP_URL).hostname
-    : "lezzet-i-ala.vercel.app";
+    : "lezzetiala.prestigeyazilim.app";
 
   try {
     const dnsRes = await fetch(

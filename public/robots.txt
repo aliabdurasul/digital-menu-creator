@@ -25,4 +25,4 @@ Disallow: /restaurant-admin
 Disallow: /super-admin
 Disallow: /_tenant
 
-Sitemap: https://digital-menu-creator.vercel.app/sitemap.xml
+Sitemap: https://lezzetiala.prestigeyazilim.app/sitemap.xml

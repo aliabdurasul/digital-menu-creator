@@ -12,7 +12,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL || "https://digital-menu-creator.vercel.app"
+    process.env.NEXT_PUBLIC_APP_URL || "https://lezzetiala.prestigeyazilim.app"
   ),
   title: "Lezzet-i Âlâ QR Menü Sistemi | Dijital Menü — Restoran, Kafe İşletmeler İçin",
   description:

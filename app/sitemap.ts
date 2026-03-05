@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 const BASE_URL =
-  process.env.NEXT_PUBLIC_APP_URL || "https://digital-menu-creator.vercel.app";
+  process.env.NEXT_PUBLIC_APP_URL || "https://lezzetiala.prestigeyazilim.app";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
