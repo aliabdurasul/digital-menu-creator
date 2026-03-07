@@ -9,6 +9,7 @@ import { LanguageToggle } from "@/components/menu/LanguageToggle";
 interface MenuShellProps {
   restaurant: Restaurant;
   restaurantEn?: Restaurant | null;
+  tableId?: string;
 }
 
 /**
@@ -16,7 +17,7 @@ interface MenuShellProps {
  * Only <MenuInteractions> and <ProductList> ship JS (sticky tabs + bottom sheet).
  * Wraps client islands in <LanguageProvider> for reactive language switching.
  */
-export function MenuShell({ restaurant, restaurantEn = null }: MenuShellProps) {
+export function MenuShell({ restaurant, restaurantEn = null, tableId }: MenuShellProps) {
   return (
     <LanguageProvider restaurantTr={restaurant} restaurantEn={restaurantEn}>
       <div className="max-w-[480px] mx-auto min-h-screen bg-background shadow-sm">
@@ -67,7 +68,7 @@ export function MenuShell({ restaurant, restaurantEn = null }: MenuShellProps) {
         <MenuInteractions />
 
         {/* Product list */}
-        <ProductList />
+        <ProductList tableId={tableId} />
 
         {/* Footer */}
         <div className="text-center pt-16 pb-10">

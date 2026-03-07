@@ -1,14 +1,25 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useContext } from "react";
 import Image from "next/image";
 import type { Product } from "@/types";
-import { X } from "lucide-react";
+import { X, Plus } from "lucide-react";
 import { useLanguage, UI_LABELS } from "@/components/menu/LanguageProvider";
+import { useCart } from "@/components/menu/CartProvider";
 
-export function ProductList() {
+function useOptionalCart() {
+  try {
+    return useCart();
+  } catch {
+    return null;
+  }
+}
+
+export function ProductList({ tableId }: { tableId?: string }) {
   const { restaurant, language } = useLanguage();
   const { products } = restaurant;
+  const cartContext = useOptionalCart();
+  const cart = tableId ? cartContext : null;
 
   const sortedCategories = useMemo(
     () => [...restaurant.categories].sort((a, b) => a.order - b.order),
@@ -100,9 +111,29 @@ export function ProductList() {
                         </p>
                       )}
                     </div>
-                    <p className="text-primary font-bold text-sm text-right mt-1">
-                      ₺{product.price.toFixed(2)}
-                    </p>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-primary font-bold text-sm">
+                        ₺{product.price.toFixed(2)}
+                      </p>
+                      {cart && product.available && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cart.addItem({
+                              menuItemId: product.id,
+                              name: product.name,
+                              price: product.price,
+                              image: product.image,
+                            });
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+                        >
+                          <Plus className="w-3 h-3" />
+                          Ekle
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </button>
               ))}

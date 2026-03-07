@@ -8,6 +8,8 @@ import { AdminProducts } from "@/components/admin/AdminProducts";
 import { AdminSettings } from "@/components/admin/AdminSettings";
 import { AdminQRCode } from "@/components/admin/AdminQRCode";
 import { AdminTranslations } from "@/components/admin/AdminTranslations";
+import { AdminTables } from "@/components/admin/AdminTables";
+import { AdminOrders } from "@/components/admin/AdminOrders";
 import type { Restaurant } from "@/types";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, AlertTriangle, LogOut } from "lucide-react";
@@ -206,6 +208,10 @@ export default function RestaurantAdminPage() {
         );
       case "qr":
         return <AdminQRCode restaurant={restaurant} />;
+      case "tables":
+        return <AdminTables restaurant={restaurant} />;
+      case "orders":
+        return <AdminOrders restaurant={restaurant} />;
       case "translations":
         return (
           <AdminTranslations

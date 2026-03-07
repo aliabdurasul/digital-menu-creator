@@ -186,3 +186,52 @@ export function toLegacyRestaurant(
 }
 
 export type UserRole_Legacy = "public" | "restaurant-admin" | "super-admin";
+
+/* ─── Table Ordering Types ─── */
+
+export type TableStatus = "active" | "inactive";
+export type OrderStatus = "pending" | "preparing" | "ready" | "delivered" | "cancelled";
+
+export interface DbTable {
+  id: string;
+  restaurant_id: string;
+  label: string;
+  status: TableStatus;
+  created_at: string;
+}
+
+export interface DbOrder {
+  id: string;
+  restaurant_id: string;
+  table_id: string;
+  session_id: string;
+  status: OrderStatus;
+  source: string;
+  note: string;
+  total: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DbOrderItem {
+  id: string;
+  order_id: string;
+  menu_item_id: string | null;
+  name_snapshot: string;
+  price_snapshot: number;
+  quantity: number;
+  created_at: string;
+}
+
+export interface CartItem {
+  menuItemId: string;
+  name: string;
+  price: number;
+  image: string;
+  quantity: number;
+}
+
+export interface OrderWithItems extends DbOrder {
+  items: DbOrderItem[];
+  table?: DbTable;
+}

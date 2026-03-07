@@ -318,3 +318,56 @@ export async function toggleMenuItemAvailability(
 ): Promise<boolean> {
   return updateMenuItem(id, { is_available: isAvailable });
 }
+
+/* ─── Table Queries ─── */
+
+export async function getTableById(tableId: string) {
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("restaurant_tables")
+      .select("*")
+      .eq("id", tableId)
+      .single();
+    if (error || !data) return null;
+    return data as import("@/types").DbTable;
+  } catch {
+    return null;
+  }
+}
+
+export async function getTablesByRestaurant(restaurantId: string) {
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("restaurant_tables")
+      .select("*")
+      .eq("restaurant_id", restaurantId)
+      .order("label");
+    if (error) return [];
+    return (data || []) as import("@/types").DbTable[];
+  } catch {
+    return [];
+  }
+}
+
+/* ─── Order Queries ─── */
+
+export async function getOrdersByRestaurant(restaurantId: string) {
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*, order_items(*), restaurant_tables(label)")
+      .eq("restaurant_id", restaurantId)
+      .order("created_at", { ascending: false });
+    if (error) return [];
+    return (data || []).map((o: Record<string, unknown>) => ({
+      ...o,
+      items: o.order_items || [],
+      table: o.restaurant_tables || undefined,
+    })) as import("@/types").OrderWithItems[];
+  } catch {
+    return [];
+  }
+}

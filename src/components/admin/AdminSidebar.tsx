@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderOpen, Package, Settings, ChevronLeft, ChevronRight, QrCode, LogOut, Languages } from "lucide-react";
+import { LayoutDashboard, FolderOpen, Package, Settings, ChevronLeft, ChevronRight, QrCode, LogOut, Languages, LayoutGrid, Receipt } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -6,7 +6,7 @@ import { canUseFeature } from "@/lib/features/engine";
 import { ProBadge } from "@/lib/features/hooks";
 import type { PlanType } from "@/lib/features/flags";
 
-export type AdminTab = "dashboard" | "categories" | "products" | "settings" | "qr" | "translations";
+export type AdminTab = "dashboard" | "categories" | "products" | "settings" | "qr" | "translations" | "tables" | "orders";
 
 interface AdminSidebarProps {
   activeTab: AdminTab;
@@ -14,12 +14,14 @@ interface AdminSidebarProps {
   plan?: PlanType;
 }
 
-const navItems: { id: AdminTab; label: string; icon: React.ElementType; proOnly?: boolean }[] = [
+const navItems: { id: AdminTab; label: string; icon: React.ElementType; proOnly?: boolean; feature?: import("@/lib/features/flags").FeatureKey }[] = [
   { id: "dashboard", label: "Gösterge Paneli", icon: LayoutDashboard },
   { id: "categories", label: "Kategoriler", icon: FolderOpen },
   { id: "products", label: "Ürünler", icon: Package },
+  { id: "tables", label: "Masalar", icon: LayoutGrid, proOnly: true, feature: "table_ordering" },
+  { id: "orders", label: "Siparişler", icon: Receipt, proOnly: true, feature: "table_ordering" },
   { id: "qr", label: "QR Kod", icon: QrCode },
-  { id: "translations", label: "Çeviriler", icon: Languages, proOnly: true },
+  { id: "translations", label: "Çeviriler", icon: Languages, proOnly: true, feature: "translations" },
   { id: "settings", label: "Ayarlar", icon: Settings },
 ];
 
@@ -54,7 +56,7 @@ export function AdminSidebar({ activeTab, onTabChange, plan = "basic" }: AdminSi
       <nav className="flex-1 p-2 space-y-1">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
-          const isLocked = item.proOnly && !canUseFeature(plan, "translations");
+          const isLocked = item.proOnly && item.feature && !canUseFeature(plan, item.feature);
           return (
             <button
               key={item.id}

@@ -5,7 +5,8 @@ export type FeatureKey =
   | "advanced_analytics"
   | "priority_support"
   | "custom_branding"
-  | "api_access";
+  | "api_access"
+  | "table_ordering";
 
 export type PlanType = "basic" | "pro";
 
@@ -53,6 +54,12 @@ export const FEATURE_MAP: Record<FeatureKey, FeatureDef> = {
     key: "api_access",
     label: "API Erişimi",
     description: "Programatik erişim ve entegrasyonlar",
+    plans: ["pro"],
+  },
+  table_ordering: {
+    key: "table_ordering",
+    label: "Masada Sipariş",
+    description: "Müşteriler masadan QR ile sipariş versin",
     plans: ["pro"],
   },
 };
