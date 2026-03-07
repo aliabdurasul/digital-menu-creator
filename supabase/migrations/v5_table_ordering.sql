@@ -1,12 +1,14 @@
 -- =============================================
--- v5: Table Ordering System  (fixed)
+-- v5: Table Ordering System  (v2 — simplified RLS)
 -- =============================================
--- FIX 1: "tables" → "restaurant_tables"  (avoids PG / Supabase reserved-name issues)
--- FIX 2: menu_item_id nullable           (NOT NULL + ON DELETE SET NULL was contradictory)
--- FIX 3: added session_id + source cols  (anonymous tracking & POS-readiness)
--- FIX 4: tighter RLS insert checks       (validate restaurant exists & is active)
--- FIX 5: public can SELECT own orders    (by session_id)
--- FIX 6: unique(restaurant_id, label)    (prevent duplicate table labels)
+-- The public order API uses the service-role key so it bypasses RLS.
+-- RLS now only gates admin access (restaurant owners reading/managing
+-- their own orders and tables).
+--
+-- Changes vs v1:
+--   • table_id is NULLABLE (supports takeaway / non-table orders)
+--   • Removed fragile public INSERT/SELECT policies
+--   • Source defaults to 'qr'
 
 -- ─── Enums (idempotent) ───
 DO $$ BEGIN
@@ -34,10 +36,10 @@ CREATE TABLE IF NOT EXISTS restaurant_tables (
 CREATE TABLE IF NOT EXISTS orders (
   id            uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   restaurant_id uuid NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
-  table_id      uuid NOT NULL REFERENCES restaurant_tables(id) ON DELETE CASCADE,
+  table_id      uuid REFERENCES restaurant_tables(id) ON DELETE SET NULL,  -- nullable for takeaway
   session_id    text NOT NULL DEFAULT '',        -- anonymous browser UUID
   status        order_status NOT NULL DEFAULT 'pending',
-  source        text NOT NULL DEFAULT 'qr',     -- 'qr' | 'pos' | 'waiter'
+  source        text NOT NULL DEFAULT 'qr',     -- 'qr' | 'pos' | 'waiter' | 'takeaway'
   note          text DEFAULT '',
   total         numeric(10,2) NOT NULL DEFAULT 0,
   created_at    timestamptz NOT NULL DEFAULT now(),
@@ -74,69 +76,31 @@ CREATE TRIGGER trg_orders_updated
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- ═══════════════════════════
--- RLS
+-- RLS  (admin-only — public orders go through service-role API)
 -- ═══════════════════════════
 ALTER TABLE restaurant_tables ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items       ENABLE ROW LEVEL SECURITY;
 
 -- ── restaurant_tables ──
--- admins: full CRUD on own restaurant
 CREATE POLICY "rt_admin_all" ON restaurant_tables
   FOR ALL USING (
     restaurant_id IN (SELECT restaurant_id FROM profiles WHERE id = auth.uid())
   );
 
--- public: read active tables only (needed to validate QR scans)
+-- public: read active tables (needed for QR scan validation on client)
 CREATE POLICY "rt_public_read" ON restaurant_tables
   FOR SELECT USING (status = 'active');
 
--- ── orders ──
--- public INSERT: must reference an active restaurant + active table
-CREATE POLICY "orders_public_insert" ON orders
-  FOR INSERT WITH CHECK (
-    EXISTS (SELECT 1 FROM restaurants WHERE id = restaurant_id AND active = true)
-    AND
-    EXISTS (SELECT 1 FROM restaurant_tables WHERE id = table_id AND status = 'active')
-  );
-
--- public SELECT: customer can read their own orders by session_id
-CREATE POLICY "orders_public_read" ON orders
-  FOR SELECT USING (
-    session_id <> '' AND session_id = current_setting('request.headers', true)::json->>'x-session-id'
-  );
-
--- admin SELECT + UPDATE
-CREATE POLICY "orders_admin_select" ON orders
-  FOR SELECT USING (
+-- ── orders (admin only) ──
+CREATE POLICY "orders_admin_all" ON orders
+  FOR ALL USING (
     restaurant_id IN (SELECT restaurant_id FROM profiles WHERE id = auth.uid())
   );
 
-CREATE POLICY "orders_admin_update" ON orders
-  FOR UPDATE USING (
-    restaurant_id IN (SELECT restaurant_id FROM profiles WHERE id = auth.uid())
-  );
-
--- ── order_items ──
--- public INSERT: only if the parent order exists
-CREATE POLICY "oi_public_insert" ON order_items
-  FOR INSERT WITH CHECK (
-    EXISTS (SELECT 1 FROM orders WHERE id = order_id)
-  );
-
--- public SELECT: via session_id on parent order
-CREATE POLICY "oi_public_read" ON order_items
-  FOR SELECT USING (
-    order_id IN (
-      SELECT id FROM orders
-      WHERE session_id <> ''
-        AND session_id = current_setting('request.headers', true)::json->>'x-session-id'
-    )
-  );
-
--- admin SELECT
-CREATE POLICY "oi_admin_select" ON order_items
-  FOR SELECT USING (
+-- ── order_items (admin only) ──
+CREATE POLICY "oi_admin_all" ON order_items
+  FOR ALL USING (
     order_id IN (
       SELECT id FROM orders
       WHERE restaurant_id IN (SELECT restaurant_id FROM profiles WHERE id = auth.uid())

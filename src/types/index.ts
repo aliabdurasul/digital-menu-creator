@@ -203,7 +203,7 @@ export interface DbTable {
 export interface DbOrder {
   id: string;
   restaurant_id: string;
-  table_id: string;
+  table_id: string | null;
   session_id: string;
   status: OrderStatus;
   source: string;

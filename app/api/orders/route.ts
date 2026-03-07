@@ -1,25 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
+
+/**
+ * Service-role client — bypasses RLS so anonymous users can place orders.
+ * All validation (active restaurant, active table, available items) is done
+ * server-side in code before any writes.
+ */
+function getServiceClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  if (!key) throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
+  return createClient(url, key);
+}
 
 /**
  * POST /api/orders — Create a new order (public, no auth required).
- * Body: { restaurantId, tableId, items: [{ menuItemId, quantity }], note? }
+ * Body: { restaurantId, tableId?, items: [{ menuItemId, quantity }], note?, sessionId? }
  */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { restaurantId, tableId, items, note, sessionId } = body as {
       restaurantId?: string;
-      tableId?: string;
+      tableId?: string | null;
       items?: { menuItemId: string; quantity: number }[];
       note?: string;
       sessionId?: string;
     };
 
     // Validate required fields
-    if (!restaurantId || !tableId || !items || items.length === 0) {
+    if (!restaurantId || !items || items.length === 0) {
       return NextResponse.json(
-        { error: "restaurantId, tableId ve en az 1 ürün gerekli" },
+        { error: "restaurantId ve en az 1 ürün gerekli" },
         { status: 400 }
       );
     }
@@ -32,25 +44,42 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabase = createClient();
+    const supabase = getServiceClient();
 
-    // 1. Verify table exists & is active for this restaurant
-    const { data: table, error: tableErr } = await supabase
-      .from("restaurant_tables")
-      .select("id, restaurant_id, status")
-      .eq("id", tableId)
-      .eq("restaurant_id", restaurantId)
-      .eq("status", "active")
+    // 1. Verify restaurant is active
+    const { data: restaurant, error: restErr } = await supabase
+      .from("restaurants")
+      .select("id, active")
+      .eq("id", restaurantId)
+      .eq("active", true)
       .single();
 
-    if (tableErr || !table) {
+    if (restErr || !restaurant) {
       return NextResponse.json(
-        { error: "Masa bulunamadı veya aktif değil" },
+        { error: "Restoran bulunamadı veya aktif değil" },
         { status: 404 }
       );
     }
 
-    // 2. Fetch menu items to snapshot current prices
+    // 2. If tableId provided, verify table exists & is active
+    if (tableId) {
+      const { data: table, error: tableErr } = await supabase
+        .from("restaurant_tables")
+        .select("id")
+        .eq("id", tableId)
+        .eq("restaurant_id", restaurantId)
+        .eq("status", "active")
+        .single();
+
+      if (tableErr || !table) {
+        return NextResponse.json(
+          { error: "Masa bulunamadı veya aktif değil" },
+          { status: 404 }
+        );
+      }
+    }
+
+    // 3. Fetch menu items to snapshot current prices
     const menuItemIds = items.map((i) => i.menuItemId);
     const { data: menuItems, error: miErr } = await supabase
       .from("menu_items")
@@ -85,7 +114,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. Calculate total from snapshot prices
+    // 4. Calculate total from snapshot prices
     let total = 0;
     const orderItems = items.map((item) => {
       const mi = itemMap.get(item.menuItemId)!;
@@ -98,14 +127,14 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    // 4. Create order
+    // 5. Create order
     const { data: order, error: orderErr } = await supabase
       .from("orders")
       .insert({
         restaurant_id: restaurantId,
-        table_id: tableId,
+        table_id: tableId || null,
         session_id: sessionId || "",
-        source: "qr",
+        source: tableId ? "qr" : "takeaway",
         note: note || "",
         total: Math.round(total * 100) / 100,
         status: "pending",
@@ -120,7 +149,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 5. Insert order items
+    // 6. Insert order items
     const { error: oiErr } = await supabase.from("order_items").insert(
       orderItems.map((oi) => ({
         ...oi,
