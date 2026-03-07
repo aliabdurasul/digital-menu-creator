@@ -54,6 +54,7 @@ export function AdminOrders({ restaurant }: AdminOrdersProps) {
       .from("orders")
       .select("*, order_items(*), restaurant_tables(label)")
       .eq("restaurant_id", restaurant.id)
+      .in("status", ["pending", "preparing", "ready"])
       .order("created_at", { ascending: false });
 
     const mapped = (data || []).map((o: Record<string, unknown>) => ({
@@ -93,14 +94,18 @@ export function AdminOrders({ restaurant }: AdminOrdersProps) {
             toast({ title: "Yeni sipariş geldi!" });
             fetchOrders();
           } else if (payload.eventType === "UPDATE") {
-            // Update in-place
-            setOrders((prev) =>
-              prev.map((o) =>
-                o.id === (payload.new as { id: string }).id
-                  ? { ...o, ...(payload.new as object) }
-                  : o
-              )
-            );
+            const updated = payload.new as { id: string; status: string };
+            // If moved to delivered/cancelled → remove from active list
+            if (!["pending", "preparing", "ready"].includes(updated.status)) {
+              setOrders((prev) => prev.filter((o) => o.id !== updated.id));
+            } else {
+              // Still active — update in place
+              setOrders((prev) =>
+                prev.map((o) =>
+                  o.id === updated.id ? { ...o, ...(payload.new as object) } : o
+                )
+              );
+            }
           }
         }
       )
@@ -125,9 +130,14 @@ export function AdminOrders({ restaurant }: AdminOrdersProps) {
         throw new Error(data.error || "Güncelleme başarısız");
       }
 
-      setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
-      );
+      // If delivered/cancelled → remove from list immediately
+      if (!["pending", "preparing", "ready"].includes(newStatus)) {
+        setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      } else {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+        );
+      }
     } catch (err) {
       toast({
         title: "Hata",
@@ -143,10 +153,7 @@ export function AdminOrders({ restaurant }: AdminOrdersProps) {
     await updateStatus(orderId, "cancelled");
   };
 
-  // Group orders by status for kanban-like view
   const activeStatuses: OrderStatus[] = ["pending", "preparing", "ready"];
-  const activeOrders = orders.filter((o) => activeStatuses.includes(o.status));
-  const completedOrders = orders.filter((o) => o.status === "delivered" || o.status === "cancelled");
 
   if (loading) {
     return (
@@ -169,9 +176,9 @@ export function AdminOrders({ restaurant }: AdminOrdersProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold">Siparişler</h2>
+          <h2 className="text-xl font-bold">Aktif Siparişler</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Canlı sipariş takibi — yeni siparişler otomatik olarak görünür.
+            Sadece aktif siparişler — teslim edilen ve iptal edilen siparişler otomatik kaybolur.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -185,13 +192,12 @@ export function AdminOrders({ restaurant }: AdminOrdersProps) {
       </div>
 
       {/* Active Orders — Kanban columns */}
-      {activeOrders.length === 0 && completedOrders.length === 0 ? (
+      {orders.length === 0 ? (
         <p className="text-muted-foreground text-sm py-8 text-center">
-          Henüz sipariş yok.
+          Şu an aktif sipariş yok.
         </p>
       ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {activeStatuses.map((status) => {
               const cfg = STATUS_CONFIG[status];
               const statusOrders = orders.filter((o) => o.status === status);
@@ -229,22 +235,7 @@ export function AdminOrders({ restaurant }: AdminOrdersProps) {
                 </div>
               );
             })}
-          </div>
-
-          {/* Completed orders */}
-          {completedOrders.length > 0 && (
-            <div className="mt-8">
-              <h3 className="font-semibold text-sm text-muted-foreground mb-3">
-                Tamamlanan / İptal Siparişler ({completedOrders.length})
-              </h3>
-              <div className="space-y-2">
-                {completedOrders.slice(0, 20).map((order) => (
-                  <OrderCard key={order.id} order={order} updating={false} />
-                ))}
-              </div>
-            </div>
-          )}
-        </>
+        </div>
       )}
     </div>
   );
@@ -265,7 +256,7 @@ function OrderCard({
   const cfg = STATUS_CONFIG[order.status];
   const next = NEXT_STATUS[order.status as keyof typeof NEXT_STATUS];
   const nextCfg = next ? STATUS_CONFIG[next] : null;
-  const tableLabel = order.table && "label" in order.table ? order.table.label : "—";
+  const tableLabel = order.table && "label" in order.table ? order.table.label : "Paket";
 
   return (
     <div className={`rounded-lg border p-3 space-y-2 ${cfg.bg}`}>

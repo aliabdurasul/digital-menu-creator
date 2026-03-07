@@ -360,6 +360,7 @@ export async function getOrdersByRestaurant(restaurantId: string) {
       .from("orders")
       .select("*, order_items(*), restaurant_tables(label)")
       .eq("restaurant_id", restaurantId)
+      .in("status", ["pending", "preparing", "ready"])
       .order("created_at", { ascending: false });
     if (error) return [];
     return (data || []).map((o: Record<string, unknown>) => ({

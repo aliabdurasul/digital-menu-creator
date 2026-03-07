@@ -167,13 +167,14 @@ export function AdminTables({ restaurant }: AdminTablesProps) {
                 asChild
               >
                 <a
-                  href={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(getTableUrl(table.id))}`}
+                  href={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(getTableUrl(table.id))}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="gap-1.5"
+                  title={`QR: ${table.label}`}
                 >
                   <QrCode className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">QR</span>
+                  <span className="hidden sm:inline">QR — {table.label}</span>
                 </a>
               </Button>
 

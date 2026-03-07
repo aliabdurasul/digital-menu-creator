@@ -1,13 +1,15 @@
 -- =============================================
--- v5: Table Ordering System  (v2 — simplified RLS)
+-- v5: Table Ordering System  (v3 — idempotent + active-only dashboard)
 -- =============================================
 -- The public order API uses the service-role key so it bypasses RLS.
--- RLS now only gates admin access (restaurant owners reading/managing
+-- RLS only gates admin access (restaurant owners reading/managing
 -- their own orders and tables).
 --
--- Changes vs v1:
---   • table_id is NULLABLE (supports takeaway / non-table orders)
---   • Removed fragile public INSERT/SELECT policies
+-- Changes:
+--   • table_id NULLABLE (supports takeaway / non-table orders)
+--   • Simplified RLS (admin-only, public goes through service-role API)
+--   • DROP POLICY IF EXISTS before each CREATE (idempotent re-runs)
+--   • Partial index on active orders for dashboard performance
 --   • Source defaults to 'qr'
 
 -- ─── Enums (idempotent) ───
@@ -64,6 +66,12 @@ CREATE INDEX IF NOT EXISTS idx_orders_table_status  ON orders(table_id, status);
 CREATE INDEX IF NOT EXISTS idx_orders_session       ON orders(session_id);
 CREATE INDEX IF NOT EXISTS idx_oi_order             ON order_items(order_id);
 
+-- Partial index: only active orders — makes dashboard queries fast
+-- even when 1000s of delivered/cancelled orders exist
+CREATE INDEX IF NOT EXISTS idx_orders_active
+  ON orders(restaurant_id, created_at DESC)
+  WHERE status IN ('pending', 'preparing', 'ready');
+
 -- ─── Updated-at trigger ───
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS trigger AS $$
@@ -82,13 +90,27 @@ ALTER TABLE restaurant_tables ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items       ENABLE ROW LEVEL SECURITY;
 
+-- Drop ALL old policies (v1 + v2 names) for idempotent re-runs
+DROP POLICY IF EXISTS "rt_admin_all"   ON restaurant_tables;
+DROP POLICY IF EXISTS "rt_public_read" ON restaurant_tables;
+
+DROP POLICY IF EXISTS "orders_public_insert" ON orders;
+DROP POLICY IF EXISTS "orders_public_read"   ON orders;
+DROP POLICY IF EXISTS "orders_admin_select"  ON orders;
+DROP POLICY IF EXISTS "orders_admin_update"  ON orders;
+DROP POLICY IF EXISTS "orders_admin_all"     ON orders;
+
+DROP POLICY IF EXISTS "oi_public_insert" ON order_items;
+DROP POLICY IF EXISTS "oi_public_read"   ON order_items;
+DROP POLICY IF EXISTS "oi_admin_select"  ON order_items;
+DROP POLICY IF EXISTS "oi_admin_all"     ON order_items;
+
 -- ── restaurant_tables ──
 CREATE POLICY "rt_admin_all" ON restaurant_tables
   FOR ALL USING (
     restaurant_id IN (SELECT restaurant_id FROM profiles WHERE id = auth.uid())
   );
 
--- public: read active tables (needed for QR scan validation on client)
 CREATE POLICY "rt_public_read" ON restaurant_tables
   FOR SELECT USING (status = 'active');
 
@@ -107,5 +129,8 @@ CREATE POLICY "oi_admin_all" ON order_items
     )
   );
 
--- ─── Realtime ───
-ALTER PUBLICATION supabase_realtime ADD TABLE orders;
+-- ─── Realtime (idempotent) ───
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE orders;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
