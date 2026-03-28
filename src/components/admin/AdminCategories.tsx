@@ -1,10 +1,27 @@
 import { useState, useRef, useEffect } from "react";
 import type { Restaurant, Category } from "@/types";
-import { Plus, Trash2, GripVertical, Loader2, Pencil, Check, X } from "lucide-react";
+import { Plus, Trash2, Loader2, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { SortableItem } from "./SortableItem";
+import { arrayMove, persistReorder } from "@/lib/reorder";
 
 interface Props {
   restaurant: Restaurant;
@@ -21,6 +38,11 @@ export function AdminCategories({ restaurant, setRestaurant }: Props) {
 
   const sorted = [...restaurant.categories].sort((a, b) => a.order - b.order);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
   // Auto-focus the edit input when editing starts
   useEffect(() => {
     if (editingId && editInputRef.current) {
@@ -28,6 +50,33 @@ export function AdminCategories({ restaurant, setRestaurant }: Props) {
       editInputRef.current.select();
     }
   }, [editingId]);
+
+  // ── Drag and drop ──
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = sorted.findIndex((c) => c.id === active.id);
+    const newIndex = sorted.findIndex((c) => c.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(sorted, oldIndex, newIndex).map((c, i) => ({
+      ...c,
+      order: i,
+    }));
+
+    const prevCategories = restaurant.categories;
+
+    // Optimistic update
+    setRestaurant((r) => r ? { ...r, categories: reordered } : r);
+
+    try {
+      await persistReorder("categories", reordered);
+    } catch {
+      setRestaurant((r) => r ? { ...r, categories: prevCategories } : r);
+      toast({ title: "Hata", description: "Sıralama kaydedilemedi", variant: "destructive" });
+    }
+  };
 
   const addCategory = async () => {
     if (!newName.trim() || adding) return;
@@ -157,61 +206,66 @@ export function AdminCategories({ restaurant, setRestaurant }: Props) {
         </Button>
       </div>
 
-      <div className="space-y-2 max-w-md">
-        {sorted.map((cat) => (
-          <div
-            key={cat.id}
-            className="flex items-center gap-3 p-3 bg-card border border-border rounded-xl group"
-          >
-            <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab" />
-            {editingId === cat.id ? (
-              <>
-                <Input
-                  ref={editInputRef}
-                  value={editingName}
-                  onChange={(e) => setEditingName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") saveEdit();
-                    if (e.key === "Escape") cancelEdit();
-                  }}
-                  className="flex-1 h-8 text-sm"
-                />
-                <button
-                  onClick={saveEdit}
-                  className="text-primary hover:text-primary/80"
-                >
-                  <Check className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={cancelEdit}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </>
-            ) : (
-              <>
-                <span className="flex-1 font-medium text-sm text-foreground">{cat.name}</span>
-                <button
-                  onClick={() => startEdit(cat)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => deleteCategory(cat.id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive/80"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        modifiers={[restrictToVerticalAxis]}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={sorted.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-2 max-w-md">
+            {sorted.map((cat) => (
+              <SortableItem key={cat.id} id={cat.id}>
+                {editingId === cat.id ? (
+                  <>
+                    <Input
+                      ref={editInputRef}
+                      value={editingName}
+                      onChange={(e) => setEditingName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveEdit();
+                        if (e.key === "Escape") cancelEdit();
+                      }}
+                      className="flex-1 h-8 text-sm"
+                    />
+                    <button
+                      onClick={saveEdit}
+                      className="text-primary hover:text-primary/80"
+                    >
+                      <Check className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={cancelEdit}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="flex-1 font-medium text-sm text-foreground">{cat.name}</span>
+                    <button
+                      onClick={() => startEdit(cat)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => deleteCategory(cat.id)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive/80"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
+              </SortableItem>
+            ))}
+            {sorted.length === 0 && (
+              <p className="text-sm text-muted-foreground">Henüz kategori yok. Yukarıdan ekleyin.</p>
             )}
           </div>
-        ))}
-        {sorted.length === 0 && (
-          <p className="text-sm text-muted-foreground">Henüz kategori yok. Yukarıdan ekleyin.</p>
-        )}
-      </div>
+        </SortableContext>
+      </DndContext>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Restaurant, Product } from "@/types";
-import { Plus, Trash2, GripVertical, Loader2, Pencil } from "lucide-react";
+import { Plus, Trash2, Loader2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -22,6 +22,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { SortableItem } from "./SortableItem";
+import { arrayMove, persistReorder } from "@/lib/reorder";
 
 interface Props {
   restaurant: Restaurant;
@@ -53,6 +70,38 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
 
   const sorted = [...restaurant.products].sort((a, b) => a.order - b.order);
   const isEditing = !!editingProduct;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  // ── Drag and drop ──
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = sorted.findIndex((p) => p.id === active.id);
+    const newIndex = sorted.findIndex((p) => p.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(sorted, oldIndex, newIndex).map((p, i) => ({
+      ...p,
+      order: i,
+    }));
+
+    const prevProducts = restaurant.products;
+
+    // Optimistic update
+    setRestaurant((r) => r ? { ...r, products: reordered } : r);
+
+    try {
+      await persistReorder("menu_items", reordered);
+    } catch {
+      setRestaurant((r) => r ? { ...r, products: prevProducts } : r);
+      toast({ title: "Hata", description: "Sıralama kaydedilemedi", variant: "destructive" });
+    }
+  };
 
   // ── Validation ──
   const validate = (): FormErrors => {
@@ -429,47 +478,52 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
         </Dialog>
       </div>
 
-      <div className="space-y-2">
-        {sorted.map((product) => (
-          <div
-            key={product.id}
-            className="flex items-center gap-3 p-3 bg-card border border-border rounded-xl group"
-          >
-            <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab shrink-0" />
-            <img
-              src={product.image}
-              alt={product.name}
-              className="w-10 h-10 rounded-lg object-cover shrink-0"
-            />
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm text-foreground truncate">{product.name}</p>
-              <p className="text-xs text-muted-foreground">
-                ₺{product.price.toFixed(2)} ·{" "}
-                {restaurant.categories.find((c) => c.id === product.categoryId)?.name || "Kategorisiz"}
-              </p>
-            </div>
-            <Switch
-              checked={product.available}
-              onCheckedChange={() => toggleAvailability(product.id)}
-            />
-            <button
-              onClick={() => openEdit(product)}
-              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
-            >
-              <Pencil className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => deleteProduct(product.id)}
-              className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive/80"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        modifiers={[restrictToVerticalAxis]}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={sorted.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-2">
+            {sorted.map((product) => (
+              <SortableItem key={product.id} id={product.id}>
+                <img
+                  src={product.image}
+                  alt={product.name}
+                  className="w-10 h-10 rounded-lg object-cover shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm text-foreground truncate">{product.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    ₺{product.price.toFixed(2)} ·{" "}
+                    {restaurant.categories.find((c) => c.id === product.categoryId)?.name || "Kategorisiz"}
+                  </p>
+                </div>
+                <Switch
+                  checked={product.available}
+                  onCheckedChange={() => toggleAvailability(product.id)}
+                />
+                <button
+                  onClick={() => openEdit(product)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => deleteProduct(product.id)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive/80"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </SortableItem>
+            ))}
+            {sorted.length === 0 && (
+              <p className="text-sm text-muted-foreground">Henüz ürün yok. Yukarıdan ekleyin.</p>
+            )}
           </div>
-        ))}
-        {sorted.length === 0 && (
-          <p className="text-sm text-muted-foreground">Henüz ürün yok. Yukarıdan ekleyin.</p>
-        )}
-      </div>
+        </SortableContext>
+      </DndContext>
     </div>
   );
 }
