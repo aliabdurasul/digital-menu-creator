@@ -39,6 +39,7 @@ import {
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { SortableItem } from "./SortableItem";
 import { arrayMove, persistReorder } from "@/lib/reorder";
+import { compressImage } from "@/lib/image";
 
 interface Props {
   restaurant: Restaurant;
@@ -123,7 +124,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
 
   const isFormValid = form.name.trim() && form.categoryId && form.price && !isNaN(parseFloat(form.price)) && parseFloat(form.price) >= 0;
 
-  // ── Image Upload (real Supabase storage) ──
+  // ── Image Upload (optimized pipeline) ──
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -132,23 +133,25 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
     const localUrl = URL.createObjectURL(file);
     setForm((f) => ({ ...f, imagePreview: localUrl }));
 
-    // Upload to Supabase storage
     setUploading(true);
     try {
-      const supabase = createClient();
-      const path = `${restaurant.id}/products/${Date.now()}-${file.name}`;
-      const { error } = await supabase.storage
-        .from("images")
-        .upload(path, file, { upsert: true });
+      // 1. Client-side compression (20MB → ~1MB WebP)
+      const compressed = await compressImage(file);
 
-      if (error) {
-        toast({ title: "Yükleme başarısız", description: error.message, variant: "destructive" });
+      // 2. Upload to /api/upload — sharp generates 3 WebP sizes server-side
+      const body = new FormData();
+      body.append("file", compressed);
+      body.append("restaurantId", restaurant.id);
+
+      const res = await fetch("/api/upload", { method: "POST", body });
+      if (!res.ok) {
+        const { error } = await res.json();
+        toast({ title: "Yükleme başarısız", description: error || "Bilinmeyen hata", variant: "destructive" });
         return;
       }
 
-      const { data } = supabase.storage.from("images").getPublicUrl(path);
-      const publicUrl = `${data.publicUrl}?v=${Date.now()}`;
-      setForm((f) => ({ ...f, imagePreview: publicUrl }));
+      const { url } = (await res.json()) as { url: string };
+      setForm((f) => ({ ...f, imagePreview: url }));
     } catch {
       toast({ title: "Yükleme başarısız", description: "Görsel yüklenemedi", variant: "destructive" });
     } finally {

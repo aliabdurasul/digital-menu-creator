@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo, useContext } from "react";
-import Image from "next/image";
 import type { Product } from "@/types";
+import { OptimizedImage } from "@/components/OptimizedImage";
 import { X, Plus } from "lucide-react";
 import { useLanguage, UI_LABELS } from "@/components/menu/LanguageProvider";
 import { useCart } from "@/components/menu/CartProvider";
@@ -86,13 +86,13 @@ export function ProductList({ tableId }: { tableId?: string }) {
                   {/* Square thumbnail */}
                   {hasImage(product) ? (
                     <div className="relative w-20 h-20 shrink-0 rounded-lg overflow-hidden bg-muted">
-                      <Image
+                      <OptimizedImage
                         src={product.image}
                         alt={product.name}
+                        variant="thumbnail"
                         fill
                         sizes="80px"
                         className="object-cover"
-                        loading="lazy"
                       />
                     </div>
                   ) : (
@@ -164,11 +164,12 @@ export function ProductList({ tableId }: { tableId?: string }) {
 
             {hasImage(activeSelected) && (
               <div className="relative aspect-[4/3] bg-muted">
-                <Image
+                <OptimizedImage
                   src={activeSelected.image}
                   alt={activeSelected.name}
+                  variant="large"
                   fill
-                  sizes="400px"
+                  sizes="(max-width: 480px) 100vw, 400px"
                   className="object-cover"
                 />
               </div>

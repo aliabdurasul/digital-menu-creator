@@ -9,8 +9,8 @@ const nextConfig = {
         pathname: "/storage/v1/object/public/**",
       },
     ],
-    deviceSizes: [320, 420, 480],
-    imageSizes: [80, 96, 480],
+    deviceSizes: [320, 420, 480, 640, 1024],
+    imageSizes: [80, 96, 300, 480, 600],
   },
 };
 
