@@ -42,6 +42,7 @@ export interface DbMenuItem {
   ingredients: string;
   portion_info: string;
   allergen_info: string;
+  ar_model_url: string;
   created_at: string;
   updated_at: string;
 }
@@ -101,6 +102,7 @@ export interface Product {
   ingredients: string;
   portionInfo: string;
   allergenInfo: string;
+  arModelUrl: string;
 }
 
 export interface Category {
@@ -173,6 +175,7 @@ export function toLegacyRestaurant(
       ingredients: i.ingredients || "",
       portionInfo: i.portion_info || "",
       allergenInfo: i.allergen_info || "",
+      arModelUrl: i.ar_model_url || "",
     })),
     plan: r.plan,
     active: r.active,

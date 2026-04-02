@@ -1,11 +1,15 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo, useContext } from "react";
+import { useState, useCallback, useEffect, useMemo, lazy, Suspense } from "react";
 import type { Product } from "@/types";
 import { OptimizedImage } from "@/components/OptimizedImage";
-import { X, Plus } from "lucide-react";
+import { X, Plus, View } from "lucide-react";
 import { useLanguage, UI_LABELS } from "@/components/menu/LanguageProvider";
 import { useCart } from "@/components/menu/CartProvider";
+
+const ARViewer = lazy(() =>
+  import("@/components/menu/ARViewer").then((m) => ({ default: m.ARViewer }))
+);
 
 function useOptionalCart() {
   try {
@@ -27,6 +31,7 @@ export function ProductList({ tableId }: { tableId?: string }) {
   );
 
   const [selected, setSelected] = useState<Product | null>(null);
+  const [arProduct, setArProduct] = useState<Product | null>(null);
 
   // Keep modal product synced with language switch
   const activeSelected = useMemo(() => {
@@ -51,10 +56,10 @@ export function ProductList({ tableId }: { tableId?: string }) {
   const close = useCallback(() => setSelected(null), []);
 
   useEffect(() => {
-    if (activeSelected) document.body.style.overflow = "hidden";
+    if (activeSelected || arProduct) document.body.style.overflow = "hidden";
     else document.body.style.overflow = "";
     return () => { document.body.style.overflow = ""; };
-  }, [activeSelected]);
+  }, [activeSelected, arProduct]);
 
   useEffect(() => {
     if (!activeSelected) return;
@@ -213,9 +218,35 @@ export function ProductList({ tableId }: { tableId?: string }) {
                   ⚠ {activeSelected.allergenInfo}
                 </p>
               )}
+
+              {activeSelected.arModelUrl && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    close();
+                    setArProduct(activeSelected);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+                >
+                  <View className="w-4 h-4" />
+                  Masanda Gör
+                </button>
+              )}
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── AR Viewer modal ── */}
+      {arProduct && arProduct.arModelUrl && (
+        <Suspense fallback={null}>
+          <ARViewer
+            src={arProduct.arModelUrl}
+            name={arProduct.name}
+            poster={arProduct.image !== "/placeholder.svg" ? arProduct.image : undefined}
+            onClose={() => setArProduct(null)}
+          />
+        </Suspense>
       )}
     </>
   );

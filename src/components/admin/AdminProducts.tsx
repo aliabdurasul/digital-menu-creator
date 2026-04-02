@@ -56,6 +56,7 @@ const emptyForm = {
   ingredients: "",
   portionInfo: "",
   allergenInfo: "",
+  arModelUrl: "",
 };
 
 type FormErrors = Record<string, string>;
@@ -172,6 +173,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
       ingredients: product.ingredients || "",
       portionInfo: product.portionInfo || "",
       allergenInfo: product.allergenInfo || "",
+      arModelUrl: product.arModelUrl || "",
     });
     setErrors({});
     setOpen(true);
@@ -215,6 +217,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
       ingredients: form.ingredients.trim(),
       portion_info: form.portionInfo.trim(),
       allergen_info: form.allergenInfo.trim(),
+      ar_model_url: form.arModelUrl.trim(),
     };
 
     const _ingredients = form.ingredients.trim();
@@ -249,6 +252,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
           ingredients: _ingredients || editingProduct.ingredients,
           portionInfo: _portionInfo || editingProduct.portionInfo,
           allergenInfo: _allergenInfo || editingProduct.allergenInfo,
+          arModelUrl: form.arModelUrl.trim(),
         };
 
         setRestaurant((r) =>
@@ -280,6 +284,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
           ingredients: _ingredients,
           portionInfo: _portionInfo,
           allergenInfo: _allergenInfo,
+          arModelUrl: form.arModelUrl.trim(),
         };
 
         setRestaurant((r) => r ? { ...r, products: [...r.products, product] } : r);
@@ -460,6 +465,17 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
                     />
                   )}
                 </div>
+              </div>
+              <div>
+                <Label className="text-xs">3D Model (AR)</Label>
+                <Input
+                  value={form.arModelUrl}
+                  onChange={(e) => setForm((f) => ({ ...f, arModelUrl: e.target.value }))}
+                  placeholder="GLB dosya URL'si (örn: https://...model.glb)"
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  GLB formatında 3D model URL. Boş bırakılırsa AR butonu görünmez.
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <Switch
