@@ -105,6 +105,7 @@ export default function RestaurantAdminPage() {
               ingredients: string;
               portion_info: string;
               allergen_info: string;
+              ar_model_url?: string;
             }) => ({
               id: i.id,
               name: i.name,
@@ -117,6 +118,7 @@ export default function RestaurantAdminPage() {
               ingredients: i.ingredients || "",
               portionInfo: i.portion_info || "",
               allergenInfo: i.allergen_info || "",
+              arModelUrl: i.ar_model_url || "",
             })
           ),
           plan: dbRestaurant.plan || "basic",
