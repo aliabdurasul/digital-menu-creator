@@ -133,6 +133,9 @@ export async function getCurrentRestaurant(): Promise<Restaurant | null> {
           domainStatus: dbRestaurant.domain_status || "pending",
           defaultLanguage: dbRestaurant.default_language || "tr",
           enabledLanguages: dbRestaurant.enabled_languages || ["tr"],
+          moduleType: dbRestaurant.module_type || "restaurant",
+          notificationEnabled: dbRestaurant.notification_enabled ?? false,
+          notificationChannel: dbRestaurant.notification_channel || "sms",
         };
       }
     }

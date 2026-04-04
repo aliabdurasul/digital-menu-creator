@@ -95,6 +95,9 @@ export default function SuperAdminPage() {
             domainStatus: (r.domain_status || "pending") as "pending" | "dns_verified" | "active" | "rejected",
             defaultLanguage: (r.default_language || "tr") as "tr" | "en",
             enabledLanguages: r.enabled_languages || ["tr"],
+            moduleType: (r.module_type || "restaurant") as "cafe" | "restaurant",
+            notificationEnabled: r.notification_enabled ?? false,
+            notificationChannel: (r.notification_channel || "sms") as "sms" | "whatsapp" | "both",
           }))
         );
       } catch {
@@ -160,6 +163,9 @@ export default function SuperAdminPage() {
         domainStatus: "pending",
         defaultLanguage: "tr",
         enabledLanguages: ["tr"],
+        moduleType: "restaurant",
+        notificationEnabled: false,
+        notificationChannel: "sms",
       },
       ...prev,
     ]);
