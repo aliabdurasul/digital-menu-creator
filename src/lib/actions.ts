@@ -323,6 +323,9 @@ export async function getAllRestaurantsAdmin(): Promise<
     domain_status: string;
     default_language: string;
     enabled_languages: string[];
+    module_type: string;
+    notification_enabled: boolean;
+    notification_channel: string;
   }>>
 > {
   try {
