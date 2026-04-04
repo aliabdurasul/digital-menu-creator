@@ -38,7 +38,7 @@ export async function processLoyaltyStamp(
   // 2. Get customer, then update stats directly
   const { data: customer } = await supabase
     .from("customers")
-    .select("id, total_orders, total_spent, phone, name")
+    .select("id, total_orders, total_spent, phone, name, loyalty_points")
     .eq("id", customerId)
     .single();
 
