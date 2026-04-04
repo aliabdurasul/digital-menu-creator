@@ -205,7 +205,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
                 )}
 
                 <Button
-                  onClick={handleSubmit}
+                  onClick={() => { void handleSubmit(); }}
                   disabled={submitting}
                   className="w-full h-12 text-base font-semibold"
                 >
