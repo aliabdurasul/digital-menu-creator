@@ -20,12 +20,13 @@ function getServiceClient() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { restaurantId, tableId, items, note, sessionId } = body as {
+    const { restaurantId, tableId, items, note, sessionId, customerPhone } = body as {
       restaurantId?: string;
       tableId?: string | null;
       items?: { menuItemId: string; quantity: number }[];
       note?: string;
       sessionId?: string;
+      customerPhone?: string;
     };
 
     // Validate required fields
@@ -127,6 +128,36 @@ export async function POST(req: NextRequest) {
       };
     });
 
+    // 4b. Find or create customer if phone provided
+    let customerId: string | null = null;
+    if (customerPhone) {
+      // Upsert: find existing or create new
+      const { data: existing } = await supabase
+        .from("customers")
+        .select("id")
+        .eq("restaurant_id", restaurantId)
+        .eq("phone", customerPhone)
+        .single();
+
+      if (existing) {
+        customerId = existing.id;
+      } else {
+        const { data: newCustomer } = await supabase
+          .from("customers")
+          .insert({
+            restaurant_id: restaurantId,
+            phone: customerPhone,
+            source: tableId ? "qr" : "qr",
+            module_type: "restaurant",
+            consent_given: true,
+            consent_date: new Date().toISOString(),
+          })
+          .select("id")
+          .single();
+        if (newCustomer) customerId = newCustomer.id;
+      }
+    }
+
     // 5. Create order
     const { data: order, error: orderErr } = await supabase
       .from("orders")
@@ -134,6 +165,8 @@ export async function POST(req: NextRequest) {
         restaurant_id: restaurantId,
         table_id: tableId || null,
         session_id: sessionId || "",
+        customer_id: customerId,
+        customer_phone: customerPhone || null,
         source: tableId ? "qr" : "takeaway",
         note: note || "",
         total: Math.round(total * 100) / 100,

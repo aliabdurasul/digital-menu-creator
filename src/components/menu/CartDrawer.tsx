@@ -5,23 +5,39 @@ import Image from "next/image";
 import { X, Plus, Minus, Trash2, CheckCircle2, Loader2 } from "lucide-react";
 import { useCart } from "@/components/menu/CartProvider";
 import { Button } from "@/components/ui/button";
+import { PhoneCapture, getCapturedPhone } from "@/components/menu/PhoneCapture";
 
 interface CartDrawerProps {
   open: boolean;
   onClose: () => void;
   restaurantId: string;
   tableId: string;
+  moduleType?: "cafe" | "restaurant";
 }
 
-export function CartDrawer({ open, onClose, restaurantId, tableId }: CartDrawerProps) {
+export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = "restaurant" }: CartDrawerProps) {
   const { items, updateQuantity, removeItem, clearCart, totalPrice } = useCart();
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPhoneCapture, setShowPhoneCapture] = useState(false);
 
   const handleSubmit = async () => {
     if (items.length === 0) return;
+
+    // Check if phone is needed and not yet captured
+    const capturedPhone = getCapturedPhone();
+    if (!capturedPhone && moduleType === "cafe") {
+      setShowPhoneCapture(true);
+      return;
+    }
+    // For restaurant mode, show phone capture optionally if not captured yet
+    if (!capturedPhone && !showPhoneCapture) {
+      setShowPhoneCapture(true);
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
@@ -32,6 +48,8 @@ export function CartDrawer({ open, onClose, restaurantId, tableId }: CartDrawerP
         sid = crypto.randomUUID();
         sessionStorage.setItem("session_id", sid);
       }
+
+      const customerPhone = getCapturedPhone();
 
       const res = await fetch("/api/orders", {
         method: "POST",
@@ -45,6 +63,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId }: CartDrawerP
             quantity: i.quantity,
           })),
           note: note.trim() || undefined,
+          ...(customerPhone ? { customerPhone } : {}),
         }),
       });
 
@@ -200,6 +219,21 @@ export function CartDrawer({ open, onClose, restaurantId, tableId }: CartDrawerP
           </>
         )}
       </div>
+
+      {/* Phone Capture Modal */}
+      {showPhoneCapture && (
+        <PhoneCapture
+          required={moduleType === "cafe"}
+          onCaptured={() => {
+            setShowPhoneCapture(false);
+            handleSubmit();
+          }}
+          onSkip={() => {
+            setShowPhoneCapture(false);
+            handleSubmit();
+          }}
+        />
+      )}
     </div>
   );
 }

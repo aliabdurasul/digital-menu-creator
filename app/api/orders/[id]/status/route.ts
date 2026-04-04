@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import type { OrderStatus } from "@/types";
+import { sendNotification, renderTemplate } from "@/lib/notifications";
+import { processLoyaltyStamp } from "@/lib/loyalty";
 
 /** Valid status transitions */
 const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
@@ -48,7 +50,7 @@ export async function PATCH(
     // 2. Get order + check ownership
     const { data: order, error: orderErr } = await supabase
       .from("orders")
-      .select("id, status, restaurant_id")
+      .select("id, status, restaurant_id, customer_id, customer_phone, total")
       .eq("id", orderId)
       .single();
 
@@ -97,6 +99,52 @@ export async function PATCH(
         { status: 500 }
       );
     }
+
+    // 6. Post-update actions (non-blocking)
+    const postActions = async () => {
+      try {
+        // Get restaurant notification settings
+        const { data: restaurant } = await supabase
+          .from("restaurants")
+          .select("notification_enabled, notification_channel")
+          .eq("id", order.restaurant_id)
+          .single();
+
+        const phone = order.customer_phone;
+
+        // When order is READY → send notification
+        if (newStatus === "ready" && phone && restaurant?.notification_enabled) {
+          const channel = restaurant.notification_channel === "both"
+            ? "sms"
+            : restaurant.notification_channel || "sms";
+
+          await sendNotification({
+            restaurantId: order.restaurant_id,
+            customerId: order.customer_id || undefined,
+            orderId: order.id,
+            type: "order_ready",
+            channel: channel as "sms" | "whatsapp",
+            phone,
+            message: `Siparişiniz hazır! 🎉 Lütfen teslim alın.`,
+          });
+        }
+
+        // When order is DELIVERED → process loyalty
+        if (newStatus === "delivered" && order.customer_id) {
+          await processLoyaltyStamp(
+            order.restaurant_id,
+            order.customer_id,
+            order.id,
+            Number(order.total) || 0
+          );
+        }
+      } catch (err) {
+        console.error("[order-status] Post-update actions failed:", err);
+      }
+    };
+
+    // Fire and forget — don't block the response
+    postActions();
 
     return NextResponse.json({ success: true, status: newStatus });
   } catch {

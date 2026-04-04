@@ -10,6 +10,9 @@ import { AdminQRCode } from "@/components/admin/AdminQRCode";
 import { AdminTranslations } from "@/components/admin/AdminTranslations";
 import { AdminTables } from "@/components/admin/AdminTables";
 import { AdminOrders } from "@/components/admin/AdminOrders";
+import { AdminCRM } from "@/components/admin/AdminCRM";
+import { AdminLoyalty } from "@/components/admin/AdminLoyalty";
+import { AdminCampaigns } from "@/components/admin/AdminCampaigns";
 import type { Restaurant } from "@/types";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, AlertTriangle, LogOut } from "lucide-react";
@@ -129,6 +132,9 @@ export default function RestaurantAdminPage() {
           domainStatus: dbRestaurant.domain_status || "pending",
           defaultLanguage: dbRestaurant.default_language || "tr",
           enabledLanguages: dbRestaurant.enabled_languages || ["tr"],
+          moduleType: dbRestaurant.module_type || "restaurant",
+          notificationEnabled: dbRestaurant.notification_enabled ?? false,
+          notificationChannel: dbRestaurant.notification_channel || "sms",
         });
       } catch {
         setError("Restoranınız yüklenirken bir hata oluştu");
@@ -214,6 +220,12 @@ export default function RestaurantAdminPage() {
         return <AdminTables restaurant={restaurant} />;
       case "orders":
         return <AdminOrders restaurant={restaurant} />;
+      case "crm":
+        return <AdminCRM restaurant={restaurant} />;
+      case "loyalty":
+        return <AdminLoyalty restaurant={restaurant} />;
+      case "campaigns":
+        return <AdminCampaigns restaurant={restaurant} />;
       case "translations":
         return (
           <AdminTranslations

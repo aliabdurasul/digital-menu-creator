@@ -6,7 +6,12 @@ export type FeatureKey =
   | "priority_support"
   | "custom_branding"
   | "api_access"
-  | "table_ordering";
+  | "table_ordering"
+  | "crm"
+  | "notifications"
+  | "loyalty"
+  | "campaigns"
+  | "ar_menu";
 
 export type PlanType = "basic" | "pro";
 
@@ -60,6 +65,36 @@ export const FEATURE_MAP: Record<FeatureKey, FeatureDef> = {
     key: "table_ordering",
     label: "Masada Sipariş",
     description: "Müşteriler masadan QR ile sipariş versin",
+    plans: ["pro"],
+  },
+  crm: {
+    key: "crm",
+    label: "CRM Müşteri Yönetimi",
+    description: "Müşteri kaydı, segmentasyon ve geçmiş takibi",
+    plans: ["pro"],
+  },
+  notifications: {
+    key: "notifications",
+    label: "SMS / WhatsApp Bildirimleri",
+    description: "Otomatik sipariş bildirimleri gönderimi",
+    plans: ["pro"],
+  },
+  loyalty: {
+    key: "loyalty",
+    label: "Sadakat Programı",
+    description: "Damga kartı ve ödül takibi",
+    plans: ["pro"],
+  },
+  campaigns: {
+    key: "campaigns",
+    label: "Kampanya Yönetimi",
+    description: "Toplu SMS/WhatsApp kampanyaları gönderimi",
+    plans: ["pro"],
+  },
+  ar_menu: {
+    key: "ar_menu",
+    label: "AR Menü",
+    description: "3D artırılmış gerçeklik ile ürün görüntüleme",
     plans: ["pro"],
   },
 };

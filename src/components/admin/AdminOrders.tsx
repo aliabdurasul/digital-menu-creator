@@ -276,6 +276,11 @@ function OrderCard({
         <span className="text-sm font-bold">₺{Number(order.total).toFixed(2)}</span>
       </div>
 
+      {/* Customer phone */}
+      {order.customer_phone && (
+        <p className="text-xs text-muted-foreground font-mono">📱 {order.customer_phone}</p>
+      )}
+
       {/* Items */}
       <ul className="space-y-0.5">
         {order.items.map((item) => (

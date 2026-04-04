@@ -17,6 +17,9 @@ export interface DbRestaurant {
   domain_status: "pending" | "dns_verified" | "active" | "rejected";
   default_language: "tr" | "en";
   enabled_languages: string[];
+  module_type: "cafe" | "restaurant";
+  notification_enabled: boolean;
+  notification_channel: "sms" | "whatsapp" | "both";
   created_at: string;
   updated_at: string;
 }
@@ -130,6 +133,9 @@ export interface Restaurant {
   domainStatus: "pending" | "dns_verified" | "active" | "rejected";
   defaultLanguage: "tr" | "en";
   enabledLanguages: string[];
+  moduleType: "cafe" | "restaurant";
+  notificationEnabled: boolean;
+  notificationChannel: "sms" | "whatsapp" | "both";
 }
 
 /* ─── Tenant Resolution ─── */
@@ -185,6 +191,9 @@ export function toLegacyRestaurant(
     domainStatus: r.domain_status || "pending",
     defaultLanguage: r.default_language || "tr",
     enabledLanguages: r.enabled_languages || ["tr"],
+    moduleType: r.module_type || "restaurant",
+    notificationEnabled: r.notification_enabled ?? false,
+    notificationChannel: r.notification_channel || "sms",
   };
 }
 
@@ -208,6 +217,8 @@ export interface DbOrder {
   restaurant_id: string;
   table_id: string | null;
   session_id: string;
+  customer_id: string | null;
+  customer_phone: string | null;
   status: OrderStatus;
   source: string;
   note: string;
@@ -237,4 +248,97 @@ export interface CartItem {
 export interface OrderWithItems extends DbOrder {
   items: DbOrderItem[];
   table?: DbTable;
+}
+
+/* ─── Module Type ─── */
+export type ModuleType = "cafe" | "restaurant";
+export type NotificationChannel = "sms" | "whatsapp" | "both";
+export type LoyaltyTier = "bronze" | "silver" | "gold" | "vip";
+export type CustomerSource = "qr" | "pos" | "manual" | "import";
+export type CampaignStatus = "draft" | "scheduled" | "sending" | "sent" | "cancelled";
+export type NotificationType = "order_ready" | "loyalty_reward" | "campaign" | "welcome";
+
+/* ─── CRM Types ─── */
+
+export interface DbCustomer {
+  id: string;
+  restaurant_id: string;
+  phone: string;
+  whatsapp: string | null;
+  name: string;
+  email: string | null;
+  module_type: ModuleType;
+  source: CustomerSource;
+  total_orders: number;
+  total_spent: number;
+  loyalty_points: number;
+  loyalty_tier: LoyaltyTier;
+  tags: string[];
+  consent_given: boolean;
+  consent_date: string | null;
+  first_visit: string;
+  last_visit: string;
+  created_at: string;
+}
+
+export interface DbLoyaltyConfig {
+  id: string;
+  restaurant_id: string;
+  enabled: boolean;
+  reward_threshold: number;
+  reward_type: "free_item" | "discount_percent" | "discount_amount";
+  reward_value: number;
+  reward_item_id: string | null;
+  message_template: string;
+  created_at: string;
+}
+
+export interface DbLoyaltyStamp {
+  id: string;
+  customer_id: string;
+  order_id: string | null;
+  restaurant_id: string;
+  stamp_number: number;
+  is_reward: boolean;
+  created_at: string;
+}
+
+export interface DbCampaign {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  module_type: "cafe" | "restaurant" | "all";
+  channel: NotificationChannel;
+  target_segment: Record<string, unknown>;
+  message_template: string;
+  scheduled_at: string | null;
+  status: CampaignStatus;
+  total_recipients: number;
+  sent_count: number;
+  failed_count: number;
+  created_at: string;
+}
+
+export interface DbCampaignSend {
+  id: string;
+  campaign_id: string;
+  customer_id: string;
+  channel: "sms" | "whatsapp";
+  status: "pending" | "sent" | "delivered" | "failed";
+  provider_ref: string | null;
+  sent_at: string | null;
+}
+
+export interface DbNotificationLog {
+  id: string;
+  restaurant_id: string;
+  customer_id: string | null;
+  order_id: string | null;
+  type: NotificationType;
+  channel: "sms" | "whatsapp";
+  phone: string;
+  message: string;
+  status: "pending" | "sent" | "failed";
+  provider_ref: string | null;
+  created_at: string;
 }
