@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Restaurant } from "@/types";
+import type { ModuleType } from "@/types";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,9 +12,10 @@ import { useToast } from "@/hooks/use-toast";
 interface Props {
   restaurant: Restaurant;
   setRestaurant: React.Dispatch<React.SetStateAction<Restaurant | null>>;
+  moduleType?: ModuleType;
 }
 
-export function AdminSettings({ restaurant, setRestaurant }: Props) {
+export function AdminSettings({ restaurant, setRestaurant, moduleType = "restaurant" }: Props) {
   const [logoPreview, setLogoPreview] = useState(restaurant.logo);
   const [coverPreview, setCoverPreview] = useState(restaurant.coverImage);
 
@@ -25,6 +27,7 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
   const [menuStatus, setMenuStatus] = useState<"active" | "paused">(restaurant.menuStatus);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+  const entityName = moduleType === "cafe" ? "Kafe" : "Restoran";
 
   const uploadImage = async (file: File, path: string): Promise<string | null> => {
     try {
@@ -84,7 +87,7 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
 
   const saveSettings = async () => {
     if (!name.trim()) {
-      toast({ title: "Hata", description: "Restoran adı gereklidir", variant: "destructive" });
+      toast({ title: "Hata", description: `${entityName} adı gereklidir`, variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -131,7 +134,7 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
       <div className="space-y-8 max-w-lg">
         {/* Logo */}
         <div>
-          <Label className="mb-2 block">Restoran Logosu</Label>
+          <Label className="mb-2 block">{entityName} Logosu</Label>
           <label className="relative w-24 h-24 rounded-2xl bg-muted border-2 border-dashed border-border flex items-center justify-center cursor-pointer overflow-hidden group">
             {logoPreview ? (
               <img src={logoPreview} alt="logo" className="w-full h-full object-cover" />
@@ -173,11 +176,11 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
 
         {/* Restaurant Name */}
         <div>
-          <Label className="mb-2 block">Restoran Adı</Label>
+          <Label className="mb-2 block">{entityName} Adı</Label>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Restoran adı"
+            placeholder={`${entityName} adı`}
           />
         </div>
 
@@ -193,11 +196,11 @@ export function AdminSettings({ restaurant, setRestaurant }: Props) {
 
         {/* Description */}
         <div>
-          <Label className="mb-2 block">Kısa Açıklama</Label>
+          <Label className="mb-2 block">{entityName} Açıklaması</Label>
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Restoranınız hakkında kısa bir açıklama"
+            placeholder={`${entityName}nız hakkında kısa bir açıklama`}
             rows={3}
           />
         </div>

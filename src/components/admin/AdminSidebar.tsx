@@ -15,18 +15,18 @@ interface AdminSidebarProps {
   moduleType?: ModuleType;
 }
 
-const navItems: { id: AdminTab; label: string; icon: React.ElementType; proOnly?: boolean; feature?: import("@/lib/features/flags").FeatureKey }[] = [
-  { id: "dashboard", label: "Gösterge Paneli", icon: LayoutDashboard },
+const navItems: { id: AdminTab; label: string; cafeLabel?: string; icon: React.ElementType; proOnly?: boolean; feature?: import("@/lib/features/flags").FeatureKey }[] = [
+  { id: "dashboard", label: "Gösterge Paneli", cafeLabel: "Kafe Paneli", icon: LayoutDashboard },
   { id: "categories", label: "Kategoriler", icon: FolderOpen },
   { id: "products", label: "Ürünler", icon: Package },
   { id: "tables", label: "Masalar", icon: LayoutGrid, proOnly: true, feature: "table_ordering" },
-  { id: "orders", label: "Siparişler", icon: Receipt, proOnly: true, feature: "table_ordering" },
+  { id: "orders", label: "Siparişler", cafeLabel: "Bar Paneli", icon: Receipt, proOnly: true, feature: "table_ordering" },
   { id: "crm", label: "Müşteriler", icon: Users, proOnly: true, feature: "crm" },
   { id: "loyalty", label: "Sadakat", icon: Award, proOnly: true, feature: "loyalty" },
   { id: "campaigns", label: "Kampanyalar", icon: Megaphone, proOnly: true, feature: "campaigns" },
   { id: "qr", label: "QR Kod", icon: QrCode },
   { id: "translations", label: "Çeviriler", icon: Languages, proOnly: true, feature: "translations" },
-  { id: "settings", label: "Ayarlar", icon: Settings },
+  { id: "settings", label: "Ayarlar", cafeLabel: "Kafe Ayarları", icon: Settings },
 ];
 
 export function AdminSidebar({ activeTab, onTabChange, plan = "basic", moduleType = "restaurant" }: AdminSidebarProps) {
@@ -47,7 +47,9 @@ export function AdminSidebar({ activeTab, onTabChange, plan = "basic", moduleTyp
     >
       <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
         {!collapsed && (
-          <span className="font-bold text-sm text-sidebar-foreground">Yönetim Paneli</span>
+          <span className="font-bold text-sm text-sidebar-foreground">
+            {moduleType === "cafe" ? "Kafe Yönetimi" : "Yönetim Paneli"}
+          </span>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
@@ -76,7 +78,7 @@ export function AdminSidebar({ activeTab, onTabChange, plan = "basic", moduleTyp
               <item.icon className="w-4 h-4 shrink-0" />
               {!collapsed && (
                 <span className="flex items-center gap-2">
-                  {item.label}
+                  {moduleType === "cafe" && item.cafeLabel ? item.cafeLabel : item.label}
                   {item.proOnly && <ProBadge />}
                 </span>
               )}

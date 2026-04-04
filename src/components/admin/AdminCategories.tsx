@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import type { Restaurant, Category } from "@/types";
+import type { Restaurant, Category, ModuleType } from "@/types";
 import { Plus, Trash2, Loader2, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,9 +26,12 @@ import { arrayMove, persistReorder } from "@/lib/reorder";
 interface Props {
   restaurant: Restaurant;
   setRestaurant: React.Dispatch<React.SetStateAction<Restaurant | null>>;
+  moduleType?: ModuleType;
 }
 
-export function AdminCategories({ restaurant, setRestaurant }: Props) {
+const CAFE_SUGGESTIONS = ["Kahve", "İçecekler", "Atıştırmalıklar", "Tatlılar"];
+
+export function AdminCategories({ restaurant, setRestaurant, moduleType = "restaurant" }: Props) {
   const [newName, setNewName] = useState("");
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -205,6 +208,24 @@ export function AdminCategories({ restaurant, setRestaurant }: Props) {
           {adding ? "" : "Ekle"}
         </Button>
       </div>
+
+      {/* Cafe default category suggestions */}
+      {moduleType === "cafe" && sorted.length === 0 && (
+        <div className="mb-6 max-w-md">
+          <p className="text-sm text-muted-foreground mb-2">Hızlı ekle:</p>
+          <div className="flex flex-wrap gap-2">
+            {CAFE_SUGGESTIONS.map((suggestion) => (
+              <button
+                key={suggestion}
+                onClick={() => { setNewName(suggestion); }}
+                className="px-3 py-1.5 text-sm rounded-full border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
+              >
+                + {suggestion}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <DndContext
         sensors={sensors}

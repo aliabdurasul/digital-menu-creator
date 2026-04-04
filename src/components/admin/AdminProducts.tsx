@@ -1,6 +1,6 @@
 import { useState } from "react";
-import type { Restaurant, Product } from "@/types";
-import { Plus, Trash2, Loader2, Pencil } from "lucide-react";
+import type { Restaurant, Product, ModuleType } from "@/types";
+import { Plus, Trash2, Loader2, Pencil, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -40,10 +40,16 @@ import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { SortableItem } from "./SortableItem";
 import { arrayMove, persistReorder } from "@/lib/reorder";
 import { compressImage } from "@/lib/image";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface Props {
   restaurant: Restaurant;
   setRestaurant: React.Dispatch<React.SetStateAction<Restaurant | null>>;
+  moduleType?: ModuleType;
 }
 
 const emptyForm = {
@@ -61,7 +67,7 @@ const emptyForm = {
 
 type FormErrors = Record<string, string>;
 
-export function AdminProducts({ restaurant, setRestaurant }: Props) {
+export function AdminProducts({ restaurant, setRestaurant, moduleType = "restaurant" }: Props) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -369,7 +375,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
                     setForm((f) => ({ ...f, name: e.target.value }));
                     clearFieldError("name");
                   }}
-                  placeholder="Ürün adı"
+                  placeholder={moduleType === "cafe" ? "Ör: Latte" : "Ürün adı"}
                   className={errors.name ? "border-destructive" : ""}
                 />
                 {errors.name && <p className="text-xs text-destructive mt-1">{errors.name}</p>}
@@ -383,6 +389,12 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
                   rows={2}
                 />
               </div>
+              <Collapsible defaultOpen={moduleType !== "cafe"}>
+                <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mb-2">
+                  <ChevronDown className="w-3 h-3" />
+                  Gelişmiş Bilgiler
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-3">
               <div>
                 <Label className="text-xs">Malzemeler</Label>
                 <Textarea
@@ -410,6 +422,19 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
                   />
                 </div>
               </div>
+              <div>
+                <Label className="text-xs">3D Model (AR)</Label>
+                <Input
+                  value={form.arModelUrl}
+                  onChange={(e) => setForm((f) => ({ ...f, arModelUrl: e.target.value }))}
+                  placeholder="GLB dosya URL'si (örn: https://...model.glb)"
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  GLB formatında 3D model URL. Boş bırakılırsa AR butonu görünmez.
+                </p>
+              </div>
+                </CollapsibleContent>
+              </Collapsible>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs">Fiyat</Label>
@@ -422,7 +447,7 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
                       setForm((f) => ({ ...f, price: e.target.value }));
                       clearFieldError("price");
                     }}
-                    placeholder="0.00"
+                    placeholder={moduleType === "cafe" ? "Ör: 35.00" : "0.00"}
                     className={errors.price ? "border-destructive" : ""}
                   />
                   {errors.price && <p className="text-xs text-destructive mt-1">{errors.price}</p>}
@@ -465,17 +490,6 @@ export function AdminProducts({ restaurant, setRestaurant }: Props) {
                     />
                   )}
                 </div>
-              </div>
-              <div>
-                <Label className="text-xs">3D Model (AR)</Label>
-                <Input
-                  value={form.arModelUrl}
-                  onChange={(e) => setForm((f) => ({ ...f, arModelUrl: e.target.value }))}
-                  placeholder="GLB dosya URL'si (örn: https://...model.glb)"
-                />
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  GLB formatında 3D model URL. Boş bırakılırsa AR butonu görünmez.
-                </p>
               </div>
               <div className="flex items-center gap-2">
                 <Switch

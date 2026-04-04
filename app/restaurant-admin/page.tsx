@@ -192,12 +192,13 @@ export default function RestaurantAdminPage() {
   const renderContent = () => {
     switch (activeTab) {
       case "dashboard":
-        return <AdminDashboard restaurant={restaurant} />;
+        return <AdminDashboard restaurant={restaurant} moduleType={restaurant.moduleType} />;
       case "categories":
         return (
           <AdminCategories
             restaurant={restaurant}
             setRestaurant={setRestaurant}
+            moduleType={restaurant.moduleType}
           />
         );
       case "products":
@@ -205,6 +206,7 @@ export default function RestaurantAdminPage() {
           <AdminProducts
             restaurant={restaurant}
             setRestaurant={setRestaurant}
+            moduleType={restaurant.moduleType}
           />
         );
       case "settings":
@@ -212,6 +214,7 @@ export default function RestaurantAdminPage() {
           <AdminSettings
             restaurant={restaurant}
             setRestaurant={setRestaurant}
+            moduleType={restaurant.moduleType}
           />
         );
       case "qr":
@@ -219,7 +222,7 @@ export default function RestaurantAdminPage() {
       case "tables":
         return <AdminTables restaurant={restaurant} />;
       case "orders":
-        return <AdminOrders restaurant={restaurant} />;
+        return <AdminOrders restaurant={restaurant} moduleType={restaurant.moduleType} />;
       case "crm":
         return <AdminCRM restaurant={restaurant} />;
       case "loyalty":

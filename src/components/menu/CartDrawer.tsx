@@ -6,6 +6,7 @@ import { X, Plus, Minus, Trash2, CheckCircle2, Loader2 } from "lucide-react";
 import { useCart } from "@/components/menu/CartProvider";
 import { Button } from "@/components/ui/button";
 import { PhoneCapture, getCapturedPhone, getCapturedName } from "@/components/menu/PhoneCapture";
+import { generateCafeSessionCode } from "@/lib/utils";
 
 interface CartDrawerProps {
   open: boolean;
@@ -45,7 +46,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
       // Generate or reuse anonymous session ID
       let sid = sessionStorage.getItem("session_id");
       if (!sid) {
-        sid = crypto.randomUUID();
+        sid = moduleType === "cafe" ? generateCafeSessionCode() : crypto.randomUUID();
         sessionStorage.setItem("session_id", sid);
       }
 

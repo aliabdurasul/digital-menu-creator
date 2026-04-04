@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Restaurant } from "@/types";
+import type { Restaurant, ModuleType } from "@/types";
 import type { OrderStatus, OrderWithItems } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface AdminOrdersProps {
   restaurant: Restaurant;
+  moduleType?: ModuleType;
 }
 
 const STATUS_CONFIG: Record<
@@ -40,7 +41,7 @@ const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
   ready: "delivered",
 };
 
-export function AdminOrders({ restaurant }: AdminOrdersProps) {
+export function AdminOrders({ restaurant, moduleType = "restaurant" }: AdminOrdersProps) {
   const [orders, setOrders] = useState<OrderWithItems[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -61,7 +62,7 @@ export function AdminOrders({ restaurant }: AdminOrdersProps) {
       ...o,
       items: (o.order_items as unknown[]) || [],
       table: o.restaurant_tables || undefined,
-    })) as OrderWithItems[];
+    })) as (OrderWithItems & { customer_name?: string })[];
 
     setOrders(mapped);
     setLoading(false);
@@ -176,7 +177,9 @@ export function AdminOrders({ restaurant }: AdminOrdersProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold">Aktif Siparişler</h2>
+          <h2 className="text-xl font-bold">
+            {moduleType === "cafe" ? "Bar Paneli" : "Aktif Siparişler"}
+          </h2>
           <p className="text-sm text-muted-foreground mt-1">
             Sadece aktif siparişler — teslim edilen ve iptal edilen siparişler otomatik kaybolur.
           </p>
@@ -219,6 +222,7 @@ export function AdminOrders({ restaurant }: AdminOrdersProps) {
                         key={order.id}
                         order={order}
                         updating={updating === order.id}
+                        moduleType={moduleType}
                         onAdvance={() => {
                           const next = NEXT_STATUS[order.status];
                           if (next) updateStatus(order.id, next);
@@ -245,11 +249,13 @@ export function AdminOrders({ restaurant }: AdminOrdersProps) {
 function OrderCard({
   order,
   updating,
+  moduleType = "restaurant",
   onAdvance,
   onCancel,
 }: {
-  order: OrderWithItems;
+  order: OrderWithItems & { customer_name?: string };
   updating: boolean;
+  moduleType?: ModuleType;
   onAdvance?: () => void;
   onCancel?: () => void;
 }) {
@@ -257,27 +263,55 @@ function OrderCard({
   const next = NEXT_STATUS[order.status as keyof typeof NEXT_STATUS];
   const nextCfg = next ? STATUS_CONFIG[next] : null;
   const tableLabel = order.table && "label" in order.table ? order.table.label : "Paket";
+  const isCafe = moduleType === "cafe";
 
   return (
     <div className={`rounded-lg border p-3 space-y-2 ${cfg.bg}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-xs font-mono">
-            {tableLabel}
-          </Badge>
-          <span className="text-xs text-muted-foreground">
-            {new Date(order.created_at).toLocaleTimeString("tr-TR", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </span>
+      {/* Header — cafe: customer-first, restaurant: table-first */}
+      {isCafe ? (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-foreground">
+                {order.customer_name || "Misafir"}
+              </span>
+              {order.session_id?.startsWith("CAFE-") && (
+                <Badge variant="secondary" className="text-[10px] font-mono">
+                  {order.session_id}
+                </Badge>
+              )}
+            </div>
+            <span className="text-sm font-bold">₺{Number(order.total).toFixed(2)}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">{tableLabel}</span>
+            <span className="text-xs text-muted-foreground">
+              {new Date(order.created_at).toLocaleTimeString("tr-TR", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+          </div>
         </div>
-        <span className="text-sm font-bold">₺{Number(order.total).toFixed(2)}</span>
-      </div>
+      ) : (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs font-mono">
+              {tableLabel}
+            </Badge>
+            <span className="text-xs text-muted-foreground">
+              {new Date(order.created_at).toLocaleTimeString("tr-TR", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+          </div>
+          <span className="text-sm font-bold">₺{Number(order.total).toFixed(2)}</span>
+        </div>
+      )}
 
-      {/* Customer phone */}
-      {order.customer_phone && (
+      {/* Customer phone — only for restaurant mode */}
+      {!isCafe && order.customer_phone && (
         <p className="text-xs text-muted-foreground font-mono">📱 {order.customer_phone}</p>
       )}
 
@@ -315,7 +349,7 @@ function OrderCard({
               ) : (
                 <nextCfg.icon className="w-3 h-3 mr-1" />
               )}
-              {nextCfg.label}
+              {nextCfg.label === "Teslim Edildi" && isCafe ? "Teslim" : nextCfg.label}
             </Button>
           )}
           {onCancel && order.status !== "ready" && (

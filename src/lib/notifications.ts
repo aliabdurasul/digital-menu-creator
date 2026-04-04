@@ -1,7 +1,7 @@
 /**
  * Notification service — abstract SMS/WhatsApp provider layer.
- * Currently logs to notification_log table.
- * Swap in real providers (NetGSM, Twilio, Meta WhatsApp) via env vars.
+ * sendNotification() inserts a job into notification_log (insert-only, non-blocking).
+ * processNotificationQueue() picks up due jobs and dispatches them with retry.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -24,59 +24,104 @@ export type NotificationPayload = {
 };
 
 /**
- * Send a notification and log it.
- * In production, this would call the actual SMS/WhatsApp API.
+ * Enqueue a notification job. Does NOT send immediately — just inserts into DB.
+ * The queue processor (processNotificationQueue) handles actual delivery.
  */
 export async function sendNotification(payload: NotificationPayload): Promise<{ success: boolean; error?: string }> {
   const supabase = getServiceClient();
 
-  // Log the notification attempt
-  const logEntry = {
-    restaurant_id: payload.restaurantId,
-    customer_id: payload.customerId || null,
-    order_id: payload.orderId || null,
-    type: payload.type,
-    channel: payload.channel,
-    phone: payload.phone,
-    message: payload.message,
-    status: "pending" as const,
-  };
-
-  const { data: log, error: logErr } = await supabase
+  const { error } = await supabase
     .from("notification_log")
-    .insert(logEntry)
-    .select("id")
-    .single();
+    .insert({
+      restaurant_id: payload.restaurantId,
+      customer_id: payload.customerId || null,
+      order_id: payload.orderId || null,
+      type: payload.type,
+      channel: payload.channel,
+      phone: payload.phone,
+      message: payload.message,
+      status: "pending",
+      attempt_count: 0,
+      next_attempt_at: new Date().toISOString(),
+    });
 
-  if (logErr || !log) {
+  if (error) {
     return { success: false, error: "Bildirim kaydı oluşturulamadı" };
   }
 
-  try {
-    // ── Provider dispatch ──
-    let sent = false;
+  return { success: true };
+}
 
-    if (payload.channel === "sms") {
-      sent = await sendSMS(payload.phone, payload.message);
-    } else {
-      sent = await sendWhatsApp(payload.phone, payload.message);
+/** Retry backoff delays in seconds: instant, 60s, 300s, 900s */
+const RETRY_DELAYS = [0, 60, 300, 900];
+
+/**
+ * Process due notification jobs from the queue.
+ * Picks up pending/failed jobs where next_attempt_at <= now and attempt_count < max_attempts.
+ */
+export async function processNotificationQueue(): Promise<{ processed: number; sent: number; failed: number }> {
+  const supabase = getServiceClient();
+
+  const { data: jobs, error } = await supabase
+    .from("notification_log")
+    .select("*")
+    .in("status", ["pending", "failed"])
+    .lte("next_attempt_at", new Date().toISOString())
+    .lt("attempt_count", 4)
+    .order("next_attempt_at", { ascending: true })
+    .limit(50);
+
+  if (error || !jobs) {
+    return { processed: 0, sent: 0, failed: 0 };
+  }
+
+  let sent = 0;
+  let failed = 0;
+
+  for (const job of jobs) {
+    const attempt = (job.attempt_count || 0) + 1;
+    let success = false;
+
+    try {
+      if (job.channel === "sms") {
+        success = await sendSMS(job.phone, job.message);
+      } else {
+        success = await sendWhatsApp(job.phone, job.message);
+      }
+    } catch {
+      success = false;
     }
 
-    // Update log status
-    await supabase
-      .from("notification_log")
-      .update({ status: sent ? "sent" : "failed" })
-      .eq("id", log.id);
+    if (success) {
+      await supabase
+        .from("notification_log")
+        .update({
+          status: "sent",
+          attempt_count: attempt,
+          sent_at: new Date().toISOString(),
+          last_error: null,
+        })
+        .eq("id", job.id);
+      sent++;
+    } else {
+      const maxReached = attempt >= (job.max_attempts || 4);
+      const nextDelay = RETRY_DELAYS[Math.min(attempt, RETRY_DELAYS.length - 1)] || 900;
+      const nextAttemptAt = new Date(Date.now() + nextDelay * 1000).toISOString();
 
-    return { success: sent };
-  } catch {
-    await supabase
-      .from("notification_log")
-      .update({ status: "failed" })
-      .eq("id", log.id);
-
-    return { success: false, error: "Bildirim gönderilemedi" };
+      await supabase
+        .from("notification_log")
+        .update({
+          status: maxReached ? "failed" : "pending",
+          attempt_count: attempt,
+          next_attempt_at: maxReached ? undefined : nextAttemptAt,
+          last_error: "Gönderim başarısız",
+        })
+        .eq("id", job.id);
+      failed++;
+    }
   }
+
+  return { processed: jobs.length, sent, failed };
 }
 
 /**
