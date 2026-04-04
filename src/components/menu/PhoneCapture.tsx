@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 const PHONE_KEY = "customer_phone";
 const CONSENT_KEY = "customer_consent";
+const NAME_KEY = "customer_name";
 
 /** Validate Turkish phone: 05xx xxx xx xx or +905xx... */
 function isValidPhone(phone: string): boolean {
@@ -27,12 +28,15 @@ function normalizePhone(phone: string): string {
 interface PhoneCaptureProps {
   /** If true, the user MUST enter a phone before proceeding (cafe mode) */
   required?: boolean;
-  onSubmit: (phone: string) => void;
+  /** If true, name field is shown and required (cafe mode) */
+  requireName?: boolean;
+  onSubmit: (phone: string, name?: string) => void;
   onSkip?: () => void;
 }
 
-export function PhoneCapture({ required = false, onSubmit, onSkip }: PhoneCaptureProps) {
+export function PhoneCapture({ required = false, requireName = false, onSubmit, onSkip }: PhoneCaptureProps) {
   const [phone, setPhone] = useState("");
+  const [name, setName] = useState("");
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState("");
   const [visible, setVisible] = useState(true);
@@ -42,7 +46,7 @@ export function PhoneCapture({ required = false, onSubmit, onSkip }: PhoneCaptur
     const saved = sessionStorage.getItem(PHONE_KEY);
     const savedConsent = sessionStorage.getItem(CONSENT_KEY);
     if (saved && savedConsent === "true") {
-      onSubmit(saved);
+      onSubmit(saved, sessionStorage.getItem(NAME_KEY) || undefined);
       setVisible(false);
     }
   }, [onSubmit]);
@@ -50,6 +54,10 @@ export function PhoneCapture({ required = false, onSubmit, onSkip }: PhoneCaptur
   if (!visible) return null;
 
   const handleSubmit = () => {
+    if (requireName && name.trim().length < 2) {
+      setError("Lütfen adınızı girin (en az 2 karakter)");
+      return;
+    }
     if (!phone.trim()) {
       setError("Telefon numarası gerekli");
       return;
@@ -66,7 +74,8 @@ export function PhoneCapture({ required = false, onSubmit, onSkip }: PhoneCaptur
     const normalized = normalizePhone(phone);
     sessionStorage.setItem(PHONE_KEY, normalized);
     sessionStorage.setItem(CONSENT_KEY, "true");
-    onSubmit(normalized);
+    if (name.trim()) sessionStorage.setItem(NAME_KEY, name.trim());
+    onSubmit(normalized, name.trim() || undefined);
     setVisible(false);
   };
 
@@ -104,6 +113,19 @@ export function PhoneCapture({ required = false, onSubmit, onSkip }: PhoneCaptur
               </p>
             </div>
           </div>
+
+          {requireName && (
+            <div>
+              <label className="block text-sm font-medium mb-1">Adınız *</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => { setName(e.target.value); setError(""); }}
+                placeholder="Adınızı girin"
+                className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="phone" className="text-xs">Telefon Numarası</Label>
@@ -160,4 +182,10 @@ export function PhoneCapture({ required = false, onSubmit, onSkip }: PhoneCaptur
 export function getCapturedPhone(): string | null {
   if (typeof window === "undefined") return null;
   return sessionStorage.getItem(PHONE_KEY);
+}
+
+/** Get the captured name from session storage */
+export function getCapturedName(): string | null {
+  if (typeof window === "undefined") return null;
+  return sessionStorage.getItem(NAME_KEY);
 }

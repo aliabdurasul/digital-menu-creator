@@ -14,6 +14,7 @@ export type FeatureKey =
   | "ar_menu";
 
 export type PlanType = "basic" | "pro";
+export type ModuleType = "cafe" | "restaurant";
 
 /** Map of features → metadata */
 export interface FeatureDef {
@@ -22,6 +23,8 @@ export interface FeatureDef {
   description: string;
   /** Plans that include this feature */
   plans: PlanType[];
+  /** If set, feature is only available for this module type */
+  moduleOnly?: ModuleType;
 }
 
 export const FEATURE_MAP: Record<FeatureKey, FeatureDef> = {
@@ -75,7 +78,7 @@ export const FEATURE_MAP: Record<FeatureKey, FeatureDef> = {
   },
   notifications: {
     key: "notifications",
-    label: "SMS / WhatsApp Bildirimleri",
+    label: "SMS Bildirimleri",
     description: "Otomatik sipariş bildirimleri gönderimi",
     plans: ["pro"],
   },
@@ -84,11 +87,12 @@ export const FEATURE_MAP: Record<FeatureKey, FeatureDef> = {
     label: "Sadakat Programı",
     description: "Damga kartı ve ödül takibi",
     plans: ["pro"],
+    moduleOnly: "cafe",
   },
   campaigns: {
     key: "campaigns",
     label: "Kampanya Yönetimi",
-    description: "Toplu SMS/WhatsApp kampanyaları gönderimi",
+    description: "Toplu SMS kampanyaları gönderimi",
     plans: ["pro"],
   },
   ar_menu: {

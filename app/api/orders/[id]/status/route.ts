@@ -106,31 +106,29 @@ export async function PATCH(
         // Get restaurant notification settings
         const { data: restaurant } = await supabase
           .from("restaurants")
-          .select("notification_enabled, notification_channel")
+          .select("notification_enabled, notification_channel, module_type")
           .eq("id", order.restaurant_id)
           .single();
 
         const phone = order.customer_phone;
+        const isCafe = restaurant?.module_type === "cafe";
 
-        // When order is READY → send notification
-        if (newStatus === "ready" && phone && restaurant?.notification_enabled) {
-          const channel = restaurant.notification_channel === "both"
-            ? "sms"
-            : restaurant.notification_channel || "sms";
-
+        // When order is READY → send SMS notification
+        // Cafe: always send if phone exists. Restaurant: respect notification_enabled setting.
+        if (newStatus === "ready" && phone && (isCafe || restaurant?.notification_enabled)) {
           await sendNotification({
             restaurantId: order.restaurant_id,
             customerId: order.customer_id || undefined,
             orderId: order.id,
             type: "order_ready",
-            channel: channel as "sms" | "whatsapp",
+            channel: "sms",
             phone,
             message: `Siparişiniz hazır! 🎉 Lütfen teslim alın.`,
           });
         }
 
-        // When order is DELIVERED → process loyalty
-        if (newStatus === "delivered" && order.customer_id) {
+        // When order is DELIVERED → process loyalty (CAFE ONLY)
+        if (newStatus === "delivered" && order.customer_id && isCafe) {
           await processLoyaltyStamp(
             order.restaurant_id,
             order.customer_id,

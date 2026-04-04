@@ -1,14 +1,16 @@
-import type { FeatureKey, PlanType } from "./flags";
+import type { FeatureKey, ModuleType, PlanType } from "./flags";
 import { FEATURE_MAP } from "./flags";
 
 /**
  * Check if a plan can use a specific feature.
  * Pure function — no DB access, suitable for client and server.
  */
-export function canUseFeature(plan: PlanType, feature: FeatureKey): boolean {
+export function canUseFeature(plan: PlanType, feature: FeatureKey, moduleType?: ModuleType): boolean {
   const def = FEATURE_MAP[feature];
   if (!def) return false;
-  return def.plans.includes(plan);
+  if (!def.plans.includes(plan)) return false;
+  if (def.moduleOnly && moduleType && def.moduleOnly !== moduleType) return false;
+  return true;
 }
 
 /**

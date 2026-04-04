@@ -120,7 +120,8 @@ interface CreatedRestaurant {
 export async function createRestaurantWithAdmin(
   name: string,
   adminEmail?: string,
-  adminPassword?: string
+  adminPassword?: string,
+  moduleType?: "cafe" | "restaurant"
 ): Promise<ActionResult<CreatedRestaurant>> {
   try {
     const admin = getAdminClient();
@@ -137,6 +138,7 @@ export async function createRestaurantWithAdmin(
         plan: "basic",
         active: true,
         total_views: 0,
+        module_type: moduleType || "restaurant",
       })
       .select()
       .single();
@@ -426,6 +428,31 @@ export async function changeRestaurantPlan(
     return { success: true, data: undefined };
   } catch (err) {
     console.error("[actions/changeRestaurantPlan]", err);
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+/**
+ * Change a restaurant's module type (cafe / restaurant).
+ */
+export async function changeRestaurantModuleType(
+  restaurantId: string,
+  moduleType: "cafe" | "restaurant"
+): Promise<ActionResult> {
+  try {
+    const admin = getAdminClient();
+    const { error } = await admin
+      .from("restaurants")
+      .update({ module_type: moduleType, updated_at: new Date().toISOString() })
+      .eq("id", restaurantId);
+
+    if (error) {
+      return { success: false, error: "Failed to change module type: " + error.message };
+    }
+
+    return { success: true, data: undefined };
+  } catch (err) {
+    console.error("[actions/changeRestaurantModuleType]", err);
     return { success: false, error: "Unexpected error" };
   }
 }

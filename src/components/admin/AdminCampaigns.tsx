@@ -77,7 +77,7 @@ export function AdminCampaigns({ restaurant }: Props) {
             <Megaphone className="w-5 h-5" /> Kampanyalar
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            SMS ve WhatsApp kampanyaları oluşturun ve gönderin.
+            SMS kampanyaları oluşturun ve gönderin.
           </p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -165,7 +165,7 @@ function CreateCampaignForm({
   onCreated: () => void;
 }) {
   const [name, setName] = useState("");
-  const [channel, setChannel] = useState<"sms" | "whatsapp" | "both">("sms");
+  const [channel] = useState<"sms">("sms");
   const [segment, setSegment] = useState("all");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -222,19 +222,7 @@ function CreateCampaignForm({
         />
       </div>
 
-      <div>
-        <Label>Kanal</Label>
-        <Select value={channel} onValueChange={(v) => setChannel(v as typeof channel)}>
-          <SelectTrigger className="mt-1">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="sms">SMS</SelectItem>
-            <SelectItem value="whatsapp">WhatsApp</SelectItem>
-            <SelectItem value="both">Her İkisi</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Channel is always SMS */}
 
       <div>
         <Label>Hedef Segment</Label>
@@ -245,9 +233,9 @@ function CreateCampaignForm({
           <SelectContent>
             <SelectItem value="all">Tüm Müşteriler</SelectItem>
             <SelectItem value="new">Yeni Müşteriler</SelectItem>
-            <SelectItem value="loyal">Sadık Müşteriler (5+)</SelectItem>
+            <SelectItem value="repeat">Düzenli Müşteriler (5+)</SelectItem>
             <SelectItem value="inactive">Pasif Müşteriler (30 gün)</SelectItem>
-            <SelectItem value="vip">VIP Müşteriler</SelectItem>
+            <SelectItem value="recent">Son 7 Gün</SelectItem>
           </SelectContent>
         </Select>
       </div>

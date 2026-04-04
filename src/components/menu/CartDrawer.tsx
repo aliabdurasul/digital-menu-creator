@@ -5,7 +5,7 @@ import Image from "next/image";
 import { X, Plus, Minus, Trash2, CheckCircle2, Loader2 } from "lucide-react";
 import { useCart } from "@/components/menu/CartProvider";
 import { Button } from "@/components/ui/button";
-import { PhoneCapture, getCapturedPhone } from "@/components/menu/PhoneCapture";
+import { PhoneCapture, getCapturedPhone, getCapturedName } from "@/components/menu/PhoneCapture";
 
 interface CartDrawerProps {
   open: boolean;
@@ -64,6 +64,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
           })),
           note: note.trim() || undefined,
           ...(customerPhone ? { customerPhone } : {}),
+          ...(getCapturedName() ? { customerName: getCapturedName() } : {}),
         }),
       });
 
@@ -224,6 +225,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
       {showPhoneCapture && (
         <PhoneCapture
           required={moduleType === "cafe"}
+          requireName={moduleType === "cafe"}
           onSubmit={() => {
             setShowPhoneCapture(false);
             handleSubmit(true);

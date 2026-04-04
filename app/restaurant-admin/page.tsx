@@ -238,7 +238,7 @@ export default function RestaurantAdminPage() {
 
   return (
     <div className="flex min-h-screen bg-muted/30">
-      <AdminSidebar activeTab={activeTab} onTabChange={setActiveTab} plan={restaurant.plan} />
+      <AdminSidebar activeTab={activeTab} onTabChange={setActiveTab} plan={restaurant.plan} moduleType={restaurant.moduleType} />
       <main className="flex-1 p-6 sm:p-8 overflow-auto">
         {renderContent()}
       </main>

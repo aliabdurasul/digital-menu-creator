@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     case "new":
       query = query.eq("total_orders", 1);
       break;
-    case "loyal":
+    case "repeat":
       query = query.gte("total_orders", 5);
       break;
     case "inactive": {
@@ -44,9 +44,11 @@ export async function GET(req: NextRequest) {
       query = query.lt("last_visit", thirtyDaysAgo);
       break;
     }
-    case "vip":
-      query = query.eq("loyalty_tier", "vip");
+    case "recent": {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      query = query.gte("last_visit", sevenDaysAgo);
       break;
+    }
   }
 
   query = query.range(offset, offset + limit - 1);

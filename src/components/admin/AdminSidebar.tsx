@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { canUseFeature } from "@/lib/features/engine";
 import { ProBadge } from "@/lib/features/hooks";
-import type { PlanType } from "@/lib/features/flags";
+import type { PlanType, ModuleType } from "@/lib/features/flags";
 
 export type AdminTab = "dashboard" | "categories" | "products" | "settings" | "qr" | "translations" | "tables" | "orders" | "crm" | "loyalty" | "campaigns";
 
@@ -12,6 +12,7 @@ interface AdminSidebarProps {
   activeTab: AdminTab;
   onTabChange: (tab: AdminTab) => void;
   plan?: PlanType;
+  moduleType?: ModuleType;
 }
 
 const navItems: { id: AdminTab; label: string; icon: React.ElementType; proOnly?: boolean; feature?: import("@/lib/features/flags").FeatureKey }[] = [
@@ -28,7 +29,7 @@ const navItems: { id: AdminTab; label: string; icon: React.ElementType; proOnly?
   { id: "settings", label: "Ayarlar", icon: Settings },
 ];
 
-export function AdminSidebar({ activeTab, onTabChange, plan = "basic" }: AdminSidebarProps) {
+export function AdminSidebar({ activeTab, onTabChange, plan = "basic", moduleType = "restaurant" }: AdminSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const router = useRouter();
 
@@ -59,7 +60,7 @@ export function AdminSidebar({ activeTab, onTabChange, plan = "basic" }: AdminSi
       <nav className="flex-1 p-2 space-y-1">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
-          const isLocked = item.proOnly && item.feature && !canUseFeature(plan, item.feature);
+          const isLocked = item.proOnly && item.feature && !canUseFeature(plan, item.feature, moduleType);
           return (
             <button
               key={item.id}

@@ -84,7 +84,7 @@ export default async function TableMenuPage({ params }: TableMenuPageProps) {
       : null;
 
   return (
-    <OrderingWrapper restaurantId={restaurantTr.id} tableId={table.id}>
+    <OrderingWrapper restaurantId={restaurantTr.id} tableId={table.id} moduleType={restaurantTr.moduleType}>
       {/* Table indicator — visible to customer */}
       <div className="max-w-[480px] mx-auto px-4 pt-3">
         <div className="flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/20 px-3 py-2">

@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     case "new":
       query = query.eq("total_orders", 1);
       break;
-    case "loyal":
+    case "repeat":
       query = query.gte("total_orders", 5);
       break;
     case "inactive": {
@@ -53,9 +53,11 @@ export async function POST(req: NextRequest) {
       query = query.lt("last_visit", thirtyDaysAgo);
       break;
     }
-    case "vip":
-      query = query.eq("loyalty_tier", "vip");
+    case "recent": {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      query = query.gte("last_visit", sevenDaysAgo);
       break;
+    }
   }
 
   const { data: customers } = await query;
@@ -76,33 +78,26 @@ export async function POST(req: NextRequest) {
       .replace(/\{\{name\}\}/g, customer.name || "")
       .replace(/\{\{phone\}\}/g, customer.phone || "");
 
-    const channels: ("sms" | "whatsapp")[] =
-      campaign.channel === "both" ? ["sms", "whatsapp"] : [campaign.channel];
+    // Insert campaign_sends record
+    await supabase.from("campaign_sends").insert({
+      campaign_id: campaignId,
+      customer_id: customer.id,
+      channel: "sms",
+      status: "pending",
+    });
 
-    for (const ch of channels) {
-      const phone = ch === "whatsapp" ? (customer.whatsapp || customer.phone) : customer.phone;
-
-      // Insert campaign_sends record
-      await supabase.from("campaign_sends").insert({
-        campaign_id: campaignId,
-        customer_id: customer.id,
-        channel: ch,
-        status: "pending",
+    try {
+      await sendNotification({
+        restaurantId: campaign.restaurant_id,
+        customerId: customer.id,
+        type: "campaign",
+        channel: "sms",
+        phone: customer.phone,
+        message,
       });
-
-      try {
-        await sendNotification({
-          restaurantId: campaign.restaurant_id,
-          customerId: customer.id,
-          type: "campaign",
-          channel: ch,
-          phone,
-          message,
-        });
-        sentCount++;
-      } catch {
-        failedCount++;
-      }
+      sentCount++;
+    } catch {
+      failedCount++;
     }
   }
 

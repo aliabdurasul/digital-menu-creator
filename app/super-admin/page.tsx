@@ -39,6 +39,7 @@ import {
   deleteRestaurantFull,
   toggleRestaurantActive,
   changeRestaurantPlan,
+  changeRestaurantModuleType,
   renameRestaurant,
   assignAdminToRestaurant,
 } from "@/lib/actions";
@@ -53,6 +54,7 @@ export default function SuperAdminPage() {
   const [newName, setNewName] = useState("");
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [newAdminPassword, setNewAdminPassword] = useState("");
+  const [newModuleType, setNewModuleType] = useState<"cafe" | "restaurant">("restaurant");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [assignOpen, setAssignOpen] = useState<string | null>(null);
@@ -128,7 +130,8 @@ export default function SuperAdminPage() {
     const result = await createRestaurantWithAdmin(
       newName,
       newAdminEmail.trim() || undefined,
-      newAdminPassword || undefined
+      newAdminPassword || undefined,
+      newModuleType
     );
 
     setCreating(false);
@@ -163,7 +166,7 @@ export default function SuperAdminPage() {
         domainStatus: "pending",
         defaultLanguage: "tr",
         enabledLanguages: ["tr"],
-        moduleType: "restaurant",
+        moduleType: newModuleType,
         notificationEnabled: false,
         notificationChannel: "sms",
       },
@@ -181,6 +184,7 @@ export default function SuperAdminPage() {
     setNewName("");
     setNewAdminEmail("");
     setNewAdminPassword("");
+    setNewModuleType("restaurant");
     setOpen(false);
   };
 
@@ -342,8 +346,18 @@ export default function SuperAdminPage() {
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder="Restaurant name"
                   />
-                </div>
-                <div className="border-t pt-4">
+                </div>                 <div>
+                   <Label>Module Type</Label>
+                   <Select value={newModuleType} onValueChange={(v) => setNewModuleType(v as "cafe" | "restaurant")}>
+                     <SelectTrigger className="mt-1">
+                       <SelectValue />
+                     </SelectTrigger>
+                     <SelectContent>
+                       <SelectItem value="restaurant">Restoran</SelectItem>
+                       <SelectItem value="cafe">Kafe</SelectItem>
+                     </SelectContent>
+                   </Select>
+                 </div>                <div className="border-t pt-4">
                   <p className="text-sm text-muted-foreground mb-3">
                     Optionally create an admin account for this restaurant:
                   </p>
@@ -431,6 +445,12 @@ export default function SuperAdminPage() {
                         className="text-xs"
                       >
                         {r.plan.toUpperCase()}
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className="text-xs"
+                      >
+                        {r.moduleType === "cafe" ? "Kafe" : "Restoran"}
                       </Badge>
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
                         <Eye className="w-3 h-3" /> {r.totalViews}
@@ -521,6 +541,29 @@ export default function SuperAdminPage() {
                   <SelectContent>
                     <SelectItem value="basic">Basic</SelectItem>
                     <SelectItem value="pro">Pro</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={r.moduleType}
+                  onValueChange={async (v) => {
+                    const mt = v as "cafe" | "restaurant";
+                    const result = await changeRestaurantModuleType(r.id, mt);
+                    if (result.success) {
+                      setRestaurants((prev) =>
+                        prev.map((x) => (x.id === r.id ? { ...x, moduleType: mt } : x))
+                      );
+                    } else {
+                      toast({ title: "Hata", description: result.error, variant: "destructive" });
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-28 h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="restaurant">Restoran</SelectItem>
+                    <SelectItem value="cafe">Kafe</SelectItem>
                   </SelectContent>
                 </Select>
 

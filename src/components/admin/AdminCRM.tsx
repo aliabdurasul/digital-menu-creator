@@ -43,9 +43,9 @@ interface Props {
 const SEGMENTS = [
   { value: "all", label: "Tümü" },
   { value: "new", label: "Yeni" },
-  { value: "loyal", label: "Sadık (5+)" },
+  { value: "repeat", label: "Düzenli (5+)" },
   { value: "inactive", label: "Pasif (30 gün)" },
-  { value: "vip", label: "VIP" },
+  { value: "recent", label: "Son 7 Gün" },
 ];
 
 export function AdminCRM({ restaurant }: Props) {
@@ -142,7 +142,6 @@ export function AdminCRM({ restaurant }: Props) {
                   <TableHead>Telefon</TableHead>
                   <TableHead className="text-center">Sipariş</TableHead>
                   <TableHead className="text-right">Toplam</TableHead>
-                  <TableHead className="text-center">Seviye</TableHead>
                   <TableHead>Son Ziyaret</TableHead>
                 </TableRow>
               </TableHeader>
@@ -164,11 +163,6 @@ export function AdminCRM({ restaurant }: Props) {
                     </TableCell>
                     <TableCell className="text-right">
                       ₺{Number(c.total_spent).toFixed(0)}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge className={`text-xs ${TIER_COLORS[c.loyalty_tier] || ""}`}>
-                        {c.loyalty_tier}
-                      </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {new Date(c.last_visit).toLocaleDateString("tr-TR")}

@@ -20,13 +20,14 @@ function getServiceClient() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { restaurantId, tableId, items, note, sessionId, customerPhone } = body as {
+    const { restaurantId, tableId, items, note, sessionId, customerPhone, customerName } = body as {
       restaurantId?: string;
       tableId?: string | null;
       items?: { menuItemId: string; quantity: number }[];
       note?: string;
       sessionId?: string;
       customerPhone?: string;
+      customerName?: string;
     };
 
     // Validate required fields
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
     // 1. Verify restaurant is active
     const { data: restaurant, error: restErr } = await supabase
       .from("restaurants")
-      .select("id, active")
+      .select("id, active, module_type")
       .eq("id", restaurantId)
       .eq("active", true)
       .single();
@@ -134,21 +135,26 @@ export async function POST(req: NextRequest) {
       // Upsert: find existing or create new
       const { data: existing } = await supabase
         .from("customers")
-        .select("id")
+        .select("id, name")
         .eq("restaurant_id", restaurantId)
         .eq("phone", customerPhone)
         .single();
 
       if (existing) {
         customerId = existing.id;
+        // Update name if it was blank and now provided
+        if (customerName && !existing.name) {
+          await supabase.from("customers").update({ name: customerName }).eq("id", existing.id);
+        }
       } else {
         const { data: newCustomer } = await supabase
           .from("customers")
           .insert({
             restaurant_id: restaurantId,
             phone: customerPhone,
+            name: customerName || "",
             source: tableId ? "qr" : "qr",
-            module_type: "restaurant",
+            module_type: restaurant.module_type || "restaurant",
             consent_given: true,
             consent_date: new Date().toISOString(),
           })
