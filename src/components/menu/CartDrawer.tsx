@@ -23,7 +23,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
   const [error, setError] = useState<string | null>(null);
   const [showPhoneCapture, setShowPhoneCapture] = useState(false);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (skipPhonePrompt = false) => {
     if (items.length === 0) return;
 
     // Check if phone is needed and not yet captured
@@ -33,7 +33,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
       return;
     }
     // For restaurant mode, show phone capture optionally if not captured yet
-    if (!capturedPhone && !showPhoneCapture) {
+    if (!capturedPhone && !skipPhonePrompt) {
       setShowPhoneCapture(true);
       return;
     }
@@ -224,13 +224,13 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
       {showPhoneCapture && (
         <PhoneCapture
           required={moduleType === "cafe"}
-          onCaptured={() => {
+          onSubmit={() => {
             setShowPhoneCapture(false);
-            handleSubmit();
+            handleSubmit(true);
           }}
           onSkip={() => {
             setShowPhoneCapture(false);
-            handleSubmit();
+            handleSubmit(true);
           }}
         />
       )}

@@ -35,22 +35,7 @@ export async function processLoyaltyStamp(
     return { stamped: false, rewarded: false };
   }
 
-  // 2. Update customer stats
-  await supabase.rpc("increment_customer_stats", {
-    p_customer_id: customerId,
-    p_spent: orderTotal,
-  }).catch(() => {
-    // Fallback: manual update if RPC doesn't exist yet
-    return supabase
-      .from("customers")
-      .update({
-        total_orders: supabase.rpc ? undefined : undefined, // Will use SQL below
-        last_visit: new Date().toISOString(),
-      })
-      .eq("id", customerId);
-  });
-
-  // Manual stat update (safe regardless of RPC)
+  // 2. Get customer, then update stats directly
   const { data: customer } = await supabase
     .from("customers")
     .select("id, total_orders, total_spent, phone, name")
