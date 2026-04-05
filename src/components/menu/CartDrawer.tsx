@@ -7,7 +7,6 @@ import { useCart } from "@/components/menu/CartProvider";
 import { Button } from "@/components/ui/button";
 import { PhoneCapture, getCapturedPhone, getCapturedName } from "@/components/menu/PhoneCapture";
 import { generateCafeSessionCode } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
 
 interface CartDrawerProps {
   open: boolean;
@@ -259,47 +258,40 @@ function OrderSuccessScreen({
     }
   }, [isCafe]);
 
-  // Real-time listener: customer gets notified when barista marks "ready"
+  // Poll order status every 5 seconds (bypasses RLS via server endpoint)
   useEffect(() => {
-    if (!isCafe || !sessionCode) return;
+    if (!isCafe || !sessionCode || orderReady) return;
 
-    const supabase = createClient();
-    const channel = supabase
-      .channel("customer-order-ready")
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "orders",
-          filter: `session_id=eq.${sessionCode}`,
-        },
-        (payload) => {
-          const updated = payload.new as { status: string };
-          if (updated.status === "ready") {
-            setOrderReady(true);
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/orders/status?sessionId=${encodeURIComponent(sessionCode)}`);
+        if (!res.ok) return;
+        const data = (await res.json()) as { status?: string };
+        if (data.status === "ready") {
+          setOrderReady(true);
 
-            // Browser notification (works even if tab is in background)
-            try {
-              if ("Notification" in window && Notification.permission === "granted") {
-                new Notification("Siparişiniz Hazır! 🎉", {
-                  body: `${sessionCode} — Lütfen bardan teslim alın.`,
-                  icon: "/icons/icon-192x192.png",
-                  tag: "order-ready",
-                });
-              }
-            } catch {
-              // Silent fail — notification not supported
+          // Browser notification (works even if tab is in background)
+          try {
+            if ("Notification" in window && Notification.permission === "granted") {
+              new Notification("Siparişiniz Hazır! 🎉", {
+                body: `${sessionCode} — Lütfen bardan teslim alın.`,
+                icon: "/icons/icon-192x192.png",
+                tag: "order-ready",
+              });
             }
+          } catch {
+            // Silent fail — notification not supported
           }
         }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
+      } catch {
+        // Network error — retry on next interval
+      }
     };
-  }, [isCafe, sessionCode]);
+
+    void poll(); // Immediate first check
+    const interval = setInterval(() => void poll(), 5000);
+    return () => clearInterval(interval);
+  }, [isCafe, sessionCode, orderReady]);
 
   // ── Order is READY ──
   if (orderReady) {
