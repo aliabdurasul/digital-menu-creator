@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { X, Plus, Minus, Trash2, CheckCircle2, Loader2 } from "lucide-react";
 import { useCart } from "@/components/menu/CartProvider";
 import { Button } from "@/components/ui/button";
 import { PhoneCapture, getCapturedPhone, getCapturedName } from "@/components/menu/PhoneCapture";
 import { generateCafeSessionCode } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 interface CartDrawerProps {
   open: boolean;
@@ -115,16 +116,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
 
         {/* Success screen */}
         {success ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
-            <CheckCircle2 className="w-16 h-16 text-green-500" />
-            <h3 className="text-xl font-bold">Siparişiniz Alındı!</h3>
-            <p className="text-muted-foreground text-sm max-w-xs">
-              Siparişiniz mutfağa iletildi. Hazır olduğunda masanıza getirilecektir.
-            </p>
-            <Button onClick={handleClose} className="mt-2">
-              Menüye Dön
-            </Button>
-          </div>
+          <OrderSuccessScreen moduleType={moduleType} onClose={handleClose} />
         ) : (
           <>
             {/* Cart items */}
@@ -237,6 +229,109 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
           }}
         />
       )}
+    </div>
+  );
+}
+
+/* ─── Order Success Screen ─── */
+function OrderSuccessScreen({
+  moduleType,
+  onClose,
+}: {
+  moduleType: string;
+  onClose: () => void;
+}) {
+  const [orderReady, setOrderReady] = useState(false);
+  const [sessionCode, setSessionCode] = useState<string | null>(null);
+  const isCafe = moduleType === "cafe";
+
+  useEffect(() => {
+    const sid = sessionStorage.getItem("session_id");
+    setSessionCode(sid);
+  }, []);
+
+  // Real-time listener: customer gets notified when barista marks "ready"
+  useEffect(() => {
+    if (!isCafe || !sessionCode) return;
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel("customer-order-ready")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "orders",
+          filter: `session_id=eq.${sessionCode}`,
+        },
+        (payload) => {
+          const updated = payload.new as { status: string };
+          if (updated.status === "ready") {
+            setOrderReady(true);
+            // Browser push notification
+            if ("Notification" in window && Notification.permission === "granted") {
+              new Notification("Siparişiniz Hazır! 🎉", {
+                body: `${sessionCode} — Lütfen bardan teslim alın.`,
+              });
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    // Request notification permission on mount
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isCafe, sessionCode]);
+
+  // ── Order is READY ──
+  if (orderReady) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
+        <CheckCircle2 className="w-16 h-16 text-green-500 animate-bounce" />
+        <h3 className="text-xl font-bold text-green-600">Siparişiniz Hazır!</h3>
+        {sessionCode && (
+          <div className="bg-green-50 border border-green-200 rounded-xl px-6 py-3">
+            <p className="text-xs text-muted-foreground">Sipariş Kodunuz</p>
+            <p className="text-2xl font-mono font-bold text-green-700 tracking-wider">{sessionCode}</p>
+          </div>
+        )}
+        <p className="text-muted-foreground text-sm max-w-xs">
+          Lütfen bardan teslim alın. Kodunuzu gösterin.
+        </p>
+        <Button onClick={onClose} className="mt-2">Menüye Dön</Button>
+      </div>
+    );
+  }
+
+  // ── Order placed, waiting ──
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
+      <CheckCircle2 className="w-16 h-16 text-green-500" />
+      <h3 className="text-xl font-bold">Siparişiniz Alındı!</h3>
+      {isCafe && sessionCode && (
+        <div className="bg-primary/5 border border-primary/20 rounded-xl px-6 py-3">
+          <p className="text-xs text-muted-foreground">Sipariş Kodunuz</p>
+          <p className="text-2xl font-mono font-bold text-primary tracking-wider">{sessionCode}</p>
+        </div>
+      )}
+      <p className="text-muted-foreground text-sm max-w-xs">
+        {isCafe
+          ? "Siparişiniz baristaya iletildi. Hazır olduğunda bildirim alacaksınız. Self servis gelip almanız rica edilir."
+          : "Siparişiniz mutfağa iletildi. Hazır olduğunda masanıza getirilecektir."}
+      </p>
+      {isCafe && (
+        <p className="text-xs text-muted-foreground animate-pulse">
+          ⏳ Bu sayfayı açık bırakın — hazır olduğunda bildirim gelecek.
+        </p>
+      )}
+      <Button onClick={onClose} className="mt-2">Menüye Dön</Button>
     </div>
   );
 }
