@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { X, Plus, Minus, Trash2, CheckCircle2, Loader2 } from "lucide-react";
+import { X, Plus, Minus, Trash2, CheckCircle2, Loader2, Bell, BellOff } from "lucide-react";
 import { useCart } from "@/components/menu/CartProvider";
 import { Button } from "@/components/ui/button";
 import { PhoneCapture, getCapturedPhone, getCapturedName } from "@/components/menu/PhoneCapture";
@@ -240,7 +240,6 @@ function OrderSuccessScreen({
   moduleType: string;
   onClose: () => void;
 }) {
-  const [orderReady, setOrderReady] = useState(false);
   const [sessionCode, setSessionCode] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState<string>("default");
   const isCafe = moduleType === "cafe";
@@ -249,69 +248,27 @@ function OrderSuccessScreen({
     const sid = sessionStorage.getItem("session_id");
     setSessionCode(sid);
 
-    // Request notification permission immediately on mount (needs user gesture context)
-    if (isCafe && "Notification" in window) {
+    // Read current permission state (but don't request — that needs a user gesture)
+    if ("Notification" in window) {
       setNotifPermission(Notification.permission);
-      if (Notification.permission === "default") {
-        Notification.requestPermission().then((perm) => setNotifPermission(perm));
-      }
     }
-  }, [isCafe]);
+  }, []);
 
-  // Poll order status every 5 seconds (bypasses RLS via server endpoint)
-  useEffect(() => {
-    if (!isCafe || !sessionCode || orderReady) return;
-
-    const poll = async () => {
-      try {
-        const res = await fetch(`/api/orders/status?sessionId=${encodeURIComponent(sessionCode)}`);
-        if (!res.ok) return;
-        const data = (await res.json()) as { status?: string };
-        if (data.status === "ready") {
-          setOrderReady(true);
-
-          // Browser notification (works even if tab is in background)
-          try {
-            if ("Notification" in window && Notification.permission === "granted") {
-              new Notification("Siparişiniz Hazır! 🎉", {
-                body: `${sessionCode} — Lütfen bardan teslim alın.`,
-                icon: "/icons/icon-192x192.png",
-                tag: "order-ready",
-              });
-            }
-          } catch {
-            // Silent fail — notification not supported
-          }
-        }
-      } catch {
-        // Network error — retry on next interval
+  const handleEnableNotifications = useCallback(async () => {
+    if (!("Notification" in window)) return;
+    try {
+      const perm = await Notification.requestPermission();
+      setNotifPermission(perm);
+      if (perm === "granted") {
+        new Notification("Bildirimler Açıldı ✓", {
+          body: "Siparişiniz hazır olduğunda sizi bilgilendireceğiz.",
+          tag: "notif-test",
+        });
       }
-    };
-
-    void poll(); // Immediate first check
-    const interval = setInterval(() => void poll(), 5000);
-    return () => clearInterval(interval);
-  }, [isCafe, sessionCode, orderReady]);
-
-  // ── Order is READY ──
-  if (orderReady) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
-        <CheckCircle2 className="w-16 h-16 text-green-500 animate-bounce" />
-        <h3 className="text-xl font-bold text-green-600">Siparişiniz Hazır!</h3>
-        {sessionCode && (
-          <div className="bg-green-50 border border-green-200 rounded-xl px-6 py-3">
-            <p className="text-xs text-muted-foreground">Sipariş Kodunuz</p>
-            <p className="text-2xl font-mono font-bold text-green-700 tracking-wider">{sessionCode}</p>
-          </div>
-        )}
-        <p className="text-muted-foreground text-sm max-w-xs">
-          Lütfen bardan teslim alın. Kodunuzu gösterin.
-        </p>
-        <Button onClick={onClose} className="mt-2">Menüye Dön</Button>
-      </div>
-    );
-  }
+    } catch {
+      // Permission request failed
+    }
+  }, []);
 
   // ── Order placed, waiting ──
   return (
@@ -329,13 +286,29 @@ function OrderSuccessScreen({
           ? "Siparişiniz baristaya iletildi. Hazır olduğunda bildirim alacaksınız. Self servis gelip almanız rica edilir."
           : "Siparişiniz mutfağa iletildi. Hazır olduğunda masanıza getirilecektir."}
       </p>
-      {isCafe && (
-        <p className="text-xs text-muted-foreground animate-pulse">
-          ⏳ Bu sayfayı açık bırakın — hazır olduğunda burada görünecek.
-          {notifPermission === "granted" && " (Bildirim açık ✓)"}
-          {notifPermission === "denied" && " (Bildirim kapalı — tarayıcı ayarlarından açabilirsiniz)"}
+
+      {/* Notification permission button — requires user gesture */}
+      {isCafe && notifPermission === "default" && (
+        <button
+          type="button"
+          onClick={() => { void handleEnableNotifications(); }}
+          className="flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/20 px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
+        >
+          <Bell className="w-4 h-4" />
+          Tarayıcı Bildirimini Aç
+        </button>
+      )}
+      {isCafe && notifPermission === "granted" && (
+        <p className="text-xs text-green-600 flex items-center gap-1">
+          <Bell className="w-3.5 h-3.5" /> Bildirim açık ✓ — sayfayı açık bırakın
         </p>
       )}
+      {isCafe && notifPermission === "denied" && (
+        <p className="text-xs text-destructive flex items-center gap-1">
+          <BellOff className="w-3.5 h-3.5" /> Bildirim engellendi — tarayıcı ayarlarından açabilirsiniz
+        </p>
+      )}
+
       <Button onClick={onClose} className="mt-2">Menüye Dön</Button>
     </div>
   );

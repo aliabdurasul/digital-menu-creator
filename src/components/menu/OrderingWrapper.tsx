@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CartProvider } from "@/components/menu/CartProvider";
 import { CartButton } from "@/components/menu/CartButton";
 import { CartDrawer } from "@/components/menu/CartDrawer";
+import { OrderReadyWatcher } from "@/components/menu/OrderReadyWatcher";
 
 interface OrderingWrapperProps {
   restaurantId: string;
@@ -30,6 +31,7 @@ export function OrderingWrapper({ restaurantId, tableId, moduleType, children }:
         tableId={tableId}
         moduleType={moduleType}
       />
+      <OrderReadyWatcher moduleType={moduleType} />
     </CartProvider>
   );
 }
