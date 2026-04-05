@@ -1,20 +1,15 @@
+/**
+ * @deprecated This endpoint has been replaced by /api/cron-job
+ * which runs all background jobs (notifications, stale orders, loyalty cleanup)
+ * through a unified external cron system.
+ *
+ * This file can be safely deleted.
+ */
 import { NextResponse } from "next/server";
-import { processNotificationQueue } from "@/lib/notifications";
 
-export async function GET(request: Request) {
-  // Verify cron secret to prevent unauthorized access
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const result = await processNotificationQueue();
-
-  return NextResponse.json({
-    ok: true,
-    ...result,
-    timestamp: new Date().toISOString(),
-  });
+export async function GET() {
+  return NextResponse.json(
+    { error: "Moved to /api/cron-job" },
+    { status: 410 }
+  );
 }
