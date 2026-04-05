@@ -243,12 +243,21 @@ function OrderSuccessScreen({
 }) {
   const [orderReady, setOrderReady] = useState(false);
   const [sessionCode, setSessionCode] = useState<string | null>(null);
+  const [notifPermission, setNotifPermission] = useState<string>("default");
   const isCafe = moduleType === "cafe";
 
   useEffect(() => {
     const sid = sessionStorage.getItem("session_id");
     setSessionCode(sid);
-  }, []);
+
+    // Request notification permission immediately on mount (needs user gesture context)
+    if (isCafe && "Notification" in window) {
+      setNotifPermission(Notification.permission);
+      if (Notification.permission === "default") {
+        Notification.requestPermission().then((perm) => setNotifPermission(perm));
+      }
+    }
+  }, [isCafe]);
 
   // Real-time listener: customer gets notified when barista marks "ready"
   useEffect(() => {
@@ -269,21 +278,23 @@ function OrderSuccessScreen({
           const updated = payload.new as { status: string };
           if (updated.status === "ready") {
             setOrderReady(true);
-            // Browser push notification
-            if ("Notification" in window && Notification.permission === "granted") {
-              new Notification("Siparişiniz Hazır! 🎉", {
-                body: `${sessionCode} — Lütfen bardan teslim alın.`,
-              });
+
+            // Browser notification (works even if tab is in background)
+            try {
+              if ("Notification" in window && Notification.permission === "granted") {
+                new Notification("Siparişiniz Hazır! 🎉", {
+                  body: `${sessionCode} — Lütfen bardan teslim alın.`,
+                  icon: "/icons/icon-192x192.png",
+                  tag: "order-ready",
+                });
+              }
+            } catch {
+              // Silent fail — notification not supported
             }
           }
         }
       )
       .subscribe();
-
-    // Request notification permission on mount
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
 
     return () => {
       supabase.removeChannel(channel);
@@ -328,7 +339,9 @@ function OrderSuccessScreen({
       </p>
       {isCafe && (
         <p className="text-xs text-muted-foreground animate-pulse">
-          ⏳ Bu sayfayı açık bırakın — hazır olduğunda bildirim gelecek.
+          ⏳ Bu sayfayı açık bırakın — hazır olduğunda burada görünecek.
+          {notifPermission === "granted" && " (Bildirim açık ✓)"}
+          {notifPermission === "denied" && " (Bildirim kapalı — tarayıcı ayarlarından açabilirsiniz)"}
         </p>
       )}
       <Button onClick={onClose} className="mt-2">Menüye Dön</Button>

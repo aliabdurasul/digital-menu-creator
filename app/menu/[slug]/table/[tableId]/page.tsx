@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getRestaurantBySlug, getRestaurantBySlugTranslated, getTableById } from "@/lib/db";
 import { MenuShell } from "@/components/menu/MenuShell";
 import { OrderingWrapper } from "@/components/menu/OrderingWrapper";
+import { AutoDismissBanner } from "@/components/menu/AutoDismissBanner";
 import { canUseFeature } from "@/lib/features/engine";
 import { AlertTriangle, Lock } from "lucide-react";
 import type { Metadata } from "next";
@@ -85,20 +86,22 @@ export default async function TableMenuPage({ params }: TableMenuPageProps) {
 
   return (
     <OrderingWrapper restaurantId={restaurantTr.id} tableId={table.id} moduleType={restaurantTr.moduleType}>
-      {/* Location indicator — cafe: self-servis, restaurant: table label */}
-      <div className="max-w-[480px] mx-auto px-4 pt-3">
-        {restaurantTr.moduleType === "cafe" ? (
+      {/* Location indicator — cafe: auto-dismiss toast, restaurant: persistent table label */}
+      {restaurantTr.moduleType === "cafe" ? (
+        <AutoDismissBanner duration={3000}>
           <div className="flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/20 px-3 py-2">
             <span className="text-xs font-semibold text-primary">☕ Self Servis</span>
-            <span className="text-xs text-muted-foreground">— siparişinizi verdikten sonra bardan teslim alabilirsiniz</span>
+            <span className="text-xs text-muted-foreground">— bardan teslim alabilirsiniz</span>
           </div>
-        ) : (
+        </AutoDismissBanner>
+      ) : (
+        <div className="max-w-[480px] mx-auto px-4 pt-3">
           <div className="flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/20 px-3 py-2">
             <span className="text-xs font-semibold text-primary">📍 {table.label}</span>
             <span className="text-xs text-muted-foreground">— siparişiniz bu masaya iletilecek</span>
           </div>
-        )}
-      </div>
+        </div>
+      )}
       <MenuShell restaurant={restaurantTr} restaurantEn={enData} tableId={table.id} />
     </OrderingWrapper>
   );
