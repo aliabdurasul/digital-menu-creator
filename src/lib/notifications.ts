@@ -17,7 +17,7 @@ export type NotificationPayload = {
   restaurantId: string;
   customerId?: string;
   orderId?: string;
-  type: "order_ready" | "loyalty_reward" | "campaign" | "welcome";
+  type: "order_ready" | "loyalty_reward" | "welcome";
   channel: "sms" | "whatsapp";
   phone: string;
   message: string;

@@ -7,10 +7,8 @@ export type FeatureKey =
   | "custom_branding"
   | "api_access"
   | "table_ordering"
-  | "crm"
   | "notifications"
   | "loyalty"
-  | "campaigns"
   | "ar_menu";
 
 export type PlanType = "basic" | "pro";
@@ -70,12 +68,6 @@ export const FEATURE_MAP: Record<FeatureKey, FeatureDef> = {
     description: "Müşteriler masadan QR ile sipariş versin",
     plans: ["pro"],
   },
-  crm: {
-    key: "crm",
-    label: "CRM Müşteri Yönetimi",
-    description: "Müşteri kaydı, segmentasyon ve geçmiş takibi",
-    plans: ["pro"],
-  },
   notifications: {
     key: "notifications",
     label: "SMS Bildirimleri",
@@ -86,14 +78,8 @@ export const FEATURE_MAP: Record<FeatureKey, FeatureDef> = {
     key: "loyalty",
     label: "Sadakat Programı",
     description: "Damga kartı ve ödül takibi",
-    plans: ["pro"],
+    plans: ["basic", "pro"],
     moduleOnly: "cafe",
-  },
-  campaigns: {
-    key: "campaigns",
-    label: "Kampanya Yönetimi",
-    description: "Toplu SMS kampanyaları gönderimi",
-    plans: ["pro"],
   },
   ar_menu: {
     key: "ar_menu",

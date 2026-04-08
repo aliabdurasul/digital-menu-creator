@@ -155,7 +155,7 @@ export function PhoneCapture({ required = false, requireName = false, onSubmit, 
               }}
             />
             <label htmlFor="consent" className="text-[11px] text-muted-foreground leading-tight cursor-pointer">
-              Telefon numaramın sipariş bildirimleri ve kampanyalar için kullanılmasını kabul ediyorum. (KVKK kapsamında açık rıza)
+              Telefon numaramın sipariş bildirimleri için kullanılmasını kabul ediyorum. (KVKK kapsamında açık rıza)
             </label>
           </div>
 

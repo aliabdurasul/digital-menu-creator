@@ -268,10 +268,9 @@ export type ModuleType = "cafe" | "restaurant";
 export type NotificationChannel = "sms" | "whatsapp" | "both";
 export type LoyaltyTier = "bronze" | "silver" | "gold" | "vip";
 export type CustomerSource = "qr" | "pos" | "manual" | "import";
-export type CampaignStatus = "draft" | "scheduled" | "sending" | "sent" | "cancelled";
-export type NotificationType = "order_ready" | "loyalty_reward" | "campaign" | "welcome";
+export type NotificationType = "order_ready" | "loyalty_reward" | "welcome";
 
-/* ─── CRM Types ─── */
+/* ─── Customer & Loyalty Types ─── */
 
 export interface DbCustomer {
   id: string;
@@ -314,32 +313,6 @@ export interface DbLoyaltyStamp {
   stamp_number: number;
   is_reward: boolean;
   created_at: string;
-}
-
-export interface DbCampaign {
-  id: string;
-  restaurant_id: string;
-  name: string;
-  module_type: "cafe" | "restaurant" | "all";
-  channel: NotificationChannel;
-  target_segment: Record<string, unknown>;
-  message_template: string;
-  scheduled_at: string | null;
-  status: CampaignStatus;
-  total_recipients: number;
-  sent_count: number;
-  failed_count: number;
-  created_at: string;
-}
-
-export interface DbCampaignSend {
-  id: string;
-  campaign_id: string;
-  customer_id: string;
-  channel: "sms" | "whatsapp";
-  status: "pending" | "sent" | "delivered" | "failed";
-  provider_ref: string | null;
-  sent_at: string | null;
 }
 
 export interface DbNotificationLog {
