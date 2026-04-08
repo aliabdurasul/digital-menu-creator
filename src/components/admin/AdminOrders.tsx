@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Restaurant, ModuleType } from "@/types";
-import type { OrderStatus, OrderWithItems } from "@/types";
+import type { OrderStatus, OrderWithItems, LoyaltyResult } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -95,7 +95,20 @@ export function AdminOrders({ restaurant, moduleType = "restaurant" }: AdminOrde
             toast({ title: "Yeni sipariş geldi!" });
             fetchOrders();
           } else if (payload.eventType === "UPDATE") {
-            const updated = payload.new as { id: string; status: string };
+            const updated = payload.new as { id: string; status: string; loyalty_reward_earned?: boolean; loyalty_reward_message?: string; customer_name?: string };
+            const old = payload.old as { loyalty_reward_earned?: boolean } | undefined;
+
+            // Loyalty reward detected via Realtime (other admins watching)
+            if (updated.loyalty_reward_earned && !old?.loyalty_reward_earned) {
+              if (soundEnabled && audioRef.current) {
+                audioRef.current.play().catch(() => {});
+              }
+              toast({
+                title: "🎉 Sadakat Ödülü!",
+                description: updated.loyalty_reward_message || "Müşteri sadakat ödülü kazandı!",
+              });
+            }
+
             // If moved to delivered/cancelled → remove from active list
             if (!["pending", "preparing", "ready"].includes(updated.status)) {
               setOrders((prev) => prev.filter((o) => o.id !== updated.id));
@@ -129,6 +142,18 @@ export function AdminOrders({ restaurant, moduleType = "restaurant" }: AdminOrde
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Güncelleme başarısız");
+      }
+
+      const resData = (await res.json().catch(() => ({}))) as { loyalty?: LoyaltyResult };
+
+      // Show loyalty reward toast to the admin who clicked "Delivered"
+      if (resData.loyalty?.rewarded) {
+        const order = orders.find((o) => o.id === orderId);
+        const name = (order as OrderWithItems & { customer_name?: string })?.customer_name || "Müşteri";
+        toast({
+          title: "🎉 Sadakat Ödülü!",
+          description: `${name} sadakat ödülü kazandı! ${resData.loyalty.rewardMessage || ""}`,
+        });
       }
 
       // If delivered/cancelled → remove from list immediately

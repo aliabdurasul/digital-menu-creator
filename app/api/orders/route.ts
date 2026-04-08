@@ -205,7 +205,39 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ orderId: order.id, total }, { status: 201 });
+    // 7. If cafe with loyalty enabled, include stamp progress in response
+    let loyalty: { stampCount: number; stampsNeeded: number } | undefined;
+    const isCafe = restaurant.module_type === "cafe";
+    if (isCafe && customerId) {
+      try {
+        const [{ data: config }, { count }] = await Promise.all([
+          supabase
+            .from("loyalty_config")
+            .select("enabled, reward_threshold")
+            .eq("restaurant_id", restaurantId)
+            .single(),
+          supabase
+            .from("loyalty_stamps")
+            .select("id", { count: "exact", head: true })
+            .eq("customer_id", customerId)
+            .eq("restaurant_id", restaurantId),
+        ]);
+
+        if (config?.enabled) {
+          loyalty = {
+            stampCount: count || 0,
+            stampsNeeded: config.reward_threshold,
+          };
+        }
+      } catch {
+        // Non-critical — skip loyalty info
+      }
+    }
+
+    return NextResponse.json(
+      { orderId: order.id, total, ...(loyalty ? { loyalty } : {}) },
+      { status: 201 }
+    );
   } catch {
     return NextResponse.json(
       { error: "Sunucu hatası" },

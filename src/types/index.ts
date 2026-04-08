@@ -223,6 +223,10 @@ export interface DbOrder {
   source: string;
   note: string;
   total: number;
+  loyalty_stamp_count: number | null;
+  loyalty_stamps_needed: number | null;
+  loyalty_reward_earned: boolean;
+  loyalty_reward_message: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -248,6 +252,15 @@ export interface CartItem {
 export interface OrderWithItems extends DbOrder {
   items: DbOrderItem[];
   table?: DbTable;
+}
+
+/* ─── Loyalty Result ─── */
+export interface LoyaltyResult {
+  stamped: boolean;
+  rewarded: boolean;
+  stampCount: number;
+  stampsNeeded: number;
+  rewardMessage?: string;
 }
 
 /* ─── Module Type ─── */

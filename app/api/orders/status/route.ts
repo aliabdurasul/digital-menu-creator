@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabase
       .from("orders")
-      .select("status")
+      .select("status, loyalty_stamp_count, loyalty_stamps_needed, loyalty_reward_earned, loyalty_reward_message")
       .eq("session_id", sessionId)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -38,7 +38,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ status: "pending" });
     }
 
-    return NextResponse.json({ status: data.status });
+    return NextResponse.json({
+      status: data.status,
+      loyalty_stamp_count: data.loyalty_stamp_count,
+      loyalty_stamps_needed: data.loyalty_stamps_needed,
+      loyalty_reward_earned: data.loyalty_reward_earned,
+      loyalty_reward_message: data.loyalty_reward_message,
+    });
   } catch {
     return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });
   }

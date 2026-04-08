@@ -5,6 +5,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { sendNotification, renderTemplate } from "./notifications";
+import type { LoyaltyResult } from "@/types";
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -12,16 +13,19 @@ function getServiceClient() {
   return createClient(url, key);
 }
 
+const NOT_STAMPED: LoyaltyResult = { stamped: false, rewarded: false, stampCount: 0, stampsNeeded: 0 };
+
 /**
  * Process a delivered order for loyalty: add stamp, check reward threshold.
- * Returns true if a reward was earned.
+ * Writes loyalty state onto the order row so Supabase Realtime broadcasts it
+ * to both admin (via postgres_changes subscription) and customer (via polling).
  */
 export async function processLoyaltyStamp(
   restaurantId: string,
   customerId: string,
   orderId: string,
   orderTotal: number
-): Promise<{ stamped: boolean; rewarded: boolean }> {
+): Promise<LoyaltyResult> {
   const supabase = getServiceClient();
 
   // 1. Check loyalty config
@@ -32,7 +36,7 @@ export async function processLoyaltyStamp(
     .single();
 
   if (!config || !config.enabled) {
-    return { stamped: false, rewarded: false };
+    return NOT_STAMPED;
   }
 
   // 2. Get customer, then update stats directly
@@ -42,7 +46,7 @@ export async function processLoyaltyStamp(
     .eq("id", customerId)
     .single();
 
-  if (!customer) return { stamped: false, rewarded: false };
+  if (!customer) return NOT_STAMPED;
 
   const newTotalOrders = (customer.total_orders || 0) + 1;
   const newTotalSpent = (customer.total_spent || 0) + orderTotal;
@@ -75,7 +79,15 @@ export async function processLoyaltyStamp(
     is_reward: isReward,
   });
 
-  // 5. If reward earned, update loyalty points and send notification
+  // 5. Build reward message (used for both SMS and in-app)
+  const rewardLabel = config.reward_type === "free_item"
+    ? "Bedava ürün"
+    : config.reward_type === "discount_percent"
+      ? `%${config.reward_value} indirim`
+      : `₺${config.reward_value} indirim`;
+
+  let rewardMessage: string | undefined;
+
   if (isReward) {
     await supabase
       .from("customers")
@@ -84,7 +96,13 @@ export async function processLoyaltyStamp(
       })
       .eq("id", customerId);
 
-    // Check if restaurant has notifications enabled
+    rewardMessage = renderTemplate(config.message_template, {
+      name: customer.name || "Değerli Müşterimiz",
+      threshold: config.reward_threshold,
+      reward: rewardLabel,
+    });
+
+    // Send SMS notification as backup channel
     const { data: restaurant } = await supabase
       .from("restaurants")
       .select("notification_enabled, notification_channel")
@@ -92,16 +110,6 @@ export async function processLoyaltyStamp(
       .single();
 
     if (restaurant?.notification_enabled && customer.phone) {
-      const message = renderTemplate(config.message_template, {
-        name: customer.name || "Değerli Müşterimiz",
-        threshold: config.reward_threshold,
-        reward: config.reward_type === "free_item"
-          ? "Bedava ürün"
-          : config.reward_type === "discount_percent"
-            ? `%${config.reward_value} indirim`
-            : `₺${config.reward_value} indirim`,
-      });
-
       await sendNotification({
         restaurantId,
         customerId,
@@ -109,10 +117,27 @@ export async function processLoyaltyStamp(
         type: "loyalty_reward",
         channel: restaurant.notification_channel === "both" ? "sms" : restaurant.notification_channel,
         phone: customer.phone,
-        message,
+        message: rewardMessage,
       });
     }
   }
 
-  return { stamped: true, rewarded: isReward };
+  // 6. Write loyalty state onto the order row — triggers Supabase Realtime
+  await supabase
+    .from("orders")
+    .update({
+      loyalty_stamp_count: stampNumber,
+      loyalty_stamps_needed: config.reward_threshold,
+      loyalty_reward_earned: isReward,
+      loyalty_reward_message: rewardMessage || null,
+    })
+    .eq("id", orderId);
+
+  return {
+    stamped: true,
+    rewarded: isReward,
+    stampCount: stampNumber,
+    stampsNeeded: config.reward_threshold,
+    rewardMessage,
+  };
 }

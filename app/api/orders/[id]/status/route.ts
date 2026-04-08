@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import type { OrderStatus } from "@/types";
-import { sendNotification, renderTemplate } from "@/lib/notifications";
+import type { OrderStatus, LoyaltyResult } from "@/types";
+import { sendNotification } from "@/lib/notifications";
 import { processLoyaltyStamp } from "@/lib/loyalty";
 
 /** Valid status transitions */
@@ -100,51 +100,52 @@ export async function PATCH(
       );
     }
 
-    // 6. Post-update actions (non-blocking)
-    const postActions = async () => {
+    // 6. Post-update actions
+    let loyaltyResult: LoyaltyResult | undefined;
+
+    // Get restaurant settings (needed for both ready and delivered actions)
+    const { data: restaurant } = await supabase
+      .from("restaurants")
+      .select("notification_enabled, notification_channel, module_type")
+      .eq("id", order.restaurant_id)
+      .single();
+
+    const phone = order.customer_phone;
+    const isCafe = restaurant?.module_type === "cafe";
+
+    // When order is READY → send SMS notification (non-blocking)
+    if (newStatus === "ready" && phone && (isCafe || restaurant?.notification_enabled)) {
+      sendNotification({
+        restaurantId: order.restaurant_id,
+        customerId: order.customer_id || undefined,
+        orderId: order.id,
+        type: "order_ready",
+        channel: "sms",
+        phone,
+        message: `Siparişiniz hazır! 🎉 Lütfen teslim alın.`,
+      }).catch((err) => console.error("[order-status] SMS notification failed:", err));
+    }
+
+    // When order is DELIVERED → process loyalty synchronously (CAFE ONLY)
+    // Awaited so the response includes loyalty info for the admin UI
+    if (newStatus === "delivered" && order.customer_id && isCafe) {
       try {
-        // Get restaurant notification settings
-        const { data: restaurant } = await supabase
-          .from("restaurants")
-          .select("notification_enabled, notification_channel, module_type")
-          .eq("id", order.restaurant_id)
-          .single();
-
-        const phone = order.customer_phone;
-        const isCafe = restaurant?.module_type === "cafe";
-
-        // When order is READY → send SMS notification
-        // Cafe: always send if phone exists. Restaurant: respect notification_enabled setting.
-        if (newStatus === "ready" && phone && (isCafe || restaurant?.notification_enabled)) {
-          await sendNotification({
-            restaurantId: order.restaurant_id,
-            customerId: order.customer_id || undefined,
-            orderId: order.id,
-            type: "order_ready",
-            channel: "sms",
-            phone,
-            message: `Siparişiniz hazır! 🎉 Lütfen teslim alın.`,
-          });
-        }
-
-        // When order is DELIVERED → process loyalty (CAFE ONLY)
-        if (newStatus === "delivered" && order.customer_id && isCafe) {
-          await processLoyaltyStamp(
-            order.restaurant_id,
-            order.customer_id,
-            order.id,
-            Number(order.total) || 0
-          );
-        }
+        loyaltyResult = await processLoyaltyStamp(
+          order.restaurant_id,
+          order.customer_id,
+          order.id,
+          Number(order.total) || 0
+        );
       } catch (err) {
-        console.error("[order-status] Post-update actions failed:", err);
+        console.error("[order-status] Loyalty processing failed:", err);
       }
-    };
+    }
 
-    // Fire and forget — don't block the response
-    postActions();
-
-    return NextResponse.json({ success: true, status: newStatus });
+    return NextResponse.json({
+      success: true,
+      status: newStatus,
+      ...(loyaltyResult ? { loyalty: loyaltyResult } : {}),
+    });
   } catch {
     return NextResponse.json(
       { error: "Sunucu hatası" },

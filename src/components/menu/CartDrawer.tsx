@@ -23,6 +23,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPhoneCapture, setShowPhoneCapture] = useState(false);
+  const [loyaltyInfo, setLoyaltyInfo] = useState<{ stampCount: number; stampsNeeded: number } | null>(null);
 
   const handleSubmit = async (skipPhonePrompt = false) => {
     if (items.length === 0) return;
@@ -74,6 +75,16 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
         throw new Error(data.error || "Sipariş gönderilemedi");
       }
 
+      const resData = (await res.json().catch(() => ({}))) as {
+        orderId?: string;
+        total?: number;
+        loyalty?: { stampCount: number; stampsNeeded: number };
+      };
+
+      if (resData.loyalty) {
+        setLoyaltyInfo(resData.loyalty);
+      }
+
       clearCart();
       setNote("");
       setSuccess(true);
@@ -115,7 +126,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
 
         {/* Success screen */}
         {success ? (
-          <OrderSuccessScreen moduleType={moduleType} onClose={handleClose} />
+          <OrderSuccessScreen moduleType={moduleType} onClose={handleClose} loyalty={loyaltyInfo} />
         ) : (
           <>
             {/* Cart items */}
@@ -236,9 +247,11 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
 function OrderSuccessScreen({
   moduleType,
   onClose,
+  loyalty,
 }: {
   moduleType: string;
   onClose: () => void;
+  loyalty?: { stampCount: number; stampsNeeded: number } | null;
 }) {
   const [sessionCode, setSessionCode] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState<string>("default");
@@ -286,6 +299,32 @@ function OrderSuccessScreen({
           ? "Siparişiniz baristaya iletildi. Hazır olduğunda bildirim alacaksınız. Self servis gelip almanız rica edilir."
           : "Siparişiniz mutfağa iletildi. Hazır olduğunda masanıza getirilecektir."}
       </p>
+
+      {/* Loyalty stamp progress */}
+      {isCafe && loyalty && loyalty.stampsNeeded > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 w-full max-w-xs">
+          <p className="text-xs font-semibold text-amber-700 text-center mb-1.5">
+            ☕ Sadakat: {loyalty.stampCount}/{loyalty.stampsNeeded} damga
+          </p>
+          <div className="flex items-center justify-center gap-1">
+            {Array.from({ length: loyalty.stampsNeeded }).map((_, i) => (
+              <div
+                key={i}
+                className={`w-3 h-3 rounded-full border ${
+                  i < loyalty.stampCount % loyalty.stampsNeeded || (loyalty.stampCount > 0 && loyalty.stampCount % loyalty.stampsNeeded === 0)
+                    ? "bg-amber-500 border-amber-600"
+                    : "bg-amber-100 border-amber-200"
+                }`}
+              />
+            ))}
+          </div>
+          {loyalty.stampsNeeded - (loyalty.stampCount % loyalty.stampsNeeded) < loyalty.stampsNeeded && (
+            <p className="text-xs text-amber-600 text-center mt-1.5">
+              {loyalty.stampsNeeded - (loyalty.stampCount % loyalty.stampsNeeded)} sipariş sonra ödül! 🎁
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Notification permission button — requires user gesture */}
       {isCafe && notifPermission === "default" && (
