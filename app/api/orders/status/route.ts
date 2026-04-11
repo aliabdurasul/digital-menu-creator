@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getLoyaltySnapshot } from "@/lib/loyalty";
+import type { LoyaltyProgressResponse } from "@/types";
 
 /**
  * Service-role client — bypasses RLS so anonymous customers can poll their order status.
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Fetch rich loyalty progress if customer_key exists
-    let loyaltyProgress = null;
+    let loyaltyProgress: LoyaltyProgressResponse | null = null;
     if (data.customer_key && data.restaurant_id) {
       try {
         loyaltyProgress = await getLoyaltySnapshot(data.restaurant_id, data.customer_key);
