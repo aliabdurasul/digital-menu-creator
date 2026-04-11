@@ -5,6 +5,7 @@ import { CartProvider } from "@/components/menu/CartProvider";
 import { CartButton } from "@/components/menu/CartButton";
 import { CartDrawer } from "@/components/menu/CartDrawer";
 import { OrderReadyWatcher } from "@/components/menu/OrderReadyWatcher";
+import { LoyaltyProvider } from "@/components/menu/LoyaltyProvider";
 
 interface OrderingWrapperProps {
   restaurantId: string;
@@ -21,17 +22,19 @@ export function OrderingWrapper({ restaurantId, tableId, moduleType, children }:
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
-    <CartProvider tableId={tableId}>
-      {children}
-      <CartButton onClick={() => setDrawerOpen(true)} />
-      <CartDrawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        restaurantId={restaurantId}
-        tableId={tableId}
-        moduleType={moduleType}
-      />
-      <OrderReadyWatcher moduleType={moduleType} />
-    </CartProvider>
+    <LoyaltyProvider restaurantId={restaurantId}>
+      <CartProvider tableId={tableId}>
+        {children}
+        <CartButton onClick={() => setDrawerOpen(true)} />
+        <CartDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          restaurantId={restaurantId}
+          tableId={tableId}
+          moduleType={moduleType}
+        />
+        <OrderReadyWatcher moduleType={moduleType} />
+      </CartProvider>
+    </LoyaltyProvider>
   );
 }

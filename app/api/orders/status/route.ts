@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getLoyaltySnapshot } from "@/lib/loyalty";
 
 /**
  * Service-role client — bypasses RLS so anonymous customers can poll their order status.
@@ -15,6 +16,7 @@ function getServiceClient() {
  * GET /api/orders/status?sessionId=CAFE-XXXXX
  * Public endpoint — returns the latest order status for a given session ID.
  * Used by cafe customers to poll for "ready" status.
+ * Includes loyalty progress from loyalty_progress table if customer_key present.
  */
 export async function GET(req: NextRequest) {
   const sessionId = req.nextUrl.searchParams.get("sessionId");
@@ -28,7 +30,7 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabase
       .from("orders")
-      .select("status, loyalty_stamp_count, loyalty_stamps_needed, loyalty_reward_earned, loyalty_reward_message")
+      .select("status, customer_key, restaurant_id, loyalty_stamp_count, loyalty_stamps_needed, loyalty_reward_earned, loyalty_reward_message")
       .eq("session_id", sessionId)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -38,12 +40,25 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ status: "pending" });
     }
 
+    // Fetch rich loyalty progress if customer_key exists
+    let loyaltyProgress = null;
+    if (data.customer_key && data.restaurant_id) {
+      try {
+        loyaltyProgress = await getLoyaltySnapshot(data.restaurant_id, data.customer_key);
+      } catch {
+        // Non-critical
+      }
+    }
+
     return NextResponse.json({
       status: data.status,
+      // Legacy fields (backward compat)
       loyalty_stamp_count: data.loyalty_stamp_count,
       loyalty_stamps_needed: data.loyalty_stamps_needed,
       loyalty_reward_earned: data.loyalty_reward_earned,
       loyalty_reward_message: data.loyalty_reward_message,
+      // New rich loyalty data
+      ...(loyaltyProgress ? { loyalty: loyaltyProgress } : {}),
     });
   } catch {
     return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });

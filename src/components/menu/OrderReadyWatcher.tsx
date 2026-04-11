@@ -2,13 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { CheckCircle2, X, Gift, Coffee } from "lucide-react";
+import type { LoyaltyProgressResponse } from "@/types";
 
 interface OrderStatusData {
   status?: string;
+  // Legacy fields
   loyalty_stamp_count?: number | null;
   loyalty_stamps_needed?: number | null;
   loyalty_reward_earned?: boolean;
   loyalty_reward_message?: string | null;
+  // New rich loyalty
+  loyalty?: LoyaltyProgressResponse;
 }
 
 /**
@@ -90,10 +94,14 @@ export function OrderReadyWatcher({ moduleType }: { moduleType?: "cafe" | "resta
     return () => clearInterval(interval);
   }, [isCafe, sessionCode, orderReady, orderDelivered]);
 
-  const hasReward = loyaltyData?.loyalty_reward_earned;
-  const stampCount = loyaltyData?.loyalty_stamp_count ?? 0;
-  const stampsNeeded = loyaltyData?.loyalty_stamps_needed ?? 0;
-  const showStampProgress = orderDelivered && stampsNeeded > 0 && !hasReward;
+  const richLoyalty = loyaltyData?.loyalty;
+  const hasReward = richLoyalty?.reward.ready || loyaltyData?.loyalty_reward_earned;
+  const rewardMessage = richLoyalty?.reward.message || loyaltyData?.loyalty_reward_message;
+  const showProgress = orderDelivered && richLoyalty && richLoyalty.progress.target > 0 && !hasReward;
+  const progressInCycle = richLoyalty ? richLoyalty.progress.current % richLoyalty.progress.target : 0;
+  const fillPercent = richLoyalty && richLoyalty.progress.target > 0
+    ? Math.min(100, Math.round((progressInCycle / richLoyalty.progress.target) * 100))
+    : 0;
 
   return (
     <>
@@ -132,14 +140,12 @@ export function OrderReadyWatcher({ moduleType }: { moduleType?: "cafe" | "resta
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-amber-700 text-sm">🎉 Sadakat Ödülü Kazandınız!</p>
                 <p className="text-xs text-amber-600 mt-0.5">
-                  {loyaltyData?.loyalty_reward_message || "Tebrikler! Ödülünüzü bardan teslim alın."}
+                  {rewardMessage || "Tebrikler! Ödülünüzü bardan teslim alın."}
                 </p>
-                {stampsNeeded > 0 && (
-                  <div className="flex items-center gap-1 mt-1.5">
-                    {Array.from({ length: stampsNeeded }).map((_, i) => (
-                      <Coffee key={i} className="w-3.5 h-3.5 text-amber-500" />
-                    ))}
-                  </div>
+                {richLoyalty?.reward.expiresAt && (
+                  <p className="text-[10px] text-amber-500 mt-0.5">
+                    {getExpiryText(richLoyalty.reward.expiresAt)}
+                  </p>
                 )}
               </div>
               <button
@@ -155,29 +161,33 @@ export function OrderReadyWatcher({ moduleType }: { moduleType?: "cafe" | "resta
       )}
 
       {/* Banner 3: Stamp Progress (no reward, but show progress) */}
-      {showStampProgress && !dismissedLoyalty && (
+      {showProgress && !dismissedLoyalty && (
         <div className="fixed top-0 inset-x-0 z-[61] animate-slide-down" style={{ top: orderReady && !dismissedReady ? "64px" : "0" }}>
           <div className="max-w-[480px] mx-auto px-4 pt-3">
             <div className="flex items-center gap-3 rounded-xl bg-blue-50 border border-blue-200 shadow-md px-4 py-3">
               <Coffee className="w-6 h-6 text-blue-600 shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-blue-700 text-sm">
-                  Sadakat: {stampCount}/{stampsNeeded} damga ☕
-                </p>
-                <p className="text-xs text-blue-500 mt-0.5">
-                  {stampsNeeded - (stampCount % stampsNeeded)} sipariş sonra ödül kazanacaksınız!
-                </p>
-                <div className="flex items-center gap-0.5 mt-1">
-                  {Array.from({ length: stampsNeeded }).map((_, i) => (
-                    <div
-                      key={i}
-                      className={`w-3 h-3 rounded-full border ${
-                        i < (stampCount % stampsNeeded || (stampCount > 0 ? stampsNeeded : 0))
-                          ? "bg-blue-500 border-blue-600"
-                          : "bg-blue-100 border-blue-200"
-                      }`}
-                    />
-                  ))}
+                <div className="flex items-center justify-between mb-1">
+                  <p className="font-semibold text-blue-700 text-sm">
+                    ☕ {progressInCycle}/{richLoyalty!.progress.target}
+                  </p>
+                  {richLoyalty!.bonuses.happyHour && (
+                    <span className="text-[10px] font-semibold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded-full">
+                      ✨ {richLoyalty!.bonuses.multiplier}x
+                    </span>
+                  )}
+                </div>
+                <div className="h-2 rounded-full bg-blue-100 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-blue-500 transition-all duration-700 ease-out"
+                    style={{ width: `${fillPercent}%` }}
+                  />
+                </div>
+                {richLoyalty!.bonuses.nearCompletion && richLoyalty!.bonuses.stampsAway > 0 && (
+                  <p className="text-xs text-blue-500 mt-1">
+                    🔥 Sadece {richLoyalty!.bonuses.stampsAway} sipariş kaldı!
+                  </p>
+                )}
                 </div>
               </div>
               <button
@@ -196,6 +206,14 @@ export function OrderReadyWatcher({ moduleType }: { moduleType?: "cafe" | "resta
 }
 
 /* ── helpers ── */
+
+function getExpiryText(expiresAt: string): string {
+  const diff = new Date(expiresAt).getTime() - Date.now();
+  if (diff <= 0) return "Süresi dolmuş";
+  const days = Math.ceil(diff / 86400000);
+  if (days <= 1) return "Son gün! ⏰";
+  return `${days} gün kaldı ⏰`;
+}
 
 function fireNotification(sessionCode: string, title: string, body: string) {
   try {

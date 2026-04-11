@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import type { OrderStatus, LoyaltyResult } from "@/types";
+import type { OrderStatus } from "@/types";
 import { sendNotification } from "@/lib/notifications";
-import { processLoyaltyStamp } from "@/lib/loyalty";
+import { processLoyaltyStamp, confirmProgress } from "@/lib/loyalty";
 
 /** Valid status transitions */
 const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
@@ -50,7 +50,7 @@ export async function PATCH(
     // 2. Get order + check ownership
     const { data: order, error: orderErr } = await supabase
       .from("orders")
-      .select("id, status, restaurant_id, customer_id, customer_phone, total")
+      .select("id, status, restaurant_id, customer_id, customer_phone, customer_key, total")
       .eq("id", orderId)
       .single();
 
@@ -101,7 +101,7 @@ export async function PATCH(
     }
 
     // 6. Post-update actions
-    let loyaltyResult: LoyaltyResult | undefined;
+    let loyaltyResult: Record<string, unknown> | undefined;
 
     // Get restaurant settings (needed for both ready and delivered actions)
     const { data: restaurant } = await supabase
@@ -126,16 +126,27 @@ export async function PATCH(
       }).catch((err) => console.error("[order-status] SMS notification failed:", err));
     }
 
-    // When order is DELIVERED → process loyalty synchronously (CAFE ONLY)
-    // Awaited so the response includes loyalty info for the admin UI
-    if (newStatus === "delivered" && order.customer_id && isCafe) {
+    // When order is DELIVERED → confirm loyalty progress (CAFE ONLY)
+    if (newStatus === "delivered" && isCafe) {
       try {
-        loyaltyResult = await processLoyaltyStamp(
-          order.restaurant_id,
-          order.customer_id,
-          order.id,
-          Number(order.total) || 0
-        );
+        // New path: customer_key-based loyalty
+        if (order.customer_key) {
+          loyaltyResult = (await confirmProgress(
+            order.restaurant_id,
+            order.customer_key,
+            order.id,
+            Number(order.total) || 0
+          )) ?? undefined;
+        }
+        // Legacy path: customer_id-based loyalty (old orders without customer_key)
+        else if (order.customer_id) {
+          loyaltyResult = await processLoyaltyStamp(
+            order.restaurant_id,
+            order.customer_id,
+            order.id,
+            Number(order.total) || 0
+          );
+        }
       } catch (err) {
         console.error("[order-status] Loyalty processing failed:", err);
       }

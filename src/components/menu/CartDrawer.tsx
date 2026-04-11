@@ -7,6 +7,9 @@ import { useCart } from "@/components/menu/CartProvider";
 import { Button } from "@/components/ui/button";
 import { PhoneCapture, getCapturedPhone, getCapturedName } from "@/components/menu/PhoneCapture";
 import { generateCafeSessionCode } from "@/lib/utils";
+import { getOrCreateCustomerKey } from "@/lib/loyalty-client";
+import { useLoyalty } from "@/components/menu/LoyaltyProvider";
+import type { LoyaltyProgressResponse } from "@/types";
 
 interface CartDrawerProps {
   open: boolean;
@@ -23,7 +26,8 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPhoneCapture, setShowPhoneCapture] = useState(false);
-  const [loyaltyInfo, setLoyaltyInfo] = useState<{ stampCount: number; stampsNeeded: number } | null>(null);
+  const [loyaltyInfo, setLoyaltyInfo] = useState<LoyaltyProgressResponse | null>(null);
+  const loyalty = useLoyalty();
 
   const handleSubmit = async (skipPhonePrompt = false) => {
     if (items.length === 0) return;
@@ -52,6 +56,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
       }
 
       const customerPhone = getCapturedPhone();
+      const customerKey = getOrCreateCustomerKey();
 
       const res = await fetch("/api/orders", {
         method: "POST",
@@ -60,6 +65,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
           restaurantId,
           tableId,
           sessionId: sid,
+          customerKey,
           items: items.map((i) => ({
             menuItemId: i.menuItemId,
             quantity: i.quantity,
@@ -78,12 +84,14 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
       const resData = (await res.json().catch(() => ({}))) as {
         orderId?: string;
         total?: number;
-        loyalty?: { stampCount: number; stampsNeeded: number };
+        loyalty?: LoyaltyProgressResponse;
       };
 
       if (resData.loyalty) {
         setLoyaltyInfo(resData.loyalty);
       }
+
+      loyalty?.refetch();
 
       clearCart();
       setNote("");
@@ -208,6 +216,12 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
                   <p className="text-destructive text-sm text-center">{error}</p>
                 )}
 
+                {loyalty?.progress?.upsell && (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-center">
+                    {loyalty.progress.upsell.message}
+                  </p>
+                )}
+
                 <Button
                   onClick={() => { void handleSubmit(); }}
                   disabled={submitting}
@@ -227,7 +241,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
       {/* Phone Capture Modal */}
       {showPhoneCapture && (
         <PhoneCapture
-          required={moduleType === "cafe"}
+          required={false}
           requireName={moduleType === "cafe"}
           onSubmit={() => {
             setShowPhoneCapture(false);
@@ -251,7 +265,7 @@ function OrderSuccessScreen({
 }: {
   moduleType: string;
   onClose: () => void;
-  loyalty?: { stampCount: number; stampsNeeded: number } | null;
+  loyalty?: LoyaltyProgressResponse | null;
 }) {
   const [sessionCode, setSessionCode] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState<string>("default");
@@ -261,7 +275,6 @@ function OrderSuccessScreen({
     const sid = sessionStorage.getItem("session_id");
     setSessionCode(sid);
 
-    // Read current permission state (but don't request — that needs a user gesture)
     if ("Notification" in window) {
       setNotifPermission(Notification.permission);
     }
@@ -283,7 +296,11 @@ function OrderSuccessScreen({
     }
   }, []);
 
-  // ── Order placed, waiting ──
+  const progressInCycle = loyalty ? loyalty.progress.current % loyalty.progress.target : 0;
+  const fillPercent = loyalty && loyalty.progress.target > 0
+    ? Math.min(100, Math.round((progressInCycle / loyalty.progress.target) * 100))
+    : 0;
+
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
       <CheckCircle2 className="w-16 h-16 text-green-500" />
@@ -300,33 +317,42 @@ function OrderSuccessScreen({
           : "Siparişiniz mutfağa iletildi. Hazır olduğunda masanıza getirilecektir."}
       </p>
 
-      {/* Loyalty stamp progress */}
-      {isCafe && loyalty && loyalty.stampsNeeded > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 w-full max-w-xs">
-          <p className="text-xs font-semibold text-amber-700 text-center mb-1.5">
-            ☕ Sadakat: {loyalty.stampCount}/{loyalty.stampsNeeded} damga
-          </p>
-          <div className="flex items-center justify-center gap-1">
-            {Array.from({ length: loyalty.stampsNeeded }).map((_, i) => (
-              <div
-                key={i}
-                className={`w-3 h-3 rounded-full border ${
-                  i < loyalty.stampCount % loyalty.stampsNeeded || (loyalty.stampCount > 0 && loyalty.stampCount % loyalty.stampsNeeded === 0)
-                    ? "bg-amber-500 border-amber-600"
-                    : "bg-amber-100 border-amber-200"
-                }`}
-              />
-            ))}
-          </div>
-          {loyalty.stampsNeeded - (loyalty.stampCount % loyalty.stampsNeeded) < loyalty.stampsNeeded && (
-            <p className="text-xs text-amber-600 text-center mt-1.5">
-              {loyalty.stampsNeeded - (loyalty.stampCount % loyalty.stampsNeeded)} sipariş sonra ödül! 🎁
-            </p>
+      {/* Loyalty progress bar */}
+      {loyalty && loyalty.progress.target > 0 && (
+        <div className="w-full max-w-xs">
+          {loyalty.reward.ready ? (
+            <div className="bg-amber-50 border border-amber-300 rounded-xl px-5 py-3">
+              <p className="text-sm font-bold text-amber-700 mb-1">🎁 Ödülünüz Hazır!</p>
+              <p className="text-xs text-amber-600">{loyalty.reward.message}</p>
+            </div>
+          ) : (
+            <div className="bg-card border rounded-xl px-5 py-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-foreground">
+                  ☕ {progressInCycle}/{loyalty.progress.target}
+                </p>
+                {loyalty.bonuses.happyHour && (
+                  <span className="text-[10px] font-semibold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded-full">
+                    ✨ {loyalty.bonuses.multiplier}x puan
+                  </span>
+                )}
+              </div>
+              <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-1000 ease-out"
+                  style={{ width: `${fillPercent}%` }}
+                />
+              </div>
+              {loyalty.bonuses.nearCompletion && loyalty.bonuses.stampsAway > 0 && (
+                <p className="text-xs text-amber-600">
+                  🔥 Sadece {loyalty.bonuses.stampsAway} sipariş kaldı!
+                </p>
+              )}
+            </div>
           )}
         </div>
       )}
 
-      {/* Notification permission button — requires user gesture */}
       {isCafe && notifPermission === "default" && (
         <button
           type="button"

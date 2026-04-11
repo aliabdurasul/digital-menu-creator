@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { ensureCustomerAlias, addPendingProgress } from "@/lib/loyalty";
+import type { LoyaltyProgressResponse } from "@/types";
 
 /**
  * Service-role client — bypasses RLS so anonymous users can place orders.
@@ -20,7 +22,7 @@ function getServiceClient() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { restaurantId, tableId, items, note, sessionId, customerPhone, customerName } = body as {
+    const { restaurantId, tableId, items, note, sessionId, customerPhone, customerName, customerKey } = body as {
       restaurantId?: string;
       tableId?: string | null;
       items?: { menuItemId: string; quantity: number }[];
@@ -28,6 +30,7 @@ export async function POST(req: NextRequest) {
       sessionId?: string;
       customerPhone?: string;
       customerName?: string;
+      customerKey?: string;
     };
 
     // Validate required fields
@@ -164,6 +167,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 4c. Ensure customer alias if customerKey provided
+    if (customerKey) {
+      await ensureCustomerAlias(restaurantId, customerKey, customerPhone || undefined);
+    }
+
     // 5. Create order
     const { data: order, error: orderErr } = await supabase
       .from("orders")
@@ -173,6 +181,7 @@ export async function POST(req: NextRequest) {
         session_id: sessionId || "",
         customer_id: customerId,
         customer_phone: customerPhone || null,
+        customer_key: customerKey || null,
         source: tableId ? "qr" : "takeaway",
         note: note || "",
         total: Math.round(total * 100) / 100,
@@ -205,30 +214,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 7. If cafe with loyalty enabled, include stamp progress in response
-    let loyalty: { stampCount: number; stampsNeeded: number } | undefined;
+    // 7. If cafe with customerKey, process optimistic loyalty progress
+    let loyalty: LoyaltyProgressResponse | undefined;
     const isCafe = restaurant.module_type === "cafe";
-    if (isCafe && customerId) {
+    if (isCafe && customerKey) {
       try {
-        const [{ data: config }, { count }] = await Promise.all([
-          supabase
-            .from("loyalty_config")
-            .select("enabled, reward_threshold")
-            .eq("restaurant_id", restaurantId)
-            .single(),
-          supabase
-            .from("loyalty_stamps")
-            .select("id", { count: "exact", head: true })
-            .eq("customer_id", customerId)
-            .eq("restaurant_id", restaurantId),
-        ]);
-
-        if (config?.enabled) {
-          loyalty = {
-            stampCount: count || 0,
-            stampsNeeded: config.reward_threshold,
-          };
-        }
+        const result = await addPendingProgress(
+          restaurantId,
+          customerKey,
+          order.id,
+          Math.round(total * 100) / 100
+        );
+        if (result) loyalty = result;
       } catch {
         // Non-critical — skip loyalty info
       }

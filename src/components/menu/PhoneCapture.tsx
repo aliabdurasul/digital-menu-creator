@@ -105,11 +105,9 @@ export function PhoneCapture({ required = false, requireName = false, onSubmit, 
               <Phone className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h3 className="font-bold text-foreground">Hoş Geldiniz!</h3>
+              <h3 className="font-bold text-foreground">Puanlarını Koru!</h3>
               <p className="text-xs text-muted-foreground">
-                {required
-                  ? "Sipariş vermek için telefon numaranızı girin"
-                  : "Sipariş durumu bildirimi almak için numaranızı girin"}
+                📱 Telefonunu ekle → farklı cihazda puanlarını koru
               </p>
             </div>
           </div>
@@ -155,7 +153,7 @@ export function PhoneCapture({ required = false, requireName = false, onSubmit, 
               }}
             />
             <label htmlFor="consent" className="text-[11px] text-muted-foreground leading-tight cursor-pointer">
-              Telefon numaramın sipariş bildirimleri için kullanılmasını kabul ediyorum. (KVKK kapsamında açık rıza)
+              Numaramın sadakat puanlarımı eşleştirmek ve sipariş bildirimleri için kullanılmasını kabul ediyorum.
             </label>
           </div>
 

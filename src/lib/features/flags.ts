@@ -9,6 +9,9 @@ export type FeatureKey =
   | "table_ordering"
   | "notifications"
   | "loyalty"
+  | "loyalty_happy_hour"
+  | "loyalty_upsell"
+  | "loyalty_near_completion"
   | "ar_menu";
 
 export type PlanType = "basic" | "pro";
@@ -79,6 +82,27 @@ export const FEATURE_MAP: Record<FeatureKey, FeatureDef> = {
     label: "Sadakat Programı",
     description: "Damga kartı ve ödül takibi",
     plans: ["basic", "pro"],
+    moduleOnly: "cafe",
+  },
+  loyalty_happy_hour: {
+    key: "loyalty_happy_hour",
+    label: "Happy Hour Çarpanı",
+    description: "Belirli saatlerde ekstra puan kazanımı",
+    plans: ["pro"],
+    moduleOnly: "cafe",
+  },
+  loyalty_upsell: {
+    key: "loyalty_upsell",
+    label: "Akıllı Upsell",
+    description: "Ödüle yaklaşan müşterilere öneriler",
+    plans: ["pro"],
+    moduleOnly: "cafe",
+  },
+  loyalty_near_completion: {
+    key: "loyalty_near_completion",
+    label: "Yakınlık Tetikleyicisi",
+    description: "Ödüle yaklaşınca aciliyet mesajı",
+    plans: ["pro"],
     moduleOnly: "cafe",
   },
   ar_menu: {

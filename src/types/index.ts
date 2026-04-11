@@ -219,6 +219,7 @@ export interface DbOrder {
   session_id: string;
   customer_id: string | null;
   customer_phone: string | null;
+  customer_key: string | null;
   status: OrderStatus;
   source: string;
   note: string;
@@ -327,4 +328,84 @@ export interface DbNotificationLog {
   status: "pending" | "sent" | "failed";
   provider_ref: string | null;
   created_at: string;
+}
+
+/* ─── Session-Based Loyalty Types ─── */
+
+export interface DbCustomerAlias {
+  id: string;
+  customer_key: string;
+  phone: string | null;
+  restaurant_id: string;
+  created_at: string;
+}
+
+export type LoyaltyProgramType = "stamp" | "spend";
+export type LoyaltyRewardType = "free_item" | "discount_percent" | "discount_amount";
+
+export interface DbLoyaltyProgram {
+  id: string;
+  restaurant_id: string;
+  enabled: boolean;
+  program_type: LoyaltyProgramType;
+  target_count: number;
+  reward_type: LoyaltyRewardType;
+  reward_value: number;
+  reward_item_id: string | null;
+  message_template: string;
+  initial_progress_min: number;
+  initial_progress_max: number;
+  near_completion_threshold: number;
+  happy_hour_enabled: boolean;
+  happy_hour_multiplier: number;
+  happy_hour_start: string | null;
+  happy_hour_end: string | null;
+  happy_hour_days: number[];
+  reward_expiry_days: number;
+  upsell_enabled: boolean;
+  created_at: string;
+}
+
+export interface DbLoyaltyProgress {
+  id: string;
+  customer_key: string;
+  program_id: string;
+  restaurant_id: string;
+  current_count: number;
+  confirmed_count: number;
+  total_earned_rewards: number;
+  total_orders: number;
+  total_spent: number;
+  initial_progress: number;
+  reward_ready: boolean;
+  reward_expires_at: string | null;
+  last_activity_at: string;
+  created_at: string;
+}
+
+export interface LoyaltyProgressResponse {
+  progress: {
+    current: number;
+    confirmed: number;
+    target: number;
+    percent: number;
+    initial: number;
+  };
+  reward: {
+    ready: boolean;
+    type: LoyaltyRewardType;
+    value: number;
+    message: string | null;
+    expiresAt: string | null;
+  };
+  bonuses: {
+    happyHour: boolean;
+    multiplier: number;
+    nearCompletion: boolean;
+    stampsAway: number;
+  };
+  upsell: {
+    message: string;
+    recommendedItem?: string;
+  } | null;
 }
