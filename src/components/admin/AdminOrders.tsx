@@ -343,12 +343,15 @@ function OrderCard({
       {/* Items */}
       <ul className="space-y-0.5">
         {order.items.map((item) => (
-          <li key={item.id} className="flex justify-between text-xs">
+          <li key={item.id} className={`flex justify-between text-xs ${item.is_loyalty_reward ? "font-semibold text-amber-700" : ""}`}>
             <span>
-              {item.quantity}× {item.name_snapshot}
+              {item.is_loyalty_reward ? "🎁 " : ""}{item.quantity}× {item.name_snapshot.toUpperCase()}
+              {item.is_loyalty_reward && (
+                <span className="ml-1 px-1 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold">LOYALTY REWARD</span>
+              )}
             </span>
-            <span className="text-muted-foreground">
-              ₺{(Number(item.price_snapshot) * item.quantity).toFixed(2)}
+            <span className={item.is_loyalty_reward ? "text-amber-600 font-bold" : "text-muted-foreground"}>
+              {item.is_loyalty_reward ? "FREE" : `₺${(Number(item.price_snapshot) * item.quantity).toFixed(2)}`}
             </span>
           </li>
         ))}

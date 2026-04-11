@@ -6,7 +6,6 @@ import { OptimizedImage } from "@/components/OptimizedImage";
 import { X, Plus, View } from "lucide-react";
 import { useLanguage, UI_LABELS } from "@/components/menu/LanguageProvider";
 import { useCart } from "@/components/menu/CartProvider";
-import { useLoyalty } from "@/components/menu/LoyaltyProvider";
 
 const ARViewer = lazy(() =>
   import("@/components/menu/ARViewer").then((m) => ({ default: m.ARViewer }))
@@ -20,20 +19,11 @@ function useOptionalCart() {
   }
 }
 
-function useOptionalLoyalty() {
-  try {
-    return useLoyalty();
-  } catch {
-    return null;
-  }
-}
-
 export function ProductList({ tableId }: { tableId?: string }) {
   const { restaurant, language } = useLanguage();
   const { products } = restaurant;
   const cartContext = useOptionalCart();
   const cart = tableId ? cartContext : null;
-  const loyalty = useOptionalLoyalty();
 
   const sortedCategories = useMemo(
     () => [...restaurant.categories].sort((a, b) => a.order - b.order),
@@ -131,29 +121,22 @@ export function ProductList({ tableId }: { tableId?: string }) {
                         ₺{product.price.toFixed(2)}
                       </p>
                       {cart && product.available && (
-                        <div className="flex items-center gap-1.5">
-                          {loyalty?.progress && (loyalty.progress.progress.target > 0) && (
-                            <span className="text-[10px] font-semibold text-amber-600">
-                              +{loyalty.progress.bonuses.happyHour ? loyalty.progress.bonuses.multiplier : 1} puan
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              cart.addItem({
-                                menuItemId: product.id,
-                                name: product.name,
-                                price: product.price,
-                                image: product.image,
-                              });
-                            }}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
-                          >
-                            <Plus className="w-3 h-3" />
-                            Ekle
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cart.addItem({
+                              menuItemId: product.id,
+                              name: product.name,
+                              price: product.price,
+                              image: product.image,
+                            });
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+                        >
+                          <Plus className="w-3 h-3" />
+                          Ekle
+                        </button>
                       )}
                     </div>
                   </div>

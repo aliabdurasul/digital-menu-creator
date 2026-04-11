@@ -65,7 +65,9 @@ function buildResponse(
   program: DbLoyaltyProgram,
   progress: DbLoyaltyProgress | null,
   upsellMessage: string | null = null,
-  upsellItem?: string
+  upsellItem?: string,
+  rewardItemName?: string | null,
+  rewardItemImage?: string | null
 ): LoyaltyProgressResponse {
   const current = progress?.current_count ?? 0;
   const confirmed = progress?.confirmed_count ?? 0;
@@ -102,6 +104,9 @@ function buildResponse(
       stampsAway,
     },
     upsell: upsellMessage ? { message: upsellMessage, recommendedItem: upsellItem } : null,
+    clubName: program.club_name ?? "Coffee Club",
+    rewardItemName: rewardItemName ?? program.reward_item_name ?? null,
+    rewardItemImage: rewardItemImage ?? null,
   };
 }
 
@@ -475,6 +480,21 @@ export async function getLoyaltySnapshot(
 
   if (!program || !program.enabled) return null;
 
+  // Resolve reward item details (name + image) for Coffee Club panel
+  let rewardItemName: string | null = program.reward_item_name ?? null;
+  let rewardItemImage: string | null = null;
+  if (program.reward_item_id) {
+    const { data: rewardItem } = await supabase
+      .from("menu_items")
+      .select("name, image_url")
+      .eq("id", program.reward_item_id)
+      .single();
+    if (rewardItem) {
+      if (!rewardItemName) rewardItemName = rewardItem.name;
+      rewardItemImage = rewardItem.image_url ?? null;
+    }
+  }
+
   const { data: progress } = await supabase
     .from("loyalty_progress")
     .select("*")
@@ -520,14 +540,14 @@ export async function getLoyaltySnapshot(
       ? await getUpsellMessage(program as DbLoyaltyProgram, fakeProgress, restaurantId)
       : null;
 
-    return buildResponse(program as DbLoyaltyProgram, fakeProgress, upsell?.message, upsell?.item);
+    return buildResponse(program as DbLoyaltyProgram, fakeProgress, upsell?.message, upsell?.item, rewardItemName, rewardItemImage);
   }
 
   const upsell = program.upsell_enabled
     ? await getUpsellMessage(program as DbLoyaltyProgram, progress as DbLoyaltyProgress, restaurantId)
     : null;
 
-  return buildResponse(program as DbLoyaltyProgram, progress as DbLoyaltyProgress, upsell?.message, upsell?.item);
+  return buildResponse(program as DbLoyaltyProgram, progress as DbLoyaltyProgress, upsell?.message, upsell?.item, rewardItemName, rewardItemImage);
 }
 
 /* ─── Upsell ─── */
@@ -661,4 +681,46 @@ export async function processLoyaltyStamp(
     stampsNeeded: config.reward_threshold,
     rewardMessage,
   };
+}
+
+/* ─── Reward Consumption ─── */
+
+/**
+ * Consume a customer's pending loyalty reward when they add it to their order.
+ * Sets reward_ready = false, increments total_earned_rewards.
+ * Returns true if a reward was found and consumed, false otherwise.
+ */
+export async function consumeReward(
+  restaurantId: string,
+  customerKey: string
+): Promise<boolean> {
+  const supabase = getServiceClient();
+
+  const { data: program } = await supabase
+    .from("loyalty_programs")
+    .select("id")
+    .eq("restaurant_id", restaurantId)
+    .single();
+
+  if (!program) return false;
+
+  const { data: progress } = await supabase
+    .from("loyalty_progress")
+    .select("id, reward_ready, total_earned_rewards")
+    .eq("customer_key", customerKey)
+    .eq("program_id", program.id)
+    .single();
+
+  if (!progress?.reward_ready) return false;
+
+  await supabase
+    .from("loyalty_progress")
+    .update({
+      reward_ready: false,
+      reward_expires_at: null,
+      total_earned_rewards: (progress.total_earned_rewards ?? 0) + 1,
+    })
+    .eq("id", progress.id);
+
+  return true;
 }

@@ -49,6 +49,8 @@ export function AdminLoyalty({ restaurant }: Props) {
   const [happyHourMultiplier, setHappyHourMultiplier] = useState(2);
   const [rewardExpiryDays, setRewardExpiryDays] = useState(30);
   const [upsellEnabled, setUpsellEnabled] = useState(false);
+  const [clubName, setClubName] = useState("Coffee Club");
+  const [rewardItemName, setRewardItemName] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -77,6 +79,8 @@ export function AdminLoyalty({ restaurant }: Props) {
         setHappyHourMultiplier(p.happy_hour_multiplier);
         setRewardExpiryDays(p.reward_expiry_days);
         setUpsellEnabled(p.upsell_enabled);
+        setClubName(p.club_name || "Coffee Club");
+        setRewardItemName(p.reward_item_name || "");
       }
       setLoading(false);
     }
@@ -104,6 +108,8 @@ export function AdminLoyalty({ restaurant }: Props) {
       happy_hour_multiplier: happyHourMultiplier,
       reward_expiry_days: rewardExpiryDays,
       upsell_enabled: upsellEnabled,
+      club_name: clubName.trim() || "Coffee Club",
+      reward_item_name: rewardItemName.trim() || null,
     };
 
     let error: unknown;
@@ -175,6 +181,34 @@ export function AdminLoyalty({ restaurant }: Props) {
 
       {enabled && (
         <div className="space-y-4">
+          {/* Club Name */}
+          <div>
+            <Label>Kulüp Adı</Label>
+            <Input
+              value={clubName}
+              onChange={(e) => setClubName(e.target.value)}
+              placeholder="Coffee Club"
+              className="mt-1 w-48"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Menüdeki panel başlığı (ör. &quot;Coffee Club&quot;, &quot;Lezzet Kulübü&quot;)
+            </p>
+          </div>
+
+          {/* Reward Item Name Override */}
+          <div>
+            <Label>Ödül Ürün Adı (opsiyonel)</Label>
+            <Input
+              value={rewardItemName}
+              onChange={(e) => setRewardItemName(e.target.value)}
+              placeholder="ör. Filtre Kahve"
+              className="mt-1 w-56"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Boş bırakılırsa menüdeki ürün adı kullanılır.
+            </p>
+          </div>
+
           {/* Target Count */}
           <div>
             <Label>Ödül Eşiği (sipariş sayısı)</Label>

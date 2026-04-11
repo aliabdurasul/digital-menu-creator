@@ -9,6 +9,9 @@ interface LoyaltyContextValue {
   isLoading: boolean;
   customerKey: string;
   refetch: () => Promise<void>;
+  /** Whether the Coffee Club panel is open */
+  panelOpen: boolean;
+  setPanelOpen: (open: boolean) => void;
 }
 
 const LoyaltyContext = createContext<LoyaltyContextValue | null>(null);
@@ -31,6 +34,7 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
   const [progress, setProgress] = useState<LoyaltyProgressResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [customerKey, setCustomerKey] = useState("");
+  const [panelOpen, setPanelOpen] = useState(false);
 
   const fetchProgress = useCallback(async () => {
     if (!restaurantId) return;
@@ -56,7 +60,7 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
   }, [fetchProgress]);
 
   return (
-    <LoyaltyContext.Provider value={{ progress, isLoading, customerKey, refetch }}>
+    <LoyaltyContext.Provider value={{ progress, isLoading, customerKey, refetch, panelOpen, setPanelOpen }}>
       {children}
     </LoyaltyContext.Provider>
   );

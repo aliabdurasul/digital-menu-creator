@@ -8,8 +8,6 @@ import { Button } from "@/components/ui/button";
 import { PhoneCapture, getCapturedPhone, getCapturedName } from "@/components/menu/PhoneCapture";
 import { generateCafeSessionCode } from "@/lib/utils";
 import { getOrCreateCustomerKey } from "@/lib/loyalty-client";
-import { useLoyalty } from "@/components/menu/LoyaltyProvider";
-import type { LoyaltyProgressResponse } from "@/types";
 
 interface CartDrawerProps {
   open: boolean;
@@ -26,8 +24,6 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPhoneCapture, setShowPhoneCapture] = useState(false);
-  const [loyaltyInfo, setLoyaltyInfo] = useState<LoyaltyProgressResponse | null>(null);
-  const loyalty = useLoyalty();
 
   const handleSubmit = async (skipPhonePrompt = false) => {
     if (items.length === 0) return;
@@ -69,6 +65,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
           items: items.map((i) => ({
             menuItemId: i.menuItemId,
             quantity: i.quantity,
+            ...(i.type === "loyalty_reward" ? { type: "loyalty_reward", name: i.name } : {}),
           })),
           note: note.trim() || undefined,
           ...(customerPhone ? { customerPhone } : {}),
@@ -80,18 +77,6 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Sipariş gönderilemedi");
       }
-
-      const resData = (await res.json().catch(() => ({}))) as {
-        orderId?: string;
-        total?: number;
-        loyalty?: LoyaltyProgressResponse;
-      };
-
-      if (resData.loyalty) {
-        setLoyaltyInfo(resData.loyalty);
-      }
-
-      loyalty?.refetch();
 
       clearCart();
       setNote("");
@@ -134,7 +119,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
 
         {/* Success screen */}
         {success ? (
-          <OrderSuccessScreen moduleType={moduleType} onClose={handleClose} loyalty={loyaltyInfo} />
+          <OrderSuccessScreen moduleType={moduleType} onClose={handleClose} />
         ) : (
           <>
             {/* Cart items */}
@@ -147,7 +132,11 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
                 items.map((item) => (
                   <div
                     key={item.menuItemId}
-                    className="flex items-center gap-3 p-2 rounded-lg bg-card border"
+                    className={`flex items-center gap-3 p-2 rounded-lg border ${
+                      item.type === "loyalty_reward"
+                        ? "bg-amber-50 border-amber-300"
+                        : "bg-card border"
+                    }`}
                   >
                     {/* Thumbnail */}
                     {item.image && item.image !== "/placeholder.svg" ? (
@@ -166,10 +155,21 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{item.name}</p>
-                      <p className="text-primary font-semibold text-sm">
-                        ₺{(item.price * item.quantity).toFixed(2)}
+                      <p className="font-medium text-sm truncate">
+                        {item.type === "loyalty_reward" && (
+                          <span className="mr-1">🎁</span>
+                        )}
+                        {item.name}
                       </p>
+                      {item.type === "loyalty_reward" ? (
+                        <p className="text-amber-600 font-bold text-xs uppercase tracking-wide">
+                          LOYALTY REWARD — ÜCRETSİZ
+                        </p>
+                      ) : (
+                        <p className="text-primary font-semibold text-sm">
+                          ₺{(item.price * item.quantity).toFixed(2)}
+                        </p>
+                      )}
                     </div>
 
                     {/* Quantity controls */}
@@ -261,11 +261,9 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
 function OrderSuccessScreen({
   moduleType,
   onClose,
-  loyalty,
 }: {
   moduleType: string;
   onClose: () => void;
-  loyalty?: LoyaltyProgressResponse | null;
 }) {
   const [sessionCode, setSessionCode] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState<string>("default");
@@ -296,12 +294,6 @@ function OrderSuccessScreen({
     }
   }, []);
 
-  const loyaltyTarget = loyalty?.progress.target ?? 0;
-  const progressInCycle = loyaltyTarget > 0 ? (loyalty?.progress.current ?? 0) % loyaltyTarget : 0;
-  const fillPercent = loyaltyTarget > 0
-    ? Math.min(100, Math.round((progressInCycle / loyaltyTarget) * 100))
-    : 0;
-
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
       <CheckCircle2 className="w-16 h-16 text-green-500" />
@@ -317,42 +309,6 @@ function OrderSuccessScreen({
           ? "Siparişiniz baristaya iletildi. Hazır olduğunda bildirim alacaksınız. Self servis gelip almanız rica edilir."
           : "Siparişiniz mutfağa iletildi. Hazır olduğunda masanıza getirilecektir."}
       </p>
-
-      {/* Loyalty progress bar */}
-      {loyalty && (loyaltyTarget > 0) && (
-        <div className="w-full max-w-xs">
-          {loyalty.reward.ready ? (
-            <div className="bg-amber-50 border border-amber-300 rounded-xl px-5 py-3">
-              <p className="text-sm font-bold text-amber-700 mb-1">🎁 Ödülünüz Hazır!</p>
-              <p className="text-xs text-amber-600">{loyalty.reward.message}</p>
-            </div>
-          ) : (
-            <div className="bg-card border rounded-xl px-5 py-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-foreground">
-                  ☕ {progressInCycle}/{loyalty.progress.target}
-                </p>
-                {loyalty.bonuses.happyHour && (
-                  <span className="text-[10px] font-semibold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded-full">
-                    ✨ {loyalty.bonuses.multiplier}x puan
-                  </span>
-                )}
-              </div>
-              <div className="h-2.5 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-primary transition-all duration-1000 ease-out"
-                  style={{ width: `${fillPercent}%` }}
-                />
-              </div>
-              {loyalty.bonuses.nearCompletion && (loyalty.bonuses.stampsAway > 0) && (
-                <p className="text-xs text-amber-600">
-                  🔥 Sadece {loyalty.bonuses.stampsAway} sipariş kaldı!
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
 
       {isCafe && notifPermission === "default" && (
         <button
