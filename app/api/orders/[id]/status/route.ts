@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import type { OrderStatus, LoyaltyProgressResponse } from "@/types";
+import type { OrderStatus, LoyaltyProgressResponse, LoyaltyResult } from "@/types";
 import { sendNotification } from "@/lib/notifications";
 import { processLoyaltyStamp, confirmProgress } from "@/lib/loyalty";
 
@@ -101,7 +101,7 @@ export async function PATCH(
     }
 
     // 6. Post-update actions
-    let loyaltyResult: LoyaltyProgressResponse | undefined;
+    let loyaltyResult: LoyaltyProgressResponse | LoyaltyResult | undefined;
 
     // Get restaurant settings (needed for both ready and delivered actions)
     const { data: restaurant } = await supabase
