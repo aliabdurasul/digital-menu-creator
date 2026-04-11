@@ -98,11 +98,9 @@ export function OrderReadyWatcher({ moduleType }: { moduleType?: "cafe" | "resta
   const hasReward = richLoyalty?.reward.ready || loyaltyData?.loyalty_reward_earned;
   const rewardMessage = richLoyalty?.reward.message || loyaltyData?.loyalty_reward_message;
   const target = richLoyalty?.progress.target ?? 0;
-  const showProgress = orderDelivered && richLoyalty && target > 0 && !hasReward;
-  const progressInCycle = target > 0 ? (richLoyalty?.progress.current ?? 0) % target : 0;
-  const fillPercent = target > 0
-    ? Math.min(100, Math.round((progressInCycle / target) * 100))
-    : 0;
+  const showProgress = orderDelivered && richLoyalty && (target > 0) && !hasReward;
+  const progressInCycle = (target > 0) ? (richLoyalty?.progress.current ?? 0) % target : 0;
+  const fillPercent = (target > 0) ? Math.min(100, Math.round((progressInCycle / target) * 100)) : 0;
 
   return (
     <>
