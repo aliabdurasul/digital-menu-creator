@@ -296,9 +296,10 @@ function OrderSuccessScreen({
     }
   }, []);
 
-  const progressInCycle = loyalty ? loyalty.progress.current % loyalty.progress.target : 0;
-  const fillPercent = loyalty && loyalty.progress.target > 0
-    ? Math.min(100, Math.round((progressInCycle / loyalty.progress.target) * 100))
+  const loyaltyTarget = loyalty?.progress.target ?? 0;
+  const progressInCycle = loyaltyTarget > 0 ? (loyalty?.progress.current ?? 0) % loyaltyTarget : 0;
+  const fillPercent = loyaltyTarget > 0
+    ? Math.min(100, Math.round((progressInCycle / loyaltyTarget) * 100))
     : 0;
 
   return (
@@ -318,7 +319,7 @@ function OrderSuccessScreen({
       </p>
 
       {/* Loyalty progress bar */}
-      {loyalty && loyalty.progress.target > 0 && (
+      {loyalty && (loyaltyTarget > 0) && (
         <div className="w-full max-w-xs">
           {loyalty.reward.ready ? (
             <div className="bg-amber-50 border border-amber-300 rounded-xl px-5 py-3">
@@ -343,7 +344,7 @@ function OrderSuccessScreen({
                   style={{ width: `${fillPercent}%` }}
                 />
               </div>
-              {loyalty.bonuses.nearCompletion && loyalty.bonuses.stampsAway > 0 && (
+              {loyalty.bonuses.nearCompletion && (loyalty.bonuses.stampsAway > 0) && (
                 <p className="text-xs text-amber-600">
                   🔥 Sadece {loyalty.bonuses.stampsAway} sipariş kaldı!
                 </p>

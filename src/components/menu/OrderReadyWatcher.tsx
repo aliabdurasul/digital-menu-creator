@@ -97,10 +97,11 @@ export function OrderReadyWatcher({ moduleType }: { moduleType?: "cafe" | "resta
   const richLoyalty = loyaltyData?.loyalty;
   const hasReward = richLoyalty?.reward.ready || loyaltyData?.loyalty_reward_earned;
   const rewardMessage = richLoyalty?.reward.message || loyaltyData?.loyalty_reward_message;
-  const showProgress = orderDelivered && richLoyalty && richLoyalty.progress.target > 0 && !hasReward;
-  const progressInCycle = richLoyalty ? richLoyalty.progress.current % richLoyalty.progress.target : 0;
-  const fillPercent = richLoyalty && richLoyalty.progress.target > 0
-    ? Math.min(100, Math.round((progressInCycle / richLoyalty.progress.target) * 100))
+  const target = richLoyalty?.progress.target ?? 0;
+  const showProgress = orderDelivered && richLoyalty && target > 0 && !hasReward;
+  const progressInCycle = target > 0 ? (richLoyalty?.progress.current ?? 0) % target : 0;
+  const fillPercent = target > 0
+    ? Math.min(100, Math.round((progressInCycle / target) * 100))
     : 0;
 
   return (
@@ -169,11 +170,11 @@ export function OrderReadyWatcher({ moduleType }: { moduleType?: "cafe" | "resta
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
                   <p className="font-semibold text-blue-700 text-sm">
-                    ☕ {progressInCycle}/{richLoyalty!.progress.target}
+                    ☕ {progressInCycle}/{target}
                   </p>
-                  {richLoyalty!.bonuses.happyHour && (
+                  {richLoyalty?.bonuses.happyHour && (
                     <span className="text-[10px] font-semibold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded-full">
-                      ✨ {richLoyalty!.bonuses.multiplier}x
+                      ✨ {richLoyalty.bonuses.multiplier}x
                     </span>
                   )}
                 </div>
@@ -183,9 +184,9 @@ export function OrderReadyWatcher({ moduleType }: { moduleType?: "cafe" | "resta
                     style={{ width: `${fillPercent}%` }}
                   />
                 </div>
-                {richLoyalty!.bonuses.nearCompletion && richLoyalty!.bonuses.stampsAway > 0 && (
+                {richLoyalty?.bonuses.nearCompletion && (richLoyalty.bonuses.stampsAway > 0) && (
                   <p className="text-xs text-blue-500 mt-1">
-                    🔥 Sadece {richLoyalty!.bonuses.stampsAway} sipariş kaldı!
+                    🔥 Sadece {richLoyalty.bonuses.stampsAway} sipariş kaldı!
                   </p>
                 )}
                 </div>

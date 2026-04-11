@@ -132,7 +132,7 @@ export function ProductList({ tableId }: { tableId?: string }) {
                       </p>
                       {cart && product.available && (
                         <div className="flex items-center gap-1.5">
-                          {loyalty?.progress && loyalty.progress.progress.target > 0 && (
+                          {loyalty?.progress && (loyalty.progress.progress.target > 0) && (
                             <span className="text-[10px] font-semibold text-amber-600">
                               +{loyalty.progress.bonuses.happyHour ? loyalty.progress.bonuses.multiplier : 1} puan
                             </span>

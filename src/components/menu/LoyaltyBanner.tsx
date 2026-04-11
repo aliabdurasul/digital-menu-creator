@@ -19,9 +19,7 @@ export function LoyaltyBanner() {
   if (progress.target <= 0) return null;
 
   const progressInCycle = progress.current % progress.target;
-  const fillPercent = progress.target > 0
-    ? Math.min(100, Math.round((progressInCycle / progress.target) * 100))
-    : 0;
+  const fillPercent = Math.min(100, Math.round((progressInCycle / progress.target) * 100));
 
   // Reward ready → celebration state
   if (reward.ready) {
