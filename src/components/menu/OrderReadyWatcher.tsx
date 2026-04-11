@@ -187,7 +187,6 @@ export function OrderReadyWatcher({ moduleType }: { moduleType?: "cafe" | "resta
                     🔥 Sadece {richLoyalty.bonuses.stampsAway} sipariş kaldı!
                   </p>
                 )}
-                </div>
               </div>
               <button
                 type="button"
