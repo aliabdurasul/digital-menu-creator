@@ -108,8 +108,8 @@ export function AdminLoyalty({ restaurant }: Props) {
       happy_hour_multiplier: happyHourMultiplier,
       reward_expiry_days: rewardExpiryDays,
       upsell_enabled: upsellEnabled,
-      club_name: clubName.trim() || "Coffee Club",
-      reward_item_name: rewardItemName.trim() || null,
+      club_name: clubName,
+      reward_item_name: rewardItemName || null,
     };
 
     let error: unknown;
@@ -188,24 +188,24 @@ export function AdminLoyalty({ restaurant }: Props) {
               value={clubName}
               onChange={(e) => setClubName(e.target.value)}
               placeholder="Coffee Club"
-              className="mt-1 w-48"
+              className="mt-1 w-64"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Menüdeki panel başlığı (ör. &quot;Coffee Club&quot;, &quot;Lezzet Kulübü&quot;)
+              Müşterilere gösterilen sadakat kulübü adı.
             </p>
           </div>
 
           {/* Reward Item Name Override */}
           <div>
-            <Label>Ödül Ürün Adı (opsiyonel)</Label>
+            <Label>Ödül Ürün Adı (Geçersiz Kılma)</Label>
             <Input
               value={rewardItemName}
               onChange={(e) => setRewardItemName(e.target.value)}
-              placeholder="ör. Filtre Kahve"
-              className="mt-1 w-56"
+              placeholder="Otomatik (menü ürün adı kullanılır)"
+              className="mt-1 w-64"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Boş bırakılırsa menüdeki ürün adı kullanılır.
+              Boş bırakılırsa menüdeki ödül ürün adı kullanılır.
             </p>
           </div>
 

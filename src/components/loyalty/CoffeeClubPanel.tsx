@@ -1,402 +1,316 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { X, ChevronDown, Gift, Sparkles, Flame, ShoppingCart, Check } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
+import { X, Gift, Flame, Sparkles, ShoppingBag, ChevronDown } from "lucide-react";
 import { useLoyalty } from "@/components/menu/LoyaltyProvider";
 import { useCart } from "@/components/menu/CartProvider";
-import { cn } from "@/lib/utils";
 
-interface CoffeeClubPanelProps {
-  open: boolean;
-  onClose: () => void;
+function useOptionalCart() {
+  try {
+    return useCart();
+  } catch {
+    return null;
+  }
 }
 
 /**
- * Full-screen loyalty panel — the "Coffee Club" mini-app.
- *
- * Sections:
- *   1. Header with club name + close
- *   2. Stamp progress track (☕ × current, ⚪ × remaining)
- *   3. Reward card (when reward.ready) with "Add to Cart" CTA
- *   4. Active bonuses (happy hour, near-completion)
- *   5. "Order Now" footer CTA
- *
- * State is entirely driven by LoyaltyProvider context — no local fetching.
+ * Full-screen loyalty panel — the "mini app" experience.
+ * Opens from CoffeeClubButton, shows progress, rewards, bonuses.
  */
-export function CoffeeClubPanel({ open, onClose }: CoffeeClubPanelProps) {
+export function CoffeeClubPanel() {
   const loyalty = useLoyalty();
-  const cart = useCartSafe();
-  const [rewardAdded, setRewardAdded] = useState(false);
+  const cart = useOptionalCart();
+  const [addedToCart, setAddedToCart] = useState(false);
 
-  // Lock body scroll when panel open
+  const isOpen = loyalty?.panelOpen ?? false;
+  const progress = loyalty?.progress;
+
+  // Reset "added" state when panel opens
   useEffect(() => {
-    if (open) document.body.style.overflow = "hidden";
+    if (isOpen) setAddedToCart(false);
+  }, [isOpen]);
+
+  // Lock body scroll while open
+  useEffect(() => {
+    if (isOpen) document.body.style.overflow = "hidden";
     else document.body.style.overflow = "";
     return () => { document.body.style.overflow = ""; };
-  }, [open]);
+  }, [isOpen]);
 
-  // Close on Escape key
+  // Close on Escape
   useEffect(() => {
-    if (!open) return;
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    if (!isOpen) return;
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Escape") loyalty?.setPanelOpen(false);
+    };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [open, onClose]);
+  }, [isOpen, loyalty]);
 
-  // Reset "Added" state when panel re-opens
-  useEffect(() => {
-    if (open) setRewardAdded(false);
-  }, [open]);
+  const handleClose = useCallback(() => {
+    loyalty?.setPanelOpen(false);
+  }, [loyalty]);
 
-  if (!open) return null;
+  const handleAddReward = useCallback(() => {
+    if (!cart || !loyalty?.rewardItem) return;
 
-  const hasProgress = loyalty && !loyalty.isLoading && loyalty.progress;
+    // Check if reward is already in cart
+    const existing = cart.items.find((i) => i.type === "loyalty_reward");
+    if (existing) {
+      setAddedToCart(true);
+      return;
+    }
+
+    cart.addItem({
+      menuItemId: loyalty.rewardItem.menuItemId || `reward_${Date.now()}`,
+      name: loyalty.rewardItem.name,
+      price: 0,
+      image: loyalty.rewardItem.image || "",
+      type: "loyalty_reward",
+    });
+    setAddedToCart(true);
+  }, [cart, loyalty]);
+
+  const handleOrderNow = useCallback(() => {
+    loyalty?.setPanelOpen(false);
+    // Scroll to top of menu
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [loyalty]);
+
+  if (!isOpen || !progress) return null;
+
+  const target = progress.progress.target;
+  const current = progress.progress.current % target;
+  const stampsAway = progress.bonuses.stampsAway;
+  const rewardReady = progress.reward.ready;
+  const clubName = loyalty?.clubName || "Coffee Club";
+  const rewardItem = loyalty?.rewardItem;
+
+  // Check if reward already in cart
+  const rewardInCart = cart?.items.some((i) => i.type === "loyalty_reward") ?? false;
 
   return (
-    <div className="fixed inset-0 z-[70] flex flex-col bg-background animate-slide-up">
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between px-5 py-4 border-b bg-background">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl" aria-hidden>☕</span>
-          <h2 className="font-bold text-lg text-foreground">
-            {loyalty?.progress?.clubName ?? "Coffee Club"}
-          </h2>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Kapat"
-          className="w-9 h-9 rounded-full bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors"
-        >
-          <ChevronDown className="w-5 h-5" />
-        </button>
-      </div>
+    <div className="fixed inset-0 z-[70] flex flex-col">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+        onClick={handleClose}
+      />
 
-      {/* ── Scrollable content ── */}
-      <div className="flex-1 overflow-y-auto">
-        {!hasProgress ? (
-          <EmptyState loading={loyalty?.isLoading} />
-        ) : (
-          <PanelContent
-            loyalty={loyalty.progress!}
-            cart={cart}
-            rewardAdded={rewardAdded}
-            onRewardAdded={() => {
-              setRewardAdded(true);
-            }}
-            onClose={onClose}
-          />
-        )}
+      {/* Panel — slides up from bottom, full height */}
+      <div className="relative z-10 mt-auto w-full max-w-[480px] mx-auto h-[92vh] bg-background rounded-t-3xl shadow-2xl flex flex-col animate-slide-up overflow-hidden">
+        {/* ── Header ── */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">☕</span>
+            <h2 className="text-xl font-bold text-foreground">{clubName}</h2>
+          </div>
+          <button
+            type="button"
+            onClick={handleClose}
+            className="w-9 h-9 rounded-full bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors"
+          >
+            <ChevronDown className="w-5 h-5 text-muted-foreground" />
+          </button>
+        </div>
+
+        {/* ── Scrollable content ── */}
+        <div className="flex-1 overflow-y-auto px-5 pb-24 space-y-5">
+          {/* Stamp Track */}
+          <StampTrack current={current} target={target} />
+
+          {/* Progress message */}
+          <div className="text-center">
+            {rewardReady ? (
+              <p className="text-lg font-bold text-amber-600">
+                🎉 Ödülünüz Hazır!
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                <span className="font-semibold text-foreground">{stampsAway}</span> sipariş sonra →{" "}
+                <span className="font-semibold text-primary">
+                  {rewardItem?.name || "ÖDÜL"}
+                </span>
+              </p>
+            )}
+          </div>
+
+          {/* ── Reward Section ── */}
+          {rewardReady && rewardItem && (
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 space-y-4">
+              <div className="flex items-center gap-2">
+                <Gift className="w-5 h-5 text-amber-600" />
+                <h3 className="font-bold text-amber-700">Reward Unlocked!</h3>
+              </div>
+
+              {/* Reward item card */}
+              <div className="flex items-center gap-4 bg-white rounded-xl p-3 border border-amber-100 shadow-sm">
+                {rewardItem.image ? (
+                  <div className="relative w-16 h-16 shrink-0 rounded-lg overflow-hidden bg-muted">
+                    <Image
+                      src={rewardItem.image}
+                      alt={rewardItem.name}
+                      fill
+                      sizes="64px"
+                      className="object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 shrink-0 rounded-lg bg-amber-100 flex items-center justify-center">
+                    <Gift className="w-7 h-7 text-amber-500" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-foreground">{rewardItem.name}</p>
+                  <p className="text-sm text-green-600 font-semibold">FREE</p>
+                </div>
+              </div>
+
+              {/* Add to Cart CTA */}
+              {cart && (
+                <button
+                  type="button"
+                  onClick={handleAddReward}
+                  disabled={rewardInCart || addedToCart}
+                  className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                    rewardInCart || addedToCart
+                      ? "bg-green-100 text-green-700 border border-green-200"
+                      : "bg-amber-600 text-white hover:bg-amber-700 active:scale-[0.98] shadow-md"
+                  }`}
+                >
+                  {rewardInCart || addedToCart ? (
+                    <>✓ Sepete Eklendi</>
+                  ) : (
+                    <>
+                      <ShoppingBag className="w-4 h-4" />
+                      Sepete Ekle
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* Expiry */}
+              {progress.reward.expiresAt && (
+                <p className="text-xs text-amber-500 text-center">
+                  {getExpiryText(progress.reward.expiresAt)}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* ── Active Bonuses ── */}
+          {(progress.bonuses.happyHour || progress.bonuses.nearCompletion) && (
+            <div className="space-y-2">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+                Aktif Bonuslar
+              </h3>
+
+              {progress.bonuses.happyHour && (
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-purple-50 border border-purple-200">
+                  <Sparkles className="w-5 h-5 text-purple-600 shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-purple-700">
+                      ✨ {progress.bonuses.multiplier}x Puan Aktif
+                    </p>
+                    <p className="text-xs text-purple-500">
+                      Happy Hour — her sipariş {progress.bonuses.multiplier}x puan kazandırır
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {progress.bonuses.nearCompletion && !rewardReady && (
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-orange-50 border border-orange-200">
+                  <Flame className="w-5 h-5 text-orange-600 shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-orange-700">
+                      🔥 Sadece {stampsAway} sipariş kaldı!
+                    </p>
+                    <p className="text-xs text-orange-500">
+                      Ödülüne çok az kaldı — devam et!
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Upsell ── */}
+          {progress.upsell && !rewardReady && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-center">
+              <p className="text-sm text-blue-700">{progress.upsell.message}</p>
+            </div>
+          )}
+        </div>
+
+        {/* ── Sticky Footer CTA ── */}
+        <div className="absolute bottom-0 inset-x-0 bg-background border-t px-5 py-4">
+          <button
+            type="button"
+            onClick={handleOrderNow}
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors active:scale-[0.98] shadow-sm"
+          >
+            <ShoppingBag className="w-4 h-4" />
+            Sipariş Ver
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-/* ─── Main panel content ─── */
+/* ─── Stamp Track (visual stamps) ─── */
+function StampTrack({ current, target }: { current: number; target: number }) {
+  // Limit visual stamps to max 12 for layout; beyond that use a progress bar
+  const useVisualStamps = target <= 12;
 
-function PanelContent({
-  loyalty,
-  cart,
-  rewardAdded,
-  onRewardAdded,
-  onClose,
-}: {
-  loyalty: NonNullable<ReturnType<typeof useLoyalty>>["progress"] & object;
-  cart: ReturnType<typeof useCartSafe>;
-  rewardAdded: boolean;
-  onRewardAdded: () => void;
-  onClose: () => void;
-}) {
-  if (!loyalty) return null;
-
-  const { progress, reward, bonuses, clubName, rewardItemName, rewardItemImage } = loyalty;
-  const progressInCycle = progress.target > 0
-    ? progress.current % progress.target
-    : 0;
-  const fillPercent = progress.target > 0
-    ? Math.min(100, Math.round((progressInCycle / progress.target) * 100))
-    : 0;
-  const stampsRemaining = Math.max(0, progress.target - progressInCycle);
-  const rewardDisplayName = rewardItemName || "Ücretsiz Ödül";
-
-  function handleAddReward() {
-    if (!cart || rewardAdded) return;
-    // Only allow one loyalty reward in the cart
-    const alreadyInCart = cart.items.some((i) => i.type === "loyalty_reward");
-    if (alreadyInCart) {
-      onRewardAdded();
-      return;
-    }
-    cart.addItem({
-      menuItemId: `loyalty_reward_${Date.now()}`,
-      name: rewardDisplayName,
-      price: 0,
-      image: rewardItemImage ?? "",
-      type: "loyalty_reward",
-    });
-    onRewardAdded();
+  if (!useVisualStamps) {
+    const percent = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-foreground">
+            {current} / {target}
+          </p>
+          <p className="text-xs text-muted-foreground">{percent}%</p>
+        </div>
+        <div className="h-3 rounded-full bg-muted overflow-hidden">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-700 ease-out"
+            style={{ width: `${percent}%` }}
+          />
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="px-5 py-6 space-y-6 max-w-[480px] mx-auto w-full">
-      {/* ── Reward Ready Section ── */}
-      {reward.ready && (
-        <div className="rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 shadow-lg p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-              <Gift className="w-6 h-6 text-amber-600 animate-bounce" />
-            </div>
-            <div>
-              <p className="font-bold text-amber-800 text-base">🎉 Ödülünüz Hazır!</p>
-              <p className="text-sm text-amber-700 mt-0.5">
-                {reward.message ?? rewardDisplayName}
-              </p>
-              {reward.expiresAt && (
-                <p className="text-xs text-amber-500 mt-0.5">
-                  {getExpiryText(reward.expiresAt)}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Reward item display */}
-          {(rewardItemImage || rewardItemName) && (
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-white/80 border border-amber-200 mb-4">
-              {rewardItemImage && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={rewardItemImage}
-                  alt={rewardDisplayName}
-                  className="w-14 h-14 rounded-lg object-cover shrink-0"
-                />
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm text-foreground">{rewardDisplayName}</p>
-                <p className="text-xs text-amber-600 font-bold mt-0.5">ÜCRETSİZ</p>
-              </div>
-            </div>
-          )}
-
-          {/* Add to Cart CTA */}
-          <button
-            type="button"
-            onClick={handleAddReward}
-            disabled={!cart || rewardAdded}
-            className={cn(
-              "w-full h-12 rounded-xl flex items-center justify-center gap-2 text-sm font-semibold transition-all duration-200",
-              rewardAdded
-                ? "bg-green-500 text-white cursor-default"
-                : cart
-                  ? "bg-amber-500 hover:bg-amber-600 text-white active:scale-[0.98]"
-                  : "bg-muted text-muted-foreground cursor-not-allowed"
-            )}
-          >
-            {rewardAdded ? (
-              <>
-                <Check className="w-4 h-4" />
-                Sepete Eklendi
-              </>
-            ) : (
-              <>
-                <ShoppingCart className="w-4 h-4" />
-                Sepete Ekle
-              </>
-            )}
-          </button>
-
-          {!cart && (
-            <p className="text-xs text-center text-amber-600 mt-2">
-              Ödülü kullanmak için masanızın QR kodunu tarayın
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* ── Stamp Progress ── */}
-      <div className="space-y-3">
-        <p className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
-          İlerlemeniz
-        </p>
-
-        {/* Stamp track */}
-        <StampTrack
-          current={progressInCycle}
-          target={progress.target}
-        />
-
-        {/* Progress bar */}
-        <div className="h-3 rounded-full bg-muted overflow-hidden">
+    <div className="flex flex-wrap justify-center gap-2 py-2">
+      {Array.from({ length: target }, (_, i) => {
+        const filled = i < current;
+        return (
           <div
-            className={cn(
-              "h-full rounded-full transition-all duration-700 ease-out",
-              reward.ready
-                ? "bg-gradient-to-r from-amber-400 to-orange-500"
-                : bonuses.nearCompletion
-                  ? "bg-gradient-to-r from-amber-400 to-orange-500"
-                  : "bg-primary"
-            )}
-            style={{ width: `${reward.ready ? 100 : fillPercent}%` }}
-          />
-        </div>
-
-        {/* Progress numbers */}
-        <div className="flex items-center justify-between text-sm">
-          <span className="font-semibold text-foreground">
-            {reward.ready ? (
-              <span className="text-amber-600">✓ Tamamlandı!</span>
-            ) : (
-              `${progressInCycle} / ${progress.target}`
-            )}
-          </span>
-          {!reward.ready && (
-            <span className="text-muted-foreground">
-              {stampsRemaining} sipariş kaldı
-            </span>
-          )}
-        </div>
-
-        {/* Reward goal text */}
-        {!reward.ready && (
-          <p className="text-sm text-center text-muted-foreground bg-muted/50 rounded-xl px-4 py-2.5">
-            {stampsRemaining === 1
-              ? `🎁 Sadece 1 sipariş daha → ${rewardDisplayName}!`
-              : `${stampsRemaining} sipariş sonra → ${rewardDisplayName} 🎁`}
-          </p>
-        )}
-      </div>
-
-      {/* ── Bonuses ── */}
-      {(bonuses.happyHour || bonuses.nearCompletion) && !reward.ready && (
-        <div className="space-y-2">
-          <p className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
-            Aktif Bonuslar
-          </p>
-
-          {bonuses.happyHour && (
-            <div className="flex items-center gap-3 p-3.5 rounded-xl bg-purple-50 border border-purple-200">
-              <div className="w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
-                <Sparkles className="w-4 h-4 text-purple-600" />
-              </div>
-              <div>
-                <p className="font-semibold text-sm text-purple-800">
-                  {bonuses.multiplier}x Puan Aktif!
-                </p>
-                <p className="text-xs text-purple-600">
-                  Happy Hour — şu an normal 2 kat puan kazanıyorsunuz
-                </p>
-              </div>
-            </div>
-          )}
-
-          {bonuses.nearCompletion && bonuses.stampsAway > 0 && (
-            <div className="flex items-center gap-3 p-3.5 rounded-xl bg-orange-50 border border-orange-200">
-              <div className="w-9 h-9 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
-                <Flame className="w-4 h-4 text-orange-600" />
-              </div>
-              <div>
-                <p className="font-semibold text-sm text-orange-800">
-                  Neredeyse Orada!
-                </p>
-                <p className="text-xs text-orange-600">
-                  🔥 Sadece {bonuses.stampsAway} sipariş kaldı — {rewardDisplayName} sizi bekliyor!
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── How it works ── */}
-      {!reward.ready && (
-        <div className="pt-2 pb-1">
-          <p className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">
-            Nasıl Çalışır?
-          </p>
-          <div className="space-y-2.5">
-            {[
-              { icon: "☕", text: "Her siparişinizde 1 puan kazanırsınız" },
-              { icon: "🎁", text: `${progress.target} siparişte ${rewardDisplayName} kazanırsınız` },
-              { icon: "🚀", text: "Puanlarınız cihazınıza bağlı, kayıt gerekmez" },
-            ].map((step, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <span className="text-xl w-8 text-center shrink-0">{step.icon}</span>
-                <p className="text-sm text-muted-foreground">{step.text}</p>
-              </div>
-            ))}
+            key={i}
+            className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-all duration-300 ${
+              filled
+                ? "bg-primary/10 scale-100"
+                : "bg-muted scale-90 opacity-50"
+            }`}
+          >
+            {filled ? "☕" : "○"}
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ─── Stamp track ─── */
-
-function StampTrack({ current, target }: { current: number; target: number }) {
-  const max = Math.min(target, 12); // Max visible on mobile
-  const slots = Array.from({ length: max }, (_, i) => i < current);
-
-  return (
-    <div className="flex flex-wrap gap-1.5 justify-center py-1">
-      {slots.map((filled, i) => (
-        <div
-          key={i}
-          className={cn(
-            "w-9 h-9 rounded-full flex items-center justify-center text-base transition-all duration-300",
-            filled
-              ? "bg-amber-100 shadow-sm scale-105"
-              : "bg-muted border border-border"
-          )}
-          style={{ transitionDelay: `${i * 30}ms` }}
-        >
-          {filled ? "☕" : "⚪"}
-        </div>
-      ))}
-      {target > max && (
-        <div className="w-9 h-9 rounded-full bg-muted border border-border flex items-center justify-center text-xs text-muted-foreground font-bold">
-          +{target - max}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ─── Empty / loading state ─── */
-
-function EmptyState({ loading }: { loading?: boolean }) {
-  return (
-    <div className="flex flex-col items-center justify-center h-full py-20 px-8 text-center gap-4">
-      <span className="text-5xl">☕</span>
-      {loading ? (
-        <p className="text-muted-foreground text-sm">Yükleniyor...</p>
-      ) : (
-        <>
-          <p className="font-semibold text-foreground">Sadakat programı aktif değil</p>
-          <p className="text-muted-foreground text-sm">
-            Bu mekan henüz bir sadakat programı kurmamış.
-          </p>
-        </>
-      )}
+        );
+      })}
     </div>
   );
 }
 
 /* ─── Helpers ─── */
-
 function getExpiryText(expiresAt: string): string {
   const diff = new Date(expiresAt).getTime() - Date.now();
   if (diff <= 0) return "Süresi dolmuş";
   const days = Math.ceil(diff / 86400000);
   if (days <= 1) return "Son gün! ⏰";
-  return `${days} gün içinde sona eriyor ⏰`;
-}
-
-/** Gracefully consume useCart — returns null when outside CartProvider */
-function useCartSafe() {
-  try {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    return useCart();
-  } catch {
-    return null;
-  }
+  return `${days} gün kaldı ⏰`;
 }

@@ -121,22 +121,24 @@ export function ProductList({ tableId }: { tableId?: string }) {
                         ₺{product.price.toFixed(2)}
                       </p>
                       {cart && product.available && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            cart.addItem({
-                              menuItemId: product.id,
-                              name: product.name,
-                              price: product.price,
-                              image: product.image,
-                            });
-                          }}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
-                        >
-                          <Plus className="w-3 h-3" />
-                          Ekle
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              cart.addItem({
+                                menuItemId: product.id,
+                                name: product.name,
+                                price: product.price,
+                                image: product.image,
+                              });
+                            }}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+                          >
+                            <Plus className="w-3 h-3" />
+                            Ekle
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>

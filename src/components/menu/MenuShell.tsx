@@ -5,6 +5,7 @@ import { MenuInteractions } from "@/components/menu/MenuInteractions";
 import { LanguageProvider } from "@/components/menu/LanguageProvider";
 import { MenuHeroBranding } from "@/components/menu/MenuHeroBranding";
 import { LanguageToggle } from "@/components/menu/LanguageToggle";
+import { CoffeeClubButton } from "@/components/loyalty/CoffeeClubButton";
 
 interface MenuShellProps {
   restaurant: Restaurant;
@@ -36,6 +37,11 @@ export function MenuShell({ restaurant, restaurantEn = null, tableId }: MenuShel
             <div className="w-full h-full bg-muted" />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
+
+          {/* Top-left Coffee Club button */}
+          <div className="absolute top-3 left-4 z-10">
+            <CoffeeClubButton />
+          </div>
 
           {/* Top-right language toggle */}
           <div className="absolute top-3 right-4 z-10">

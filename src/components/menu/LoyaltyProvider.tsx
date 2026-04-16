@@ -9,7 +9,8 @@ interface LoyaltyContextValue {
   isLoading: boolean;
   customerKey: string;
   refetch: () => Promise<void>;
-  /** Whether the Coffee Club panel is open */
+  clubName: string;
+  rewardItem: { name: string; image?: string; menuItemId?: string } | null;
   panelOpen: boolean;
   setPanelOpen: (open: boolean) => void;
 }
@@ -59,8 +60,11 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
     await fetchProgress();
   }, [fetchProgress]);
 
+  const clubName = progress?.clubName || "Coffee Club";
+  const rewardItem = progress?.rewardItem ?? null;
+
   return (
-    <LoyaltyContext.Provider value={{ progress, isLoading, customerKey, refetch, panelOpen, setPanelOpen }}>
+    <LoyaltyContext.Provider value={{ progress, isLoading, customerKey, refetch, clubName, rewardItem, panelOpen, setPanelOpen }}>
       {children}
     </LoyaltyContext.Provider>
   );

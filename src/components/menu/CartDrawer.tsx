@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { X, Plus, Minus, Trash2, CheckCircle2, Loader2, Bell, BellOff } from "lucide-react";
+import { X, Plus, Minus, Trash2, CheckCircle2, Loader2, Bell, BellOff, Gift } from "lucide-react";
 import { useCart } from "@/components/menu/CartProvider";
 import { Button } from "@/components/ui/button";
 import { PhoneCapture, getCapturedPhone, getCapturedName } from "@/components/menu/PhoneCapture";
 import { generateCafeSessionCode } from "@/lib/utils";
 import { getOrCreateCustomerKey } from "@/lib/loyalty-client";
+import { useLoyalty } from "@/components/menu/LoyaltyProvider";
 
 interface CartDrawerProps {
   open: boolean;
@@ -24,6 +25,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPhoneCapture, setShowPhoneCapture] = useState(false);
+  const loyalty = useLoyalty();
 
   const handleSubmit = async (skipPhonePrompt = false) => {
     if (items.length === 0) return;
@@ -54,6 +56,13 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
       const customerPhone = getCapturedPhone();
       const customerKey = getOrCreateCustomerKey();
 
+      // Include reward items with their type
+      const orderItems = items.map((i) => ({
+        menuItemId: i.menuItemId,
+        quantity: i.quantity,
+        ...(i.type === "loyalty_reward" ? { type: "loyalty_reward", name: i.name } : {}),
+      }));
+
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -62,11 +71,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
           tableId,
           sessionId: sid,
           customerKey,
-          items: items.map((i) => ({
-            menuItemId: i.menuItemId,
-            quantity: i.quantity,
-            ...(i.type === "loyalty_reward" ? { type: "loyalty_reward", name: i.name } : {}),
-          })),
+          items: orderItems,
           note: note.trim() || undefined,
           ...(customerPhone ? { customerPhone } : {}),
           ...(getCapturedName() ? { customerName: getCapturedName() } : {}),
@@ -77,6 +82,8 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Sipariş gönderilemedi");
       }
+
+      loyalty?.refetch();
 
       clearCart();
       setNote("");
@@ -129,17 +136,21 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
                   Sepetiniz boş
                 </p>
               ) : (
-                items.map((item) => (
+                items.map((item) => {
+                  const isReward = item.type === "loyalty_reward";
+                  return (
                   <div
                     key={item.menuItemId}
                     className={`flex items-center gap-3 p-2 rounded-lg border ${
-                      item.type === "loyalty_reward"
-                        ? "bg-amber-50 border-amber-300"
-                        : "bg-card border"
+                      isReward ? "bg-amber-50 border-amber-200" : "bg-card"
                     }`}
                   >
                     {/* Thumbnail */}
-                    {item.image && item.image !== "/placeholder.svg" ? (
+                    {isReward ? (
+                      <div className="w-14 h-14 shrink-0 rounded-md bg-amber-100 flex items-center justify-center">
+                        <Gift className="w-6 h-6 text-amber-500" />
+                      </div>
+                    ) : item.image && item.image !== "/placeholder.svg" ? (
                       <div className="relative w-14 h-14 shrink-0 rounded-md overflow-hidden bg-muted">
                         <Image
                           src={item.image}
@@ -155,16 +166,14 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">
-                        {item.type === "loyalty_reward" && (
-                          <span className="mr-1">🎁</span>
-                        )}
-                        {item.name}
-                      </p>
-                      {item.type === "loyalty_reward" ? (
-                        <p className="text-amber-600 font-bold text-xs uppercase tracking-wide">
-                          LOYALTY REWARD — ÜCRETSİZ
+                      <div className="flex items-center gap-1.5">
+                        {isReward && <Gift className="w-3.5 h-3.5 text-amber-600 shrink-0" />}
+                        <p className={`font-medium text-sm truncate ${isReward ? "text-amber-700" : ""}`}>
+                          {isReward ? item.name.toUpperCase() : item.name}
                         </p>
+                      </div>
+                      {isReward ? (
+                        <span className="text-xs font-semibold text-green-600">FREE — LOYALTY REWARD</span>
                       ) : (
                         <p className="text-primary font-semibold text-sm">
                           ₺{(item.price * item.quantity).toFixed(2)}
@@ -172,32 +181,37 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
                       )}
                     </div>
 
-                    {/* Quantity controls */}
+                    {/* Quantity controls — reward items only get remove */}
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
                         onClick={() => updateQuantity(item.menuItemId, item.quantity - 1)}
                         className="w-7 h-7 rounded-full border bg-background flex items-center justify-center hover:bg-muted transition-colors"
                       >
-                        {item.quantity === 1 ? (
+                        {item.quantity === 1 || isReward ? (
                           <Trash2 className="w-3.5 h-3.5 text-destructive" />
                         ) : (
                           <Minus className="w-3.5 h-3.5" />
                         )}
                       </button>
-                      <span className="text-sm font-semibold w-6 text-center">
-                        {item.quantity}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => updateQuantity(item.menuItemId, item.quantity + 1)}
-                        className="w-7 h-7 rounded-full border bg-background flex items-center justify-center hover:bg-muted transition-colors"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
+                      {!isReward && (
+                        <>
+                          <span className="text-sm font-semibold w-6 text-center">
+                            {item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => updateQuantity(item.menuItemId, item.quantity + 1)}
+                            className="w-7 h-7 rounded-full border bg-background flex items-center justify-center hover:bg-muted transition-colors"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
 
@@ -214,12 +228,6 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
 
                 {error && (
                   <p className="text-destructive text-sm text-center">{error}</p>
-                )}
-
-                {loyalty?.progress?.upsell && (
-                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-center">
-                    {loyalty.progress.upsell.message}
-                  </p>
                 )}
 
                 <Button

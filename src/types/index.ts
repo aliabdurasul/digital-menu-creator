@@ -249,7 +249,6 @@ export interface CartItem {
   price: number;
   image: string;
   quantity: number;
-  /** Set to "loyalty_reward" for reward items added from the Coffee Club panel */
   type?: "loyalty_reward";
   loyaltyRewardId?: string;
 }
@@ -367,9 +366,7 @@ export interface DbLoyaltyProgram {
   happy_hour_days: number[];
   reward_expiry_days: number;
   upsell_enabled: boolean;
-  /** Display name for the loyalty club (e.g. "Coffee Club") */
   club_name: string;
-  /** Admin override for the reward display name (e.g. "Free Latte") */
   reward_item_name: string | null;
   created_at: string;
 }
@@ -416,10 +413,10 @@ export interface LoyaltyProgressResponse {
     message: string;
     recommendedItem?: string;
   } | null;
-  /** Club display name (from loyalty_programs.club_name) */
   clubName: string;
-  /** Resolved reward item name (override > menu item name) */
-  rewardItemName: string | null;
-  /** Reward item image URL if linked to a menu item */
-  rewardItemImage: string | null;
+  rewardItem: {
+    name: string;
+    image?: string;
+    menuItemId?: string;
+  } | null;
 }

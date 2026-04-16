@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     const { restaurantId, tableId, items, note, sessionId, customerPhone, customerName, customerKey } = body as {
       restaurantId?: string;
       tableId?: string | null;
-      items?: { menuItemId?: string; quantity: number; type?: string; name?: string }[];
+      items?: { menuItemId: string; quantity: number; type?: "loyalty_reward"; name?: string }[];
       note?: string;
       sessionId?: string;
       customerPhone?: string;
@@ -42,22 +42,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate quantities
-    if (items.some((i) => (!i.menuItemId && i.type !== "loyalty_reward") || !i.quantity || i.quantity < 1)) {
+    if (items.some((i) => !i.menuItemId || !i.quantity || i.quantity < 1)) {
       return NextResponse.json(
         { error: "Geçersiz ürün veya miktar" },
         { status: 400 }
       );
     }
-
-    // At most one loyalty reward per order
-    const rewardItems = items.filter((i) => i.type === "loyalty_reward");
-    if (rewardItems.length > 1) {
-      return NextResponse.json(
-        { error: "Siparişte yalnızca bir ödül olabilir" },
-        { status: 400 }
-      );
-    }
-    const hasRewardItem = rewardItems.length === 1;
 
     const supabase = getServiceClient();
 
@@ -94,90 +84,107 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. Validate reward item eligibility before touching DB
-    if (hasRewardItem) {
-      if (!customerKey) {
-        return NextResponse.json(
-          { error: "Ödül için müşteri kimliği gerekli" },
-          { status: 400 }
-        );
-      }
-      const { data: lp } = await supabase
-        .from("loyalty_progress")
-        .select("reward_ready")
-        .eq("restaurant_id", restaurantId)
-        .eq("customer_key", customerKey)
-        .single();
-      if (!lp || !lp.reward_ready) {
-        return NextResponse.json(
-          { error: "Ödül henüz kazanılmadı" },
-          { status: 400 }
-        );
-      }
-    }
-
-    // 3b. Fetch menu items for regular (non-reward) items
+    // Separate regular items from loyalty reward items
     const regularItems = items.filter((i) => i.type !== "loyalty_reward");
-    const menuItemIds = regularItems.map((i) => i.menuItemId as string);
-    let itemMap = new Map<string, { id: string; name: string; price: number; is_available: boolean }>();
+    const rewardItems = items.filter((i) => i.type === "loyalty_reward");
+
+    // 3. Fetch menu items to snapshot current prices (regular items only)
+    const menuItemIds = regularItems.map((i) => i.menuItemId);
+    let menuItems: { id: string; name: string; price: number; is_available: boolean }[] = [];
 
     if (menuItemIds.length > 0) {
-      const { data: menuItems, error: miErr } = await supabase
+      const { data: miData, error: miErr } = await supabase
         .from("menu_items")
         .select("id, name, price, is_available")
         .in("id", menuItemIds)
         .eq("restaurant_id", restaurantId);
 
-      if (miErr || !menuItems || menuItems.length === 0) {
+      if (miErr || !miData || miData.length === 0) {
         return NextResponse.json(
           { error: "Ürünler bulunamadı" },
           { status: 404 }
         );
       }
+      menuItems = miData;
+    }
 
-      itemMap = new Map(menuItems.map((m) => [m.id, m]));
+    // Build lookup map
+    const itemMap = new Map(menuItems.map((m) => [m.id, m]));
 
-      // Check all regular items exist and are available
-      for (const item of regularItems) {
-        const mi = itemMap.get(item.menuItemId as string);
-        if (!mi) {
-          return NextResponse.json(
-            { error: `Ürün bulunamadı: ${item.menuItemId}` },
-            { status: 404 }
-          );
-        }
-        if (!mi.is_available) {
-          return NextResponse.json(
-            { error: `Ürün şu anda mevcut değil: ${mi.name}` },
-            { status: 400 }
-          );
-        }
+    // Check all regular items exist and are available
+    for (const item of regularItems) {
+      const mi = itemMap.get(item.menuItemId);
+      if (!mi) {
+        return NextResponse.json(
+          { error: `Ürün bulunamadı: ${item.menuItemId}` },
+          { status: 404 }
+        );
+      }
+      if (!mi.is_available) {
+        return NextResponse.json(
+          { error: `Ürün şu anda mevcut değil: ${mi.name}` },
+          { status: 400 }
+        );
+      }
+    }
+
+    // 3b. Validate loyalty reward items — customer must have reward_ready
+    if (rewardItems.length > 0) {
+      if (!customerKey) {
+        return NextResponse.json(
+          { error: "Sadakat ödülü için müşteri kimliği gerekli" },
+          { status: 400 }
+        );
+      }
+      // Check reward_ready in DB
+      const { data: custProgress } = await supabase
+        .from("loyalty_customers")
+        .select("reward_ready")
+        .eq("restaurant_id", restaurantId)
+        .eq("customer_key", customerKey)
+        .single();
+
+      if (!custProgress?.reward_ready) {
+        return NextResponse.json(
+          { error: "Sadakat ödülünüz mevcut değil veya süresi dolmuş" },
+          { status: 400 }
+        );
       }
     }
 
     // 4. Calculate total from snapshot prices
     let total = 0;
-    const orderItems = items.map((item) => {
-      if (item.type === "loyalty_reward") {
-        // Loyalty reward: free, no menu item lookup
-        return {
-          menu_item_id: null as unknown as string,
-          name_snapshot: item.name || "Ödül",
-          price_snapshot: 0,
-          quantity: item.quantity,
-          is_loyalty_reward: true,
-        };
-      }
-      const mi = itemMap.get(item.menuItemId as string)!;
+    const orderItems: {
+      menu_item_id: string | null;
+      name_snapshot: string;
+      price_snapshot: number;
+      quantity: number;
+      is_loyalty_reward: boolean;
+    }[] = [];
+
+    // Add regular items
+    for (const item of regularItems) {
+      const mi = itemMap.get(item.menuItemId)!;
       total += mi.price * item.quantity;
-      return {
+      orderItems.push({
         menu_item_id: mi.id,
         name_snapshot: mi.name,
         price_snapshot: mi.price,
         quantity: item.quantity,
         is_loyalty_reward: false,
-      };
-    });
+      });
+    }
+
+    // Add loyalty reward items (price: 0)
+    for (const item of rewardItems) {
+      orderItems.push({
+        menu_item_id: item.menuItemId || null,
+        name_snapshot: item.name || "Sadakat Ödülü",
+        price_snapshot: 0,
+        quantity: item.quantity,
+        is_loyalty_reward: true,
+      });
+    }
 
     // 4b. Find or create customer if phone provided
     let customerId: string | null = null;
@@ -261,19 +268,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 7a. Consume reward if order includes a loyalty reward item
-    if (hasRewardItem && customerKey) {
+    // 7. Consume loyalty reward if reward items were included
+    if (rewardItems.length > 0 && customerKey) {
       try {
         await consumeReward(restaurantId, customerKey);
       } catch {
-        // Non-critical — reward already validated above
+        // Non-critical — reward may already be consumed
       }
     }
 
-    // 7. If cafe with customerKey, process optimistic loyalty progress
+    // 8. If cafe with customerKey, process optimistic loyalty progress
     let loyalty: LoyaltyProgressResponse | undefined;
     const isCafe = restaurant.module_type === "cafe";
-    if (isCafe && customerKey && !hasRewardItem) {
+    if (isCafe && customerKey) {
       try {
         const result = await addPendingProgress(
           restaurantId,
