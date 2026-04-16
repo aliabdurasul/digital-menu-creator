@@ -48,11 +48,22 @@ export function CartProvider({
   tableId: string;
   children: ReactNode;
 }) {
-  const [items, setItems] = useState<CartItem[]>(() => loadCart(tableId));
+  // Start empty so server render and client first render always match.
+  // sessionStorage is read in the effect below — avoids SSR/hydration mismatch.
+  const [items, setItems] = useState<CartItem[]>([]);
+  const [isHydrated, setIsHydrated] = useState(false);
 
+  // Load persisted cart on client mount (runs after hydration)
   useEffect(() => {
+    setItems(loadCart(tableId));
+    setIsHydrated(true);
+  }, [tableId]);
+
+  // Persist cart changes — skip until after initial load to avoid saving []
+  useEffect(() => {
+    if (!isHydrated) return;
     saveCart(tableId, items);
-  }, [items, tableId]);
+  }, [items, tableId, isHydrated]);
 
   const addItem = useCallback((item: Omit<CartItem, "quantity">) => {
     setItems((prev) => {
