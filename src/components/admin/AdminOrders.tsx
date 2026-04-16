@@ -343,7 +343,7 @@ function OrderCard({
       {/* Items */}
       <ul className="space-y-0.5">
         {order.items.map((item) => {
-          const isReward = (item as Record<string, unknown>).is_loyalty_reward === true;
+          const isReward = item.is_loyalty_reward === true;
           return (
             <li
               key={item.id}
