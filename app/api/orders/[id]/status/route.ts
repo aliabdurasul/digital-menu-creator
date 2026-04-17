@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { OrderStatus, LoyaltyProgressResponse, LoyaltyResult } from "@/types";
 import { sendNotification } from "@/lib/notifications";
 import { processLoyaltyStamp, confirmProgress } from "@/lib/loyalty";
+import { sendPush } from "@/lib/push";
 
 /** Valid status transitions */
 const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
@@ -124,6 +125,16 @@ export async function PATCH(
         phone,
         message: `Siparişiniz hazır! 🎉 Lütfen teslim alın.`,
       }).catch((err) => console.error("[order-status] SMS notification failed:", err));
+    }
+
+    // When order is READY → send push notification (non-blocking)
+    if (newStatus === "ready" && order.customer_key) {
+      sendPush(order.customer_key, order.restaurant_id, {
+        title: "Siparişiniz Hazır! 🎉",
+        body: "Lütfen teslim alın.",
+        tag: "order-ready",
+        url: `/menu/${order.restaurant_id}`,
+      }).catch((err) => console.error("[order-status] Push notification failed:", err));
     }
 
     // When order is DELIVERED → confirm loyalty progress (CAFE ONLY)

@@ -11,6 +11,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { sendNotification, renderTemplate } from "./notifications";
+import { sendPush } from "./push";
 import type { LoyaltyProgressResponse, DbLoyaltyProgram, DbLoyaltyProgress, DbSecretReward } from "@/types";
 
 function getServiceClient() {
@@ -658,6 +659,12 @@ export async function addPendingProgress(
     await clearInactivityBonus(supabase, currentProgress.id);
   }
 
+  // 5c2. Reset inactivity push flag (customer is active again)
+  await supabase
+    .from("loyalty_progress")
+    .update({ inactivity_push_sent: false })
+    .eq("id", currentProgress.id);
+
   // 5d. Engagement: roll secret reward
   const secretReward = await rollSecretReward(supabase, program as DbLoyaltyProgram, customerKey, restaurantId);
 
@@ -666,6 +673,17 @@ export async function addPendingProgress(
 
   // 6. Write loyalty state onto order row — triggers Supabase Realtime
   const stampsAway = Math.max(0, target - (effectiveTotal % target));
+
+  // 6b. Push notification: near completion (1 stamp away)
+  if (stampsAway === 1 && !earnedNewReward) {
+    sendPush(customerKey, restaurantId, {
+      title: "1 Kahve Kaldı! ☕",
+      body: "Bir sonraki kahvende ödülünü kazan!",
+      tag: "loyalty-near-completion",
+      url: `/menu/${restaurantId}`,
+    }).catch((err) => console.error("[loyalty] Near-completion push failed:", err));
+  }
+
   await supabase
     .from("orders")
     .update({
@@ -779,6 +797,17 @@ export async function confirmProgress(
         });
       }
     }
+
+    // Push notification: reward earned
+    sendPush(customerKey, restaurantId, {
+      title: "Ödülünüz Hazır! 🎁",
+      body: renderTemplate(program.message_template, {
+        threshold: program.target_count,
+        reward: getRewardLabel(program as DbLoyaltyProgram),
+      }),
+      tag: "loyalty-reward",
+      url: `/menu/${restaurantId}`,
+    }).catch((err) => console.error("[loyalty] Reward push failed:", err));
   }
 
   // Update order columns for Realtime

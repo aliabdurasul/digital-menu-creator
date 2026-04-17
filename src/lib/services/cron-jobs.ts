@@ -8,6 +8,7 @@ import { createClient } from "@supabase/supabase-js";
 import { processNotificationQueue } from "@/lib/notifications";
 import { processStaleOrders } from "./stale-orders";
 import { processLoyaltyCleanup } from "./loyalty-cleanup";
+import { processInactivityPush } from "./push-inactivity";
 
 function getServiceClient() {
   return createClient(
@@ -53,10 +54,11 @@ export async function runAllCronJobs(): Promise<{
   const runId = run?.id;
 
   // ── Execute all jobs in parallel ──
-  const [notifications, staleOrders, loyaltyCleanup] = await Promise.allSettled([
+  const [notifications, staleOrders, loyaltyCleanup, inactivityPush] = await Promise.allSettled([
     processNotificationQueue(),
     processStaleOrders(),
     processLoyaltyCleanup(),
+    processInactivityPush(),
   ]);
 
   const results = {
@@ -72,6 +74,10 @@ export async function runAllCronJobs(): Promise<{
       loyaltyCleanup.status === "fulfilled"
         ? loyaltyCleanup.value
         : { error: String((loyaltyCleanup as PromiseRejectedResult).reason) },
+    inactivityPush:
+      inactivityPush.status === "fulfilled"
+        ? inactivityPush.value
+        : { error: String((inactivityPush as PromiseRejectedResult).reason) },
   };
 
   const durationMs = Date.now() - startTime;

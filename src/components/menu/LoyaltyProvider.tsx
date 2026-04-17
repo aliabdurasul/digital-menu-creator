@@ -55,13 +55,37 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
     void fetchProgress();
   }, [fetchProgress]);
 
-  // Register service worker for push notifications
+  // Register FCM service worker and request push token
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
-    navigator.serviceWorker.register("/sw.js").catch(() => {
-      // SW registration failed — non-critical
-    });
-  }, []);
+    if (!restaurantId || !customerKey) return;
+
+    (async () => {
+      try {
+        // Register FCM service worker
+        const swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+
+        // Dynamically import to keep bundle size down (client-side only)
+        const { requestNotificationPermission } = await import("@/lib/firebase-client");
+        const token = await requestNotificationPermission(swReg);
+
+        if (token) {
+          // Save FCM token to backend
+          await fetch("/api/push/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              customerKey,
+              restaurantId,
+              token,
+            }),
+          });
+        }
+      } catch {
+        // Push setup failed — non-critical, loyalty still works
+      }
+    })();
+  }, [restaurantId, customerKey]);
 
   const refetch = useCallback(async () => {
     setIsLoading(true);
