@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Award, Loader2, Save, Sparkles } from "lucide-react";
+import { Award, Loader2, Save, Sparkles, Flame, Zap, Gift } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Props {
@@ -51,6 +51,15 @@ export function AdminLoyalty({ restaurant }: Props) {
   const [upsellEnabled, setUpsellEnabled] = useState(false);
   const [clubName, setClubName] = useState("Coffee Club");
   const [rewardItemName, setRewardItemName] = useState("");
+  // Engagement Engine
+  const [streakBonusEnabled, setStreakBonusEnabled] = useState(false);
+  const [streakBonusThreshold, setStreakBonusThreshold] = useState(3);
+  const [streakBonusMultiplier, setStreakBonusMultiplier] = useState(2);
+  const [inactivityTriggerDays, setInactivityTriggerDays] = useState(3);
+  const [inactivityBonusMultiplier, setInactivityBonusMultiplier] = useState(2);
+  const [secretRewardEnabled, setSecretRewardEnabled] = useState(false);
+  const [secretRewardProbability, setSecretRewardProbability] = useState(5);
+  const [secretRewardDiscount, setSecretRewardDiscount] = useState(10);
 
   useEffect(() => {
     async function load() {
@@ -81,6 +90,15 @@ export function AdminLoyalty({ restaurant }: Props) {
         setUpsellEnabled(p.upsell_enabled);
         setClubName(p.club_name || "Coffee Club");
         setRewardItemName(p.reward_item_name || "");
+        // Engagement Engine
+        setStreakBonusEnabled(p.streak_bonus_enabled);
+        setStreakBonusThreshold(p.streak_bonus_threshold);
+        setStreakBonusMultiplier(p.streak_bonus_multiplier);
+        setInactivityTriggerDays(p.inactivity_trigger_days);
+        setInactivityBonusMultiplier(p.inactivity_bonus_multiplier);
+        setSecretRewardEnabled(p.secret_reward_enabled);
+        setSecretRewardProbability(Math.round(p.secret_reward_probability * 100));
+        setSecretRewardDiscount(p.secret_reward_discount_percent);
       }
       setLoading(false);
     }
@@ -110,6 +128,15 @@ export function AdminLoyalty({ restaurant }: Props) {
       upsell_enabled: upsellEnabled,
       club_name: clubName,
       reward_item_name: rewardItemName || null,
+      // Engagement Engine
+      streak_bonus_enabled: streakBonusEnabled,
+      streak_bonus_threshold: streakBonusThreshold,
+      streak_bonus_multiplier: streakBonusMultiplier,
+      inactivity_trigger_days: inactivityTriggerDays,
+      inactivity_bonus_multiplier: inactivityBonusMultiplier,
+      secret_reward_enabled: secretRewardEnabled,
+      secret_reward_probability: secretRewardProbability / 100,
+      secret_reward_discount_percent: secretRewardDiscount,
     };
 
     let error: unknown;
@@ -380,6 +407,153 @@ export function AdminLoyalty({ restaurant }: Props) {
               <span className="text-[10px] font-semibold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded-full">PRO</span>
             </div>
             <Switch checked={upsellEnabled} onCheckedChange={setUpsellEnabled} />
+          </div>
+
+          {/* ━━━ Engagement Engine ━━━ */}
+          <div className="pt-4 border-t">
+            <h3 className="text-lg font-bold flex items-center gap-2 mb-4">
+              🚀 Engagement Engine
+            </h3>
+
+            {/* Streak Bonus */}
+            <div className="p-4 rounded-lg border space-y-3 mb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Flame className="w-4 h-4 text-orange-500" />
+                  <Label className="cursor-pointer">Streak Bonusu</Label>
+                  <span className="text-[10px] font-semibold text-orange-700 bg-orange-100 px-1.5 py-0.5 rounded-full">PRO</span>
+                </div>
+                <Switch checked={streakBonusEnabled} onCheckedChange={setStreakBonusEnabled} />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Üst üste gelen müşterilere bonus çarpan verin.
+              </p>
+
+              {streakBonusEnabled && (
+                <div className="space-y-3 pt-2">
+                  <div>
+                    <Label className="text-xs">Kaç gün streak sonrası?</Label>
+                    <Input
+                      type="number"
+                      min={2}
+                      max={30}
+                      value={streakBonusThreshold}
+                      onChange={(e) => setStreakBonusThreshold(Number(e.target.value))}
+                      className="w-24 mt-0.5"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {streakBonusThreshold} gün üst üste gelince çarpan aktif olur.
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Çarpan</Label>
+                    <Select
+                      value={String(streakBonusMultiplier)}
+                      onValueChange={(v) => setStreakBonusMultiplier(Number(v))}
+                    >
+                      <SelectTrigger className="w-24 mt-0.5">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="2">2x</SelectItem>
+                        <SelectItem value="3">3x</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Inactivity Trigger */}
+            <div className="p-4 rounded-lg border space-y-3 mb-4">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-emerald-500" />
+                <Label>Hareketsizlik Tetikleyicisi</Label>
+                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">PRO</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Uzun süredir gelmeyen müşterilere bonus verin.
+              </p>
+              <div className="flex items-center gap-3">
+                <div>
+                  <Label className="text-xs">Kaç gün sonra?</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={30}
+                    value={inactivityTriggerDays}
+                    onChange={(e) => setInactivityTriggerDays(Number(e.target.value))}
+                    className="w-24 mt-0.5"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Bonus Çarpanı</Label>
+                  <Select
+                    value={String(inactivityBonusMultiplier)}
+                    onValueChange={(v) => setInactivityBonusMultiplier(Number(v))}
+                  >
+                    <SelectTrigger className="w-24 mt-0.5">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2">2x</SelectItem>
+                      <SelectItem value="3">3x</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {inactivityTriggerDays} gün gelmezse, tekrar geldiğinde {inactivityBonusMultiplier}x bonus kazanır (24 saat geçerli).
+              </p>
+            </div>
+
+            {/* Secret Reward */}
+            <div className="p-4 rounded-lg border space-y-3 mb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Gift className="w-4 h-4 text-violet-500" />
+                  <Label className="cursor-pointer">Gizli Ödül</Label>
+                  <span className="text-[10px] font-semibold text-violet-700 bg-violet-100 px-1.5 py-0.5 rounded-full">PRO</span>
+                </div>
+                <Switch checked={secretRewardEnabled} onCheckedChange={setSecretRewardEnabled} />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Şanslı müşterilere rastgele indirim kuponu düşürün.
+              </p>
+
+              {secretRewardEnabled && (
+                <div className="space-y-3 pt-2">
+                  <div>
+                    <Label className="text-xs">Olasılık (%)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={secretRewardProbability}
+                      onChange={(e) => setSecretRewardProbability(Number(e.target.value))}
+                      className="w-24 mt-0.5"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Her siparişte %{secretRewardProbability} şansla gizli ödül düşer.
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs">İndirim Yüzdesi (%)</Label>
+                    <Input
+                      type="number"
+                      min={5}
+                      max={50}
+                      value={secretRewardDiscount}
+                      onChange={(e) => setSecretRewardDiscount(Number(e.target.value))}
+                      className="w-24 mt-0.5"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Kazanan müşteri %{secretRewardDiscount} indirim kuponu alır (7 gün geçerli).
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Reward Expiry */}

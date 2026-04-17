@@ -11,7 +11,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { sendNotification, renderTemplate } from "./notifications";
-import type { LoyaltyProgressResponse, DbLoyaltyProgram, DbLoyaltyProgress } from "@/types";
+import type { LoyaltyProgressResponse, DbLoyaltyProgram, DbLoyaltyProgress, DbSecretReward } from "@/types";
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -51,13 +51,35 @@ function getRewardLabel(program: DbLoyaltyProgram): string {
   return `₺${program.reward_value} indirim`;
 }
 
-/** Calculate effective stamps to add (base=1, happy hour=multiplier). */
-function calculateStamps(program: DbLoyaltyProgram): number {
-  const base = 1;
+/** Calculate effective stamps to add (base=1, happy hour=multiplier, streak bonus, inactivity bonus). */
+function calculateStamps(
+  program: DbLoyaltyProgram,
+  progress?: DbLoyaltyProgress | null
+): number {
+  let multiplier = 1;
+
   if (isHappyHour(program)) {
-    return Math.floor(base * (program.happy_hour_multiplier || 2));
+    multiplier = Math.max(multiplier, program.happy_hour_multiplier || 2);
   }
-  return base;
+
+  // Streak bonus — applied when streak >= threshold
+  if (
+    program.streak_bonus_enabled &&
+    progress &&
+    progress.streak_count >= program.streak_bonus_threshold
+  ) {
+    multiplier = Math.max(multiplier, program.streak_bonus_multiplier || 2);
+  }
+
+  // Inactivity welcome-back bonus
+  if (progress?.inactivity_bonus_active) {
+    const expires = progress.inactivity_bonus_expires_at;
+    if (!expires || new Date(expires) > new Date()) {
+      multiplier = Math.max(multiplier, program.inactivity_bonus_multiplier || 2);
+    }
+  }
+
+  return Math.floor(1 * multiplier);
 }
 
 /** Resolve the reward item details from the menu catalog + admin override. */
@@ -92,12 +114,237 @@ async function resolveRewardItem(
   return { name: getRewardLabel(program) };
 }
 
+/* ─── Engagement Engine ─── */
+
+/**
+ * Update streak for a customer. Rules:
+ * - Same calendar day (tenant TZ): no change
+ * - Consecutive day: streak_count++
+ * - Gap > 1 day: streak resets to 1
+ * Called on confirmed order (addPendingProgress).
+ */
+async function updateStreak(
+  supabase: ReturnType<typeof getServiceClient>,
+  progress: DbLoyaltyProgress,
+  tenantTimezone: string = "Europe/Istanbul"
+): Promise<{ streakCount: number; lastVisitDate: string }> {
+  const now = new Date();
+  const todayStr = now.toLocaleDateString("en-CA", { timeZone: tenantTimezone }); // YYYY-MM-DD
+
+  if (progress.last_visit_date === todayStr) {
+    // Same day — no streak update
+    return { streakCount: progress.streak_count, lastVisitDate: todayStr };
+  }
+
+  let newStreak: number;
+
+  if (!progress.last_visit_date) {
+    // First ever visit
+    newStreak = 1;
+  } else {
+    // Check if consecutive day
+    const lastDate = new Date(progress.last_visit_date + "T00:00:00");
+    const todayDate = new Date(todayStr + "T00:00:00");
+    const diffDays = Math.round((todayDate.getTime() - lastDate.getTime()) / 86400000);
+
+    if (diffDays === 1) {
+      newStreak = progress.streak_count + 1;
+    } else {
+      // Gap > 1 day — reset
+      newStreak = 1;
+    }
+  }
+
+  await supabase
+    .from("loyalty_progress")
+    .update({ streak_count: newStreak, last_visit_date: todayStr })
+    .eq("id", progress.id);
+
+  return { streakCount: newStreak, lastVisitDate: todayStr };
+}
+
+/**
+ * Check and activate inactivity bonus for a returning customer.
+ * If last_visit_date is N+ days ago and bonus not already active → activate.
+ */
+async function checkInactivity(
+  supabase: ReturnType<typeof getServiceClient>,
+  program: DbLoyaltyProgram,
+  progress: DbLoyaltyProgress,
+  tenantTimezone: string = "Europe/Istanbul"
+): Promise<boolean> {
+  // Already active — skip
+  if (progress.inactivity_bonus_active) {
+    if (progress.inactivity_bonus_expires_at && new Date(progress.inactivity_bonus_expires_at) > new Date()) {
+      return true;
+    }
+    // Expired — deactivate
+    await supabase
+      .from("loyalty_progress")
+      .update({ inactivity_bonus_active: false, inactivity_bonus_expires_at: null })
+      .eq("id", progress.id);
+    return false;
+  }
+
+  if (!progress.last_visit_date || program.inactivity_trigger_days <= 0) return false;
+
+  const now = new Date();
+  const todayStr = now.toLocaleDateString("en-CA", { timeZone: tenantTimezone });
+  const lastDate = new Date(progress.last_visit_date + "T00:00:00");
+  const todayDate = new Date(todayStr + "T00:00:00");
+  const daysSinceVisit = Math.round((todayDate.getTime() - lastDate.getTime()) / 86400000);
+
+  if (daysSinceVisit >= program.inactivity_trigger_days) {
+    // Activate bonus — expires in 24 hours
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    await supabase
+      .from("loyalty_progress")
+      .update({ inactivity_bonus_active: true, inactivity_bonus_expires_at: expiresAt })
+      .eq("id", progress.id);
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Clear inactivity bonus after it's been used (on order placement).
+ */
+async function clearInactivityBonus(
+  supabase: ReturnType<typeof getServiceClient>,
+  progressId: string
+): Promise<void> {
+  await supabase
+    .from("loyalty_progress")
+    .update({ inactivity_bonus_active: false, inactivity_bonus_expires_at: null })
+    .eq("id", progressId);
+}
+
+/**
+ * Roll a secret reward based on probability.
+ * If won, creates a secret_reward_history row with 7-day expiry.
+ */
+async function rollSecretReward(
+  supabase: ReturnType<typeof getServiceClient>,
+  program: DbLoyaltyProgram,
+  customerKey: string,
+  restaurantId: string
+): Promise<DbSecretReward | null> {
+  if (!program.secret_reward_enabled) return null;
+  if (Math.random() > program.secret_reward_probability) return null;
+
+  // Check if customer already has an unused secret reward
+  const { data: existing } = await supabase
+    .from("secret_reward_history")
+    .select("id")
+    .eq("customer_key", customerKey)
+    .eq("restaurant_id", restaurantId)
+    .eq("used", false)
+    .gt("expires_at", new Date().toISOString())
+    .limit(1)
+    .single();
+
+  if (existing) return null; // Already has an active one
+
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: reward } = await supabase
+    .from("secret_reward_history")
+    .insert({
+      customer_key: customerKey,
+      restaurant_id: restaurantId,
+      discount_percent: program.secret_reward_discount_percent,
+      expires_at: expiresAt,
+    })
+    .select("*")
+    .single();
+
+  return reward as DbSecretReward | null;
+}
+
+/**
+ * Get active (unused, unexpired) secret reward for a customer.
+ */
+async function getActiveSecretReward(
+  supabase: ReturnType<typeof getServiceClient>,
+  customerKey: string,
+  restaurantId: string
+): Promise<DbSecretReward | null> {
+  const { data } = await supabase
+    .from("secret_reward_history")
+    .select("*")
+    .eq("customer_key", customerKey)
+    .eq("restaurant_id", restaurantId)
+    .eq("used", false)
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  return (data as DbSecretReward) ?? null;
+}
+
+/**
+ * Detect the customer's most-ordered item from order history.
+ * Falls back to global bestseller if no personal history.
+ */
+async function detectFavoriteItem(
+  supabase: ReturnType<typeof getServiceClient>,
+  customerKey: string,
+  restaurantId: string
+): Promise<{ name: string; image?: string; menuItemId?: string } | null> {
+  // 1. Personal favorite: most-ordered item by this customer
+  const { data: personalTop } = await supabase
+    .rpc("get_customer_favorite_item", {
+      p_customer_key: customerKey,
+      p_restaurant_id: restaurantId,
+    });
+
+  if (personalTop && personalTop.length > 0) {
+    const fav = personalTop[0];
+    return {
+      name: fav.name,
+      image: fav.image_url || undefined,
+      menuItemId: fav.menu_item_id || undefined,
+    };
+  }
+
+  // 2. Fallback: global bestseller for this restaurant
+  return await getGlobalBestseller(supabase, restaurantId);
+}
+
+/**
+ * Get the global bestselling item for a restaurant.
+ */
+async function getGlobalBestseller(
+  supabase: ReturnType<typeof getServiceClient>,
+  restaurantId: string
+): Promise<{ name: string; image?: string; menuItemId?: string } | null> {
+  const { data } = await supabase
+    .rpc("get_restaurant_bestseller", {
+      p_restaurant_id: restaurantId,
+    });
+
+  if (data && data.length > 0) {
+    return {
+      name: data[0].name,
+      image: data[0].image_url || undefined,
+      menuItemId: data[0].menu_item_id || undefined,
+    };
+  }
+
+  return null;
+}
+
 /** Build a LoyaltyProgressResponse from program + progress data. */
 async function buildResponse(
   program: DbLoyaltyProgram,
   progress: DbLoyaltyProgress | null,
-  upsellMessage: string | null = null,
-  upsellItem?: string
+  extras: {
+    upsellMessage?: string | null;
+    upsellItem?: string;
+    secretReward?: DbSecretReward | null;
+    favoriteItem?: { name: string; image?: string; menuItemId?: string } | null;
+  } = {}
 ): Promise<LoyaltyProgressResponse> {
   const current = progress?.current_count ?? 0;
   const confirmed = progress?.confirmed_count ?? 0;
@@ -110,6 +357,22 @@ async function buildResponse(
   const happyHour = isHappyHour(program);
 
   const rewardItem = await resolveRewardItem(program);
+
+  // Streak state
+  const streakCount = progress?.streak_count ?? 0;
+  const streakActive = program.streak_bonus_enabled && streakCount >= program.streak_bonus_threshold;
+  const streakMultiplier = streakActive ? (program.streak_bonus_multiplier || 2) : 1;
+
+  // Inactivity bonus state
+  const inactivityActive = progress?.inactivity_bonus_active ?? false;
+  const inactivityExpires = progress?.inactivity_bonus_expires_at ?? null;
+  const inactivityValid = inactivityActive && (!inactivityExpires || new Date(inactivityExpires) > new Date());
+
+  // Effective multiplier (max of all active bonuses)
+  let effectiveMultiplier = 1;
+  if (happyHour) effectiveMultiplier = Math.max(effectiveMultiplier, program.happy_hour_multiplier);
+  if (streakActive) effectiveMultiplier = Math.max(effectiveMultiplier, streakMultiplier);
+  if (inactivityValid) effectiveMultiplier = Math.max(effectiveMultiplier, program.inactivity_bonus_multiplier || 2);
 
   return {
     progress: {
@@ -131,11 +394,30 @@ async function buildResponse(
     },
     bonuses: {
       happyHour,
-      multiplier: happyHour ? program.happy_hour_multiplier : 1,
+      multiplier: effectiveMultiplier,
       nearCompletion,
       stampsAway,
     },
-    upsell: upsellMessage ? { message: upsellMessage, recommendedItem: upsellItem } : null,
+    streak: {
+      count: streakCount,
+      active: streakActive,
+      bonusMultiplier: streakMultiplier,
+    },
+    inactivityBonus: {
+      active: inactivityValid,
+      multiplier: inactivityValid ? (program.inactivity_bonus_multiplier || 2) : 1,
+      expiresAt: inactivityValid ? inactivityExpires : null,
+    },
+    secretReward: extras.secretReward
+      ? {
+          won: true,
+          discountPercent: extras.secretReward.discount_percent,
+          expiresAt: extras.secretReward.expires_at,
+          id: extras.secretReward.id,
+        }
+      : null,
+    favoriteItem: extras.favoriteItem ?? null,
+    upsell: extras.upsellMessage ? { message: extras.upsellMessage, recommendedItem: extras.upsellItem } : null,
     clubName: program.club_name || "Coffee Club",
     rewardItem,
   };
@@ -329,34 +611,58 @@ export async function addPendingProgress(
   // 2. Get or create progress
   const progress = await getOrCreateProgress(supabase, customerKey, program as DbLoyaltyProgram, restaurantId);
 
-  // 3. Calculate stamps (happy hour multiplier)
-  const stamps = calculateStamps(program as DbLoyaltyProgram);
-  const newCurrent = progress.current_count + stamps;
-  const effectiveTotal = newCurrent + progress.initial_progress;
+  // 2b. Engagement: check inactivity bonus before stamping
+  await checkInactivity(supabase, program as DbLoyaltyProgram, progress);
+  // Re-read inactivity state
+  const { data: freshProgress } = await supabase
+    .from("loyalty_progress")
+    .select("*")
+    .eq("id", progress.id)
+    .single();
+  const currentProgress = (freshProgress as DbLoyaltyProgress) ?? progress;
+
+  // 3. Calculate stamps (happy hour, streak, inactivity multipliers)
+  const stamps = calculateStamps(program as DbLoyaltyProgram, currentProgress);
+  const newCurrent = currentProgress.current_count + stamps;
+  const effectiveTotal = newCurrent + currentProgress.initial_progress;
   const target = program.target_count;
 
   // 4. Check if reward threshold crossed
-  const previousEffective = progress.current_count + progress.initial_progress;
+  const previousEffective = currentProgress.current_count + currentProgress.initial_progress;
   const previousRewards = target > 0 ? Math.floor(previousEffective / target) : 0;
   const newRewards = target > 0 ? Math.floor(effectiveTotal / target) : 0;
   const earnedNewReward = newRewards > previousRewards;
 
-  const rewardReady = earnedNewReward || progress.reward_ready;
+  const rewardReady = earnedNewReward || currentProgress.reward_ready;
   const rewardExpiresAt = earnedNewReward && program.reward_expiry_days > 0
     ? new Date(Date.now() + program.reward_expiry_days * 86400000).toISOString()
-    : progress.reward_expires_at;
+    : currentProgress.reward_expires_at;
 
   // 5. Update progress (optimistic)
   await supabase
     .from("loyalty_progress")
     .update({
       current_count: newCurrent,
-      total_earned_rewards: progress.total_earned_rewards + (earnedNewReward ? 1 : 0),
+      total_earned_rewards: currentProgress.total_earned_rewards + (earnedNewReward ? 1 : 0),
       reward_ready: rewardReady,
       reward_expires_at: rewardExpiresAt,
       last_activity_at: new Date().toISOString(),
     })
-    .eq("id", progress.id);
+    .eq("id", currentProgress.id);
+
+  // 5b. Engagement: update streak
+  const streakResult = await updateStreak(supabase, currentProgress);
+
+  // 5c. Engagement: clear inactivity bonus (it was used this order)
+  if (currentProgress.inactivity_bonus_active) {
+    await clearInactivityBonus(supabase, currentProgress.id);
+  }
+
+  // 5d. Engagement: roll secret reward
+  const secretReward = await rollSecretReward(supabase, program as DbLoyaltyProgram, customerKey, restaurantId);
+
+  // 5e. Engagement: detect favorite item
+  const favoriteItem = await detectFavoriteItem(supabase, customerKey, restaurantId);
 
   // 6. Write loyalty state onto order row — triggers Supabase Realtime
   const stampsAway = Math.max(0, target - (effectiveTotal % target));
@@ -377,18 +683,27 @@ export async function addPendingProgress(
 
   // 7. Build response
   const updatedProgress: DbLoyaltyProgress = {
-    ...progress,
+    ...currentProgress,
     current_count: newCurrent,
-    total_earned_rewards: progress.total_earned_rewards + (earnedNewReward ? 1 : 0),
+    total_earned_rewards: currentProgress.total_earned_rewards + (earnedNewReward ? 1 : 0),
     reward_ready: rewardReady,
     reward_expires_at: rewardExpiresAt || null,
+    streak_count: streakResult.streakCount,
+    last_visit_date: streakResult.lastVisitDate,
+    inactivity_bonus_active: false,
+    inactivity_bonus_expires_at: null,
   };
 
   const upsell = program.upsell_enabled
     ? await getUpsellMessage(program as DbLoyaltyProgram, updatedProgress, restaurantId)
     : null;
 
-  return await buildResponse(program as DbLoyaltyProgram, updatedProgress, upsell?.message, upsell?.item);
+  return await buildResponse(program as DbLoyaltyProgram, updatedProgress, {
+    upsellMessage: upsell?.message,
+    upsellItem: upsell?.item,
+    secretReward,
+    favoriteItem,
+  });
 }
 
 /**
@@ -490,7 +805,7 @@ export async function confirmProgress(
     total_spent: progress.total_spent + orderTotal,
   };
 
-  return await buildResponse(program as DbLoyaltyProgram, updated);
+  return await buildResponse(program as DbLoyaltyProgram, updated, {});
 }
 
 /**
@@ -550,20 +865,48 @@ export async function getLoyaltySnapshot(
       reward_expires_at: null,
       last_activity_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
+      streak_count: 0,
+      last_visit_date: null,
+      favorite_item_id: null,
+      inactivity_bonus_active: false,
+      inactivity_bonus_expires_at: null,
     };
 
     const upsell = program.upsell_enabled
       ? await getUpsellMessage(program as DbLoyaltyProgram, fakeProgress, restaurantId)
       : null;
 
-    return await buildResponse(program as DbLoyaltyProgram, fakeProgress, upsell?.message, upsell?.item);
+    return await buildResponse(program as DbLoyaltyProgram, fakeProgress, {
+      upsellMessage: upsell?.message,
+      upsellItem: upsell?.item,
+    });
   }
 
+  // Check inactivity bonus for returning visitors
+  await checkInactivity(supabase, program as DbLoyaltyProgram, progress as DbLoyaltyProgress);
+
+  // Re-read progress after potential inactivity update
+  const { data: freshProgress } = await supabase
+    .from("loyalty_progress")
+    .select("*")
+    .eq("id", progress.id)
+    .single();
+  const currentProgress = (freshProgress as DbLoyaltyProgress) ?? (progress as DbLoyaltyProgress);
+
+  // Get engagement data
+  const secretReward = await getActiveSecretReward(supabase, customerKey, restaurantId);
+  const favoriteItem = await detectFavoriteItem(supabase, customerKey, restaurantId);
+
   const upsell = program.upsell_enabled
-    ? await getUpsellMessage(program as DbLoyaltyProgram, progress as DbLoyaltyProgress, restaurantId)
+    ? await getUpsellMessage(program as DbLoyaltyProgram, currentProgress, restaurantId)
     : null;
 
-  return await buildResponse(program as DbLoyaltyProgram, progress as DbLoyaltyProgress, upsell?.message, upsell?.item);
+  return await buildResponse(program as DbLoyaltyProgram, currentProgress, {
+    upsellMessage: upsell?.message,
+    upsellItem: upsell?.item,
+    secretReward,
+    favoriteItem,
+  });
 }
 
 /* ─── Upsell ─── */

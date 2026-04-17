@@ -9,6 +9,7 @@ import { PhoneCapture, getCapturedPhone, getCapturedName } from "@/components/me
 import { generateCafeSessionCode } from "@/lib/utils";
 import { getOrCreateCustomerKey } from "@/lib/loyalty-client";
 import { useLoyalty } from "@/components/menu/LoyaltyProvider";
+import type { LoyaltyProgressResponse } from "@/types";
 
 interface CartDrawerProps {
   open: boolean;
@@ -215,6 +216,9 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
               )}
             </div>
 
+            {/* ── Cart Upsell Banner ── */}
+            <CartUpsell progress={loyalty?.progress ?? null} />
+
             {/* Note + Submit */}
             {items.length > 0 && (
               <div className="border-t px-5 py-4 space-y-3">
@@ -342,4 +346,48 @@ function OrderSuccessScreen({
       <Button onClick={onClose} className="mt-2">Menüye Dön</Button>
     </div>
   );
+}
+
+/* ─── Cart Upsell Banner ─── */
+function CartUpsell({ progress }: { progress: LoyaltyProgressResponse | null }) {
+  if (!progress) return null;
+
+  const { stampsAway } = progress.bonuses;
+  const rewardItem = progress.rewardItem;
+  const secretReward = progress.secretReward;
+
+  // Show "1 more order" nudge
+  if (stampsAway === 1 && !progress.reward.ready) {
+    return (
+      <div className="mx-5 mb-1 px-4 py-3 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 text-center">
+        <p className="text-sm font-semibold text-amber-700">
+          🎁 1 sipariş daha → <span className="text-amber-800">{rewardItem?.name || "ÜCRETSİZ kahve"}</span>!
+        </p>
+      </div>
+    );
+  }
+
+  // Show secret reward discount badge
+  if (secretReward?.won) {
+    return (
+      <div className="mx-5 mb-1 px-4 py-3 rounded-xl bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 text-center">
+        <p className="text-sm font-semibold text-violet-700">
+          🎁 Gizli ödülünüz aktif — %{secretReward.discountPercent} indirim!
+        </p>
+      </div>
+    );
+  }
+
+  // Show near-completion nudge (2-3 away)
+  if (stampsAway <= 3 && stampsAway > 1 && !progress.reward.ready) {
+    return (
+      <div className="mx-5 mb-1 px-4 py-2.5 rounded-xl bg-blue-50 border border-blue-200 text-center">
+        <p className="text-xs text-blue-600">
+          {stampsAway} sipariş sonra → {rewardItem?.name || "ÜCRETSİZ kahve"} ☕
+        </p>
+      </div>
+    );
+  }
+
+  return null;
 }

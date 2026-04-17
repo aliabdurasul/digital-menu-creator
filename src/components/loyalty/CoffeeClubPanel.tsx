@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { X, Gift, Flame, Sparkles, ShoppingBag, ChevronDown } from "lucide-react";
+import { X, Gift, Flame, Sparkles, ShoppingBag, ChevronDown, Heart, Zap, Star } from "lucide-react";
 import { useLoyalty } from "@/components/menu/LoyaltyProvider";
 import { useCart } from "@/components/menu/CartProvider";
 
@@ -117,6 +117,36 @@ export function CoffeeClubPanel() {
 
         {/* ── Scrollable content ── */}
         <div className="flex-1 overflow-y-auto px-5 pb-24 space-y-5">
+          {/* ── Streak Banner ── */}
+          {progress.streak.count > 0 && (
+            <div className="flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200">
+              <Flame className="w-5 h-5 text-orange-500" />
+              <span className="text-sm font-bold text-orange-700">
+                {progress.streak.count} gün streak 🔥
+              </span>
+              {progress.streak.active && (
+                <span className="text-[10px] font-bold text-white bg-orange-500 rounded-full px-2 py-0.5">
+                  {progress.streak.bonusMultiplier}x
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* ── Inactivity Welcome-Back Banner ── */}
+          {progress.inactivityBonus.active && (
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200">
+              <Zap className="w-5 h-5 text-emerald-600 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-emerald-700">
+                  Seni özledik! 🎉 {progress.inactivityBonus.multiplier}x kahve kazanın
+                </p>
+                <p className="text-xs text-emerald-500">
+                  Hoş geldin bonusu — bugün geçerli
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Stamp Track */}
           <StampTrack current={current} target={target} />
 
@@ -130,18 +160,36 @@ export function CoffeeClubPanel() {
               <p className="text-sm text-muted-foreground">
                 <span className="font-semibold text-foreground">{stampsAway}</span> sipariş sonra →{" "}
                 <span className="font-semibold text-primary">
-                  {rewardItem?.name || "ÖDÜL"}
+                  {rewardItem?.name || "ÜCRETSİZ KAHVE"}
                 </span>
               </p>
             )}
           </div>
+
+          {/* ── Secret Reward Celebration ── */}
+          {progress.secretReward?.won && (
+            <div className="bg-gradient-to-br from-violet-50 to-purple-50 border border-violet-200 rounded-2xl p-4 text-center space-y-2">
+              <div className="text-3xl">🎁✨</div>
+              <p className="text-sm font-bold text-violet-700">
+                Gizli Ödül Kazandınız!
+              </p>
+              <p className="text-lg font-bold text-violet-800">
+                %{progress.secretReward.discountPercent} İndirim
+              </p>
+              {progress.secretReward.expiresAt && (
+                <p className="text-xs text-violet-500">
+                  {getExpiryText(progress.secretReward.expiresAt)}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* ── Reward Section ── */}
           {rewardReady && rewardItem && (
             <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 space-y-4">
               <div className="flex items-center gap-2">
                 <Gift className="w-5 h-5 text-amber-600" />
-                <h3 className="font-bold text-amber-700">Reward Unlocked!</h3>
+                <h3 className="font-bold text-amber-700">Ödülünüz Hazır!</h3>
               </div>
 
               {/* Reward item card */}
@@ -163,7 +211,7 @@ export function CoffeeClubPanel() {
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-foreground">{rewardItem.name}</p>
-                  <p className="text-sm text-green-600 font-semibold">FREE</p>
+                  <p className="text-sm text-green-600 font-semibold">ÜCRETSİZ</p>
                 </div>
               </div>
 
@@ -200,7 +248,7 @@ export function CoffeeClubPanel() {
           )}
 
           {/* ── Active Bonuses ── */}
-          {(progress.bonuses.happyHour || progress.bonuses.nearCompletion) && (
+          {(progress.bonuses.happyHour || progress.bonuses.nearCompletion || progress.bonuses.multiplier > 1) && (
             <div className="space-y-2">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
                 Aktif Bonuslar
@@ -211,10 +259,24 @@ export function CoffeeClubPanel() {
                   <Sparkles className="w-5 h-5 text-purple-600 shrink-0" />
                   <div>
                     <p className="text-sm font-semibold text-purple-700">
-                      ✨ {progress.bonuses.multiplier}x Puan Aktif
+                      ✨ {progress.bonuses.multiplier}x Kazanç Aktif
                     </p>
                     <p className="text-xs text-purple-500">
-                      Happy Hour — her sipariş {progress.bonuses.multiplier}x puan kazandırır
+                      Happy Hour — her sipariş {progress.bonuses.multiplier} kahve sayılır
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {progress.streak.active && !progress.bonuses.happyHour && (
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-orange-50 border border-orange-200">
+                  <Flame className="w-5 h-5 text-orange-500 shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-orange-700">
+                      🔥 Streak Bonusu — {progress.streak.bonusMultiplier}x Kazanç
+                    </p>
+                    <p className="text-xs text-orange-500">
+                      {progress.streak.count} gün üst üste geldin!
                     </p>
                   </div>
                 </div>
@@ -222,7 +284,7 @@ export function CoffeeClubPanel() {
 
               {progress.bonuses.nearCompletion && !rewardReady && (
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-orange-50 border border-orange-200">
-                  <Flame className="w-5 h-5 text-orange-600 shrink-0" />
+                  <Star className="w-5 h-5 text-orange-600 shrink-0" />
                   <div>
                     <p className="text-sm font-semibold text-orange-700">
                       🔥 Sadece {stampsAway} sipariş kaldı!
@@ -233,6 +295,21 @@ export function CoffeeClubPanel() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ── Favorite Item ── */}
+          {progress.favoriteItem && !rewardReady && (
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-pink-50 border border-pink-200">
+              <Heart className="w-5 h-5 text-pink-500 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-pink-700">
+                  Favori Ürünün
+                </p>
+                <p className="text-xs text-pink-500">
+                  {progress.favoriteItem.name} — tekrar sipariş ver ve kazanmaya devam et!
+                </p>
+              </div>
             </div>
           )}
 

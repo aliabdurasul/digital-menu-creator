@@ -55,6 +55,14 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
     void fetchProgress();
   }, [fetchProgress]);
 
+  // Register service worker for push notifications
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // SW registration failed — non-critical
+    });
+  }, []);
+
   const refetch = useCallback(async () => {
     setIsLoading(true);
     await fetchProgress();

@@ -368,6 +368,15 @@ export interface DbLoyaltyProgram {
   upsell_enabled: boolean;
   club_name: string;
   reward_item_name: string | null;
+  /* ─── Engagement Engine v11 ─── */
+  streak_bonus_enabled: boolean;
+  streak_bonus_threshold: number;
+  streak_bonus_multiplier: number;
+  inactivity_trigger_days: number;
+  inactivity_bonus_multiplier: number;
+  secret_reward_enabled: boolean;
+  secret_reward_probability: number;
+  secret_reward_discount_percent: number;
   created_at: string;
 }
 
@@ -385,6 +394,22 @@ export interface DbLoyaltyProgress {
   reward_ready: boolean;
   reward_expires_at: string | null;
   last_activity_at: string;
+  /* ─── Engagement Engine v11 ─── */
+  streak_count: number;
+  last_visit_date: string | null;
+  favorite_item_id: string | null;
+  inactivity_bonus_active: boolean;
+  inactivity_bonus_expires_at: string | null;
+  created_at: string;
+}
+
+export interface DbSecretReward {
+  id: string;
+  customer_key: string;
+  restaurant_id: string;
+  discount_percent: number;
+  used: boolean;
+  expires_at: string;
   created_at: string;
 }
 
@@ -409,6 +434,27 @@ export interface LoyaltyProgressResponse {
     nearCompletion: boolean;
     stampsAway: number;
   };
+  streak: {
+    count: number;
+    active: boolean;
+    bonusMultiplier: number;
+  };
+  inactivityBonus: {
+    active: boolean;
+    multiplier: number;
+    expiresAt: string | null;
+  };
+  secretReward: {
+    won: boolean;
+    discountPercent: number;
+    expiresAt: string | null;
+    id?: string;
+  } | null;
+  favoriteItem: {
+    name: string;
+    image?: string;
+    menuItemId?: string;
+  } | null;
   upsell: {
     message: string;
     recommendedItem?: string;
