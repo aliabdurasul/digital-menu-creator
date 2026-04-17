@@ -10,7 +10,7 @@ import { useLoyalty } from "@/components/menu/LoyaltyProvider";
 export function CoffeeClubButton() {
   const loyalty = useLoyalty();
 
-  if (!loyalty?.progress || loyalty.progress.progress.target <= 0) return null;
+  if (!loyalty?.progress?.progress || loyalty.progress.progress.target <= 0) return null;
 
   const { progress, clubName, setPanelOpen } = loyalty;
   const target = progress.progress.target;

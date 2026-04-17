@@ -38,6 +38,10 @@ export async function fetchLoyaltyProgress(
     );
     if (!res.ok) return null;
     const data = await res.json();
+    // Validate response shape — API returns { enabled: false } when disabled
+    if (!data || !data.progress || typeof data.progress.target !== "number") {
+      return null;
+    }
     return data as LoyaltyProgressResponse;
   } catch {
     return null;
