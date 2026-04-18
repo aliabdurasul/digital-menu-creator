@@ -26,16 +26,16 @@ async function getProfileRole(userId: string): Promise<string | null> {
 
 export async function updateSession(request: NextRequest) {
   /* ── Skip tenant rewrite for API routes and static assets ── */
-  const pathname = request.nextUrl.pathname;
+  const reqPath = request.nextUrl.pathname;
   if (
-    pathname.startsWith("/api/") ||
-    pathname.startsWith("/_next/") ||
-    pathname === "/manifest.json" ||
-    pathname === "/firebase-messaging-sw.js" ||
-    pathname === "/sw.js" ||
-    pathname === "/favicon.svg" ||
-    pathname === "/robots.txt" ||
-    pathname.startsWith("/icons/")
+    reqPath.startsWith("/api/") ||
+    reqPath.startsWith("/_next/") ||
+    reqPath === "/manifest.json" ||
+    reqPath === "/firebase-messaging-sw.js" ||
+    reqPath === "/sw.js" ||
+    reqPath === "/favicon.svg" ||
+    reqPath === "/robots.txt" ||
+    reqPath.startsWith("/icons/")
   ) {
     // Fall through to normal routing — no tenant rewrite
     return NextResponse.next({ request });
