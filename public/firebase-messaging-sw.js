@@ -3,8 +3,8 @@
 // It handles push notifications when the app tab is not focused.
 
 /* eslint-disable no-undef */
-importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js");
-importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging-compat.js");
 
 // Public Firebase config (safe to expose — these are client-side keys)
 firebase.initializeApp({

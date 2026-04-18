@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import type { LoyaltyProgressResponse } from "@/types";
 import { getOrCreateCustomerKey, fetchLoyaltyProgress } from "@/lib/loyalty-client";
 
@@ -13,6 +13,9 @@ interface LoyaltyContextValue {
   rewardItem: { name: string; image?: string; menuItemId?: string } | null;
   panelOpen: boolean;
   setPanelOpen: (open: boolean) => void;
+  /** Call from a user-gesture handler (tap/click) to request push permission */
+  requestPushPermission: () => Promise<void>;
+  pushStatus: "idle" | "granted" | "denied";
 }
 
 const LoyaltyContext = createContext<LoyaltyContextValue | null>(null);
@@ -36,6 +39,8 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
   const [isLoading, setIsLoading] = useState(true);
   const [customerKey, setCustomerKey] = useState("");
   const [panelOpen, setPanelOpen] = useState(false);
+  const [pushStatus, setPushStatus] = useState<"idle" | "granted" | "denied">("idle");
+  const swRegRef = useRef<ServiceWorkerRegistration | null>(null);
 
   const fetchProgress = useCallback(async () => {
     if (!restaurantId) return;
@@ -55,37 +60,68 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
     void fetchProgress();
   }, [fetchProgress]);
 
-  // Register FCM service worker and request push token
+  // Register FCM service worker on mount (does NOT request permission)
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
     if (!restaurantId || !customerKey) return;
 
     (async () => {
       try {
-        // Register FCM service worker
         const swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+        swRegRef.current = swReg;
 
-        // Dynamically import to keep bundle size down (client-side only)
-        const { requestNotificationPermission } = await import("@/lib/firebase-client");
-        const token = await requestNotificationPermission(swReg);
-
-        if (token) {
-          // Save FCM token to backend
-          await fetch("/api/push/token", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              customerKey,
-              restaurantId,
-              token,
-            }),
-          });
+        // If permission was already granted (returning user), silently refresh token
+        if (Notification.permission === "granted") {
+          setPushStatus("granted");
+          const { requestNotificationPermission } = await import("@/lib/firebase-client");
+          const token = await requestNotificationPermission(swReg);
+          if (token) {
+            await fetch("/api/push/token", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ customerKey, restaurantId, token }),
+            });
+          }
+        } else if (Notification.permission === "denied") {
+          setPushStatus("denied");
         }
       } catch {
-        // Push setup failed — non-critical, loyalty still works
+        // SW registration failed — non-critical
       }
     })();
   }, [restaurantId, customerKey]);
+
+  /**
+   * Request push permission — MUST be called from a user gesture (click/tap).
+   * Browsers auto-block prompts not triggered by user interaction.
+   */
+  const requestPushPermission = useCallback(async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission === "denied") {
+      setPushStatus("denied");
+      return;
+    }
+    if (pushStatus === "granted") return;
+
+    try {
+      const { requestNotificationPermission } = await import("@/lib/firebase-client");
+      const swReg = swRegRef.current || undefined;
+      const token = await requestNotificationPermission(swReg);
+
+      if (token) {
+        setPushStatus("granted");
+        await fetch("/api/push/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ customerKey, restaurantId, token }),
+        });
+      } else {
+        setPushStatus("denied");
+      }
+    } catch {
+      // Non-critical
+    }
+  }, [customerKey, restaurantId, pushStatus]);
 
   const refetch = useCallback(async () => {
     setIsLoading(true);
@@ -96,7 +132,7 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
   const rewardItem = progress?.rewardItem ?? null;
 
   return (
-    <LoyaltyContext.Provider value={{ progress, isLoading, customerKey, refetch, clubName, rewardItem, panelOpen, setPanelOpen }}>
+    <LoyaltyContext.Provider value={{ progress, isLoading, customerKey, refetch, clubName, rewardItem, panelOpen, setPanelOpen, requestPushPermission, pushStatus }}>
       {children}
     </LoyaltyContext.Provider>
   );
