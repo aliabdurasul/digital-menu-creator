@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 import { getTenantFromHeaders } from "@/lib/tenant";
 import { getRestaurantBySlug, getRestaurantBySlugTranslated } from "@/lib/db";
 import { MenuShell } from "@/components/menu/MenuShell";
+import { LoyaltyProvider } from "@/components/menu/LoyaltyProvider";
+import { CoffeeClubPanel } from "@/components/loyalty/CoffeeClubPanel";
+import { PushPermissionSheet } from "@/components/loyalty/PushPermissionSheet";
 import { AlertTriangle } from "lucide-react";
 import type { Restaurant } from "@/types";
 
@@ -59,5 +62,11 @@ export default async function TenantPage() {
       ? restaurantEn
       : null;
 
-  return <MenuShell restaurant={restaurantTr} restaurantEn={enData} />;
+  return (
+    <LoyaltyProvider restaurantId={restaurantTr.id}>
+      <MenuShell restaurant={restaurantTr} restaurantEn={enData} />
+      <CoffeeClubPanel />
+      <PushPermissionSheet />
+    </LoyaltyProvider>
+  );
 }

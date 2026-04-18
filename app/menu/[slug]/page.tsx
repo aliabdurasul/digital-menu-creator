@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 import { getRestaurantBySlug, getRestaurantBySlugTranslated } from "@/lib/db";
 import { MenuShell } from "@/components/menu/MenuShell";
+import { LoyaltyProvider } from "@/components/menu/LoyaltyProvider";
+import { CoffeeClubPanel } from "@/components/loyalty/CoffeeClubPanel";
+import { PushPermissionSheet } from "@/components/loyalty/PushPermissionSheet";
 import { AlertTriangle } from "lucide-react";
 import type { Metadata, } from "next";
 import type { Restaurant } from "@/types";
@@ -23,10 +26,10 @@ export async function generateMetadata({
     return { title: "Menü Bulunamadı" };
   }
   return {
-    title: `${restaurant.name} — Lezzet-i Âlâ`,
+    title: `${restaurant.name} — Coffee Club`,
     description: `${restaurant.name} dijital menüsünü görüntüleyin. Kategorilere göz atın, fiyatları görün.`,
     openGraph: {
-      title: `${restaurant.name} — Lezzet-i Âlâ`,
+      title: `${restaurant.name} — Coffee Club`,
       description: `${restaurant.name} dijital menüsünü görüntüleyin`,
       type: "website",
       ...(restaurant.coverImage && { images: [restaurant.coverImage] }),
@@ -84,5 +87,11 @@ export default async function MenuPage({ params }: MenuPageProps) {
       ? restaurantEn
       : null;
 
-  return <MenuShell restaurant={restaurantTr} restaurantEn={enData} />;
+  return (
+    <LoyaltyProvider restaurantId={restaurantTr.id}>
+      <MenuShell restaurant={restaurantTr} restaurantEn={enData} />
+      <CoffeeClubPanel />
+      <PushPermissionSheet />
+    </LoyaltyProvider>
+  );
 }

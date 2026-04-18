@@ -81,9 +81,18 @@ function CartPushTrigger({ onTriggerInstall }: { onTriggerInstall: () => void })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.length]);
 
+  // Detect iOS non-standalone for manual install prompt
+  const isIOS =
+    typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone =
+    typeof window !== "undefined" &&
+    (window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as { standalone?: boolean }).standalone === true);
+  const needsManual = isIOS && !isStandalone;
+
   // Install sheet: fires once per session on 3rd item add (push has had a chance to show first)
   useEffect(() => {
-    if (!canInstall) return;
+    if (!canInstall && !needsManual) return;
     if (items.length !== 3) return;
     if (typeof window !== "undefined" && sessionStorage.getItem("install_triggered")) return;
     const installSnoozed = localStorage.getItem("install_prompt_snoozed");
@@ -100,7 +109,7 @@ function CartPushTrigger({ onTriggerInstall }: { onTriggerInstall: () => void })
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items.length, canInstall]);
+  }, [items.length, canInstall, needsManual]);
 
   return null;
 }

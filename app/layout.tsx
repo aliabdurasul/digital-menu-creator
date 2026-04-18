@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL || "https://lezzetiala.prestigeyazilim.app"
   ),
-  title: "Lezzet-i Âlâ QR Menü Sistemi | Dijital Menü — Restoran, Kafe İşletmeler İçin",
+  title: "Coffee Club | Dijital Menü — Sipariş ve Ödüller",
   description:
     "Restoran, kafe ve işletmeler için QR menü sistemi ve dijital menü çözümü. Müşteriler QR kodu okutarak menüye anında ulaşır. 5 dakikada kurulum, teknik bilgi gerekmez. Gelecekte tam restoran otomasyonu.",
   keywords: [
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     apple: "/favicon.svg",
   },
   openGraph: {
-    title: "Lezzet-i Âlâ QR Menü Sistemi | Dijital Menü — Restoran, Kafe İşletmeler İçin",
+    title: "Coffee Club | Dijital Menü — Sipariş ve Ödüller",
     description:
       "Restoran, kafe ve işletmeler için QR menü sistemi ve dijital menü çözümü. 5 dakikada kurulum, teknik bilgi gerekmez.",
     type: "website",
@@ -66,7 +66,7 @@ export default function RootLayout({
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "SoftwareApplication",
-              name: "Lezzet-i Âlâ QR Menü Sistemi",
+              name: "Coffee Club",
               applicationCategory: "BusinessApplication",
               operatingSystem: "Web",
               description:

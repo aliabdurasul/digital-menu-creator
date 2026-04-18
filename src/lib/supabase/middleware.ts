@@ -25,6 +25,22 @@ async function getProfileRole(userId: string): Promise<string | null> {
 }
 
 export async function updateSession(request: NextRequest) {
+  /* ── Skip tenant rewrite for API routes and static assets ── */
+  const pathname = request.nextUrl.pathname;
+  if (
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/_next/") ||
+    pathname === "/manifest.json" ||
+    pathname === "/firebase-messaging-sw.js" ||
+    pathname === "/sw.js" ||
+    pathname === "/favicon.svg" ||
+    pathname === "/robots.txt" ||
+    pathname.startsWith("/icons/")
+  ) {
+    // Fall through to normal routing — no tenant rewrite
+    return NextResponse.next({ request });
+  }
+
   /* ── Domain-based tenant resolution (before auth) ── */
   const host = request.headers.get("host") ?? "";
   if (host && !isIgnoredHost(host)) {

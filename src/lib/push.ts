@@ -68,8 +68,8 @@ export async function sendPush(
       },
       webpush: {
         notification: {
-          icon: payload.icon || "/icons/icon-192x192.png",
-          badge: "/icons/icon-96x96.png",
+          icon: payload.icon || "/favicon.svg",
+          badge: "/favicon.svg",
           tag: payload.tag || "loyalty-notification",
         },
         fcmOptions: {

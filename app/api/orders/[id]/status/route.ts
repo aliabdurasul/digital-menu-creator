@@ -107,7 +107,7 @@ export async function PATCH(
     // Get restaurant settings (needed for both ready and delivered actions)
     const { data: restaurant } = await supabase
       .from("restaurants")
-      .select("notification_enabled, notification_channel, module_type")
+      .select("notification_enabled, notification_channel, module_type, slug")
       .eq("id", order.restaurant_id)
       .single();
 
@@ -133,7 +133,7 @@ export async function PATCH(
         title: "Siparişiniz Hazır! 🎉",
         body: "Lütfen teslim alın.",
         tag: "order-ready",
-        url: `/menu/${order.restaurant_id}`,
+        url: restaurant?.slug ? `/menu/${restaurant.slug}` : "/",
       }).catch((err) => console.error("[order-status] Push notification failed:", err));
     }
 

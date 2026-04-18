@@ -26,8 +26,8 @@ messaging.onBackgroundMessage((payload) => {
   const title = notification.title || data.title || "Seni özledik! ☕";
   const options = {
     body: notification.body || data.body || "Bugün gel, 2x kahve kazan!",
-    icon: data.icon || "/icons/icon-192x192.png",
-    badge: "/icons/icon-96x96.png",
+    icon: data.icon || "/favicon.svg",
+    badge: "/favicon.svg",
     tag: data.tag || "loyalty-notification",
     data: { url: data.url || "/" },
     vibrate: [200, 100, 200],

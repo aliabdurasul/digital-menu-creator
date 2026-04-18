@@ -127,7 +127,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
 
         {/* Success screen */}
         {success ? (
-          <OrderSuccessScreen moduleType={moduleType} onClose={handleClose} />
+          <OrderSuccessScreen moduleType={moduleType} restaurantId={restaurantId} onClose={handleClose} />
         ) : (
           <>
             {/* Cart items */}
@@ -272,9 +272,11 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
 /* ─── Order Success Screen ─── */
 function OrderSuccessScreen({
   moduleType,
+  restaurantId,
   onClose,
 }: {
   moduleType: string;
+  restaurantId: string;
   onClose: () => void;
 }) {
   const [sessionCode, setSessionCode] = useState<string | null>(null);
@@ -300,11 +302,28 @@ function OrderSuccessScreen({
           body: "Siparişiniz hazır olduğunda sizi bilgilendireceğiz.",
           tag: "notif-test",
         });
+        // Register FCM token so server-side push actually arrives
+        try {
+          const { getMessagingToken } = await import("@/lib/firebase-client");
+          const sw = await navigator.serviceWorker?.ready;
+          const token = await getMessagingToken(sw || undefined);
+          if (token) {
+            const { getOrCreateCustomerKey } = await import("@/lib/loyalty-client");
+            const customerKey = getOrCreateCustomerKey();
+            await fetch("/api/push/token", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ customerKey, restaurantId, token }),
+            });
+          }
+        } catch {
+          // Non-critical — FCM token registration failed
+        }
       }
     } catch {
       // Permission request failed
     }
-  }, []);
+  }, [restaurantId]);
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
