@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { X, Gift, Flame, Sparkles, ShoppingBag, ChevronDown, Heart, Zap, Star } from "lucide-react";
+import { X, Gift, Flame, Sparkles, ShoppingBag, ChevronDown, Heart, Zap, Star, Bell } from "lucide-react";
 import { useLoyalty } from "@/components/menu/LoyaltyProvider";
 import { useCart } from "@/components/menu/CartProvider";
 
@@ -317,6 +317,29 @@ export function CoffeeClubPanel() {
           {progress.upsell && !rewardReady && (
             <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-center">
               <p className="text-sm text-blue-700">{progress.upsell.message}</p>
+            </div>
+          )}
+
+          {/* ── Push Notification Opt-in ── */}
+          {loyalty?.pushStatus === "idle" && (
+            <button
+              type="button"
+              onClick={() => void loyalty.requestPushPermission()}
+              className="w-full flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors text-left active:scale-[0.98]"
+            >
+              <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                <Bell className="w-4 h-4 text-slate-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-slate-700">🔔 Bildirim Al</p>
+                <p className="text-xs text-slate-500">Ödülüne yaklaştığında seni haberdar edelim</p>
+              </div>
+            </button>
+          )}
+          {loyalty?.pushStatus === "granted" && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-green-50 border border-green-200">
+              <Bell className="w-4 h-4 text-green-600 shrink-0" />
+              <p className="text-xs text-green-700 font-medium">✓ Bildirimler açık</p>
             </div>
           )}
         </div>

@@ -73,8 +73,8 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
         // If permission was already granted (returning user), silently refresh token
         if (Notification.permission === "granted") {
           setPushStatus("granted");
-          const { requestNotificationPermission } = await import("@/lib/firebase-client");
-          const token = await requestNotificationPermission(swReg);
+          const { getMessagingToken } = await import("@/lib/firebase-client");
+          const token = await getMessagingToken(swReg);
           if (token) {
             await fetch("/api/push/token", {
               method: "POST",
@@ -103,20 +103,27 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
     }
     if (pushStatus === "granted") return;
 
+    // IMPORTANT: Call requestPermission FIRST, before any dynamic import.
+    // Dynamic imports can break the browser's user-gesture chain in some browsers,
+    // causing the permission prompt to be silently blocked.
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      setPushStatus("denied");
+      return;
+    }
+    setPushStatus("granted");
+
     try {
-      const { requestNotificationPermission } = await import("@/lib/firebase-client");
-      const swReg = swRegRef.current || undefined;
-      const token = await requestNotificationPermission(swReg);
+      // Safe to dynamic-import now — permission is already granted
+      const { getMessagingToken } = await import("@/lib/firebase-client");
+      const token = await getMessagingToken(swRegRef.current || undefined);
 
       if (token) {
-        setPushStatus("granted");
         await fetch("/api/push/token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ customerKey, restaurantId, token }),
         });
-      } else {
-        setPushStatus("denied");
       }
     } catch {
       // Non-critical

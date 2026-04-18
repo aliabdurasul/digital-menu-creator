@@ -32,21 +32,15 @@ function getFirebaseMessaging(): Messaging | null {
 }
 
 /**
- * Request notification permission and get FCM token.
- * Returns token string on success, null on failure/denial.
- *
- * @param swRegistration - The service worker registration for FCM
+ * Get FCM token WITHOUT requesting permission.
+ * Assumes Notification.permission === "granted" has already been verified.
+ * Use this after calling Notification.requestPermission() directly in the gesture handler
+ * to avoid the dynamic-import async gap breaking the browser's user-gesture chain.
  */
-export async function requestNotificationPermission(
+export async function getMessagingToken(
   swRegistration?: ServiceWorkerRegistration
 ): Promise<string | null> {
   try {
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") {
-      console.log("[firebase-client] Notification permission denied");
-      return null;
-    }
-
     const messaging = getFirebaseMessaging();
     if (!messaging) return null;
 
@@ -62,6 +56,27 @@ export async function requestNotificationPermission(
     });
 
     return token || null;
+  } catch (err) {
+    console.error("[firebase-client] Failed to get FCM token:", err);
+    return null;
+  }
+}
+
+/**
+ * Request notification permission AND get FCM token.
+ * Returns token string on success, null on failure/denial.
+ * NOTE: Call from a user-gesture handler OR when permission is already "granted".
+ */
+export async function requestNotificationPermission(
+  swRegistration?: ServiceWorkerRegistration
+): Promise<string | null> {
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      console.log("[firebase-client] Notification permission denied");
+      return null;
+    }
+    return getMessagingToken(swRegistration);
   } catch (err) {
     console.error("[firebase-client] Failed to get FCM token:", err);
     return null;
