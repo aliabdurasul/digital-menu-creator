@@ -8,6 +8,8 @@ import { OrderReadyWatcher } from "@/components/menu/OrderReadyWatcher";
 import { LoyaltyProvider, useLoyalty } from "@/components/menu/LoyaltyProvider";
 import { CoffeeClubPanel } from "@/components/loyalty/CoffeeClubPanel";
 import { PushPermissionSheet } from "@/components/loyalty/PushPermissionSheet";
+import { InstallPromptSheet } from "@/components/loyalty/InstallPromptSheet";
+import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 
 interface OrderingWrapperProps {
   restaurantId: string;
@@ -22,6 +24,7 @@ interface OrderingWrapperProps {
  */
 export function OrderingWrapper({ restaurantId, tableId, moduleType, children }: OrderingWrapperProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [installSheetOpen, setInstallSheetOpen] = useState(false);
 
   return (
     <LoyaltyProvider restaurantId={restaurantId}>
@@ -37,23 +40,30 @@ export function OrderingWrapper({ restaurantId, tableId, moduleType, children }:
         />
         <OrderReadyWatcher moduleType={moduleType} />
         <CoffeeClubPanel />
-        <CartPushTrigger />
+        <CartPushTrigger onTriggerInstall={() => setInstallSheetOpen(true)} />
         <PushPermissionSheet />
+        <InstallPromptSheet
+          open={installSheetOpen}
+          onClose={() => setInstallSheetOpen(false)}
+        />
       </CartProvider>
     </LoyaltyProvider>
   );
 }
 
 /**
- * Inner component (lives inside CartProvider + LoyaltyProvider) that watches the
- * cart item count and triggers the push permission sheet 1.5 s after the first
- * item is added. Fires at most once per session via sessionStorage.
+ * Inner component that watches cart + push status, then shows prompts in sequence:
+ * 1st item added (1.5s) → PushPermissionSheet (once per session)
+ * 3rd item added (or push already handled) → InstallPromptSheet (once per session, 48h snooze)
+ * Never shows both sheets simultaneously.
  */
-function CartPushTrigger() {
+function CartPushTrigger({ onTriggerInstall }: { onTriggerInstall: () => void }) {
   const { items } = useCart();
   const loyalty = useLoyalty();
+  const { canInstall } = useInstallPrompt();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Push sheet: fires once per session on first item add
   useEffect(() => {
     if (items.length !== 1) return;
     if (typeof window !== "undefined" && sessionStorage.getItem("push_cart_triggered")) return;
@@ -70,6 +80,27 @@ function CartPushTrigger() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.length]);
+
+  // Install sheet: fires once per session on 3rd item add (push has had a chance to show first)
+  useEffect(() => {
+    if (!canInstall) return;
+    if (items.length !== 3) return;
+    if (typeof window !== "undefined" && sessionStorage.getItem("install_triggered")) return;
+    const installSnoozed = localStorage.getItem("install_prompt_snoozed");
+    if (installSnoozed && Date.now() < new Date(installSnoozed).getTime() + 48 * 60 * 60 * 1000) return;
+
+    timerRef.current = setTimeout(() => {
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("install_triggered", "1");
+      }
+      onTriggerInstall();
+    }, 2000);
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.length, canInstall]);
 
   return null;
 }
