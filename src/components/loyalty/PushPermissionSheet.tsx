@@ -41,7 +41,7 @@ function getSheetCopy(
     case "manual":
       return {
         icon: "🔔",
-        headline: "Hiçbir şeyi kaçırma",
+        headline: "Coffee Club Bildirimleri",
         body: "Sipariş, ödül, indirim — tek bildirimle",
       };
   }

@@ -35,7 +35,7 @@ export async function sendPush(
     const supabase = getServiceClient();
 
     // Look up FCM token
-    const { data: tokenRow } = await supabase
+    let { data: tokenRow } = await supabase
       .from("push_tokens")
       .select("token")
       .eq("customer_key", customerKey)
@@ -43,7 +43,19 @@ export async function sendPush(
       .single();
 
     if (!tokenRow?.token) {
-      return false; // No token registered — user declined or never visited
+      // Race condition: token may still be registering (SW + FCM + POST ≈ 2-6s).
+      // Wait 5s and retry once before giving up.
+      await new Promise((r) => setTimeout(r, 5000));
+      const { data: retryRow } = await supabase
+        .from("push_tokens")
+        .select("token")
+        .eq("customer_key", customerKey)
+        .eq("restaurant_id", restaurantId)
+        .single();
+      if (!retryRow?.token) {
+        return false; // No token after retry — user declined or never visited
+      }
+      tokenRow = retryRow;
     }
 
     const messaging = getAdminMessaging();

@@ -1,7 +1,7 @@
 {
-  "name": "QR Menü — Sipariş ve Sadakat",
-  "short_name": "QR Menü",
-  "description": "Hızlı sipariş ver, puan topla, ödül kazan. Kafe uygulamanız tarayıcıda.",
+  "name": "Coffee Club — Sipariş ve Ödüller",
+  "short_name": "Coffee Club",
+  "description": "Hızlı sipariş ver, puan topla, bedava kahve kazan.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -10,7 +10,11 @@
   "theme_color": "#0f172a",
   "lang": "tr",
   "dir": "ltr",
-  "categories": ["food", "shopping", "lifestyle"],
+  "categories": [
+    "food",
+    "shopping",
+    "lifestyle"
+  ],
   "icons": [
     {
       "src": "/favicon.svg",
@@ -33,11 +37,16 @@
   ],
   "shortcuts": [
     {
-      "name": "Menüye Git",
-      "short_name": "Menü",
-      "description": "QR menüyü aç",
+      "name": "Coffee Club",
+      "short_name": "Club",
+      "description": "Coffee Club'u aç",
       "url": "/",
-      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+      "icons": [
+        {
+          "src": "/favicon.svg",
+          "sizes": "any"
+        }
+      ]
     }
   ],
   "screenshots": [],

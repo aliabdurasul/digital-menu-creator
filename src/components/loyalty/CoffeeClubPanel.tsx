@@ -331,8 +331,8 @@ export function CoffeeClubPanel() {
                 <Bell className="w-4 h-4 text-blue-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-blue-700">🔔 Bildirimleri Aç</p>
-                <p className="text-xs text-blue-500">Sipariş, ödül, indirim — hiçbirini kaçırma</p>
+                <p className="text-sm font-semibold text-blue-700">🔔 Coffee Club Bildirimleri</p>
+                <p className="text-xs text-blue-500">Ödül ve sipariş bildirimlerini aç</p>
               </div>
             </button>
           )}

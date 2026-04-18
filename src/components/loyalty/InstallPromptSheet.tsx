@@ -141,22 +141,22 @@ function MainPrompt({
       {/* Icon + headline */}
       <div className="text-center mb-5">
         <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-primary flex items-center justify-center shadow-lg">
-          <Smartphone className="w-8 h-8 text-primary-foreground" />
+          <span className="text-3xl">☕</span>
         </div>
         <h2 className="text-[17px] font-bold text-foreground mb-1.5">
-          📱 App gibi kullanmak ister misin?
+          ☕ Coffee Club'a Katıl
         </h2>
         <p className="text-sm text-muted-foreground">
-          Ana ekrana ekle — daha hızlı aç, daha hızlı sipariş ver
+          Puanlarını kaybetme, bedava kahve kazan
         </p>
       </div>
 
       {/* Benefits */}
       <div className="space-y-2.5 mb-6">
         {([
-          { icon: "⚡", text: "1 dokunuşla aç, giriş gerekmez" },
-          { icon: "🔔", text: "Sipariş ve ödül bildirimleri al" },
-          { icon: "☕", text: "Coffee Club ilerlemeni takip et" },
+          { icon: "🎁", text: "Bedava kahve kazandığında hemen haber al" },
+          { icon: "⚡", text: "1 dokunuşla sipariş — bekleme yok" },
+          { icon: "☕", text: "Puanların kaybolmaz, her geldiğinde devam et" },
         ] as const).map((b) => (
           <div key={b.text} className="flex items-center gap-3">
             <span className="text-lg shrink-0">{b.icon}</span>
@@ -179,8 +179,8 @@ function MainPrompt({
           </>
         ) : (
           <>
-            <Smartphone className="w-4 h-4" />
-            {needsManual ? "Nasıl Eklenir? →" : "Ana Ekrana Ekle"}
+            <span className="text-sm">☕</span>
+            {needsManual ? "Coffee Club'u Ekle →" : "Coffee Club'u Ekle"}
           </>
         )}
       </button>
@@ -206,10 +206,10 @@ function SuccessView() {
       </div>
       <div>
         <h2 className="text-lg font-bold text-foreground mb-1">
-          ✅ App hazır!
+          ✅ Coffee Club hazır!
         </h2>
         <p className="text-sm text-muted-foreground">
-          Ana ekranından daha hızlı sipariş verebilirsin.
+          Ödül kazandığında seni haberdar edeceğiz.
         </p>
       </div>
     </div>
@@ -235,9 +235,9 @@ function IOSInstallGuide({
     <div className="px-5 pt-2 pb-8">
       <div className="text-center mb-5">
         <div className="text-3xl mb-2">📲</div>
-        <h2 className="text-lg font-bold text-foreground mb-1">Ana Ekrana Ekle</h2>
+        <h2 className="text-lg font-bold text-foreground mb-1">Coffee Club'u Ekle</h2>
         <p className="text-xs text-muted-foreground">
-          4 adımda app deneyimi — ücretsiz, kurulum yok
+          4 adımda Coffee Club — ücretsiz
         </p>
       </div>
 
