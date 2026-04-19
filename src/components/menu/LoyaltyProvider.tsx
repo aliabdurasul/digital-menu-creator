@@ -71,7 +71,7 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
     try {
       const result = await fetchLoyaltyProgress(restaurantId);
       setProgress(result);
-      persistSnapshot(result);
+      if (result) persistSnapshot(result);
     } catch {
       // Keep last-known state — no-op on failure (stale > empty)
     } finally {
