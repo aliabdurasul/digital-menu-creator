@@ -14,9 +14,9 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL || "https://lezzetiala.prestigeyazilim.app"
   ),
-  title: "Coffee Club | Dijital Menü — Sipariş ve Ödüller",
+  title: "Dijital Restoran Deneyimi | 3D AR QR Menü, Sipariş ve Sadakat Programı",
   description:
-    "Restoran, kafe ve işletmeler için QR menü sistemi ve dijital menü çözümü. Müşteriler QR kodu okutarak menüye anında ulaşır. 5 dakikada kurulum, teknik bilgi gerekmez. Gelecekte tam restoran otomasyonu.",
+    "Restoran ve kafeler için dijital menü, masadan sipariş ve sadakat programı. QR kod okutarak anında menüye ulaşın. 5 dakikada kurulum.",
   keywords: [
     "qr menü sistemi",
     "dijital menü",
@@ -34,9 +34,9 @@ export const metadata: Metadata = {
     apple: "/favicon.svg",
   },
   openGraph: {
-    title: "Coffee Club | Dijital Menü — Sipariş ve Ödüller",
+    title: "Dijital Restoran Deneyimi | QR Menü, Sipariş ve Ödüller",
     description:
-      "Restoran, kafe ve işletmeler için QR menü sistemi ve dijital menü çözümü. 5 dakikada kurulum, teknik bilgi gerekmez.",
+      "Restoran ve kafeler için dijital menü, masadan sipariş ve sadakat programı. 5 dakikada kurulum.",
     type: "website",
   },
   twitter: {
@@ -59,14 +59,20 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="Coffee Club" />
+        <meta name="apple-mobile-web-app-title" content="Dijital Menü" />
+        {/* PWA: redirect to last visited restaurant when opened in standalone mode */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var s=window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches||navigator.standalone;if(s){var p=localStorage.getItem('last_menu_path');if(p&&p.startsWith('/r/')&&window.location.pathname==='/'){window.location.replace(p);}}}catch(e){}})();`,
+          }}
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "SoftwareApplication",
-              name: "Coffee Club",
+              name: "Dijital Restoran Deneyimi",
               applicationCategory: "BusinessApplication",
               operatingSystem: "Web",
               description:

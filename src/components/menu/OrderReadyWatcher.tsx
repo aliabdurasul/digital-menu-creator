@@ -57,7 +57,6 @@ export function OrderReadyWatcher({ moduleType }: { moduleType?: "cafe" | "resta
 
         if (data.status === "ready" && !orderReady) {
           setOrderReady(true);
-          fireNotification(sessionCode, "Siparişiniz Hazır! 🎉", `${sessionCode} — Lütfen bardan teslim alın.`);
           playBeep();
         }
 
@@ -106,16 +105,6 @@ export function OrderReadyWatcher({ moduleType }: { moduleType?: "cafe" | "resta
 }
 
 /* ── helpers ── */
-
-function fireNotification(sessionCode: string, title: string, body: string) {
-  try {
-    if ("Notification" in window && Notification.permission === "granted") {
-      new Notification(title, { body, tag: `order-${sessionCode}` });
-    }
-  } catch {
-    // Notification API unavailable
-  }
-}
 
 function playBeep() {
   try {

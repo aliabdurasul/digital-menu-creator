@@ -133,7 +133,7 @@ export async function PATCH(
         title: "Siparişiniz Hazır! 🎉",
         body: "Lütfen teslim alın.",
         tag: "order-ready",
-        url: restaurant?.slug ? `/menu/${restaurant.slug}` : "/",
+        url: restaurant?.slug ? `/r/${restaurant.slug}` : "/",
       }).catch((err) => console.error("[order-status] Push notification failed:", err));
     }
 

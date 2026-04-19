@@ -26,10 +26,10 @@ export async function generateMetadata({
     return { title: "Menü Bulunamadı" };
   }
   return {
-    title: `${restaurant.name} — Coffee Club`,
+    title: `${restaurant.name} — Dijital Menü`,
     description: `${restaurant.name} dijital menüsünü görüntüleyin. Kategorilere göz atın, fiyatları görün.`,
     openGraph: {
-      title: `${restaurant.name} — Coffee Club`,
+      title: `${restaurant.name} — Dijital Menü`,
       description: `${restaurant.name} dijital menüsünü görüntüleyin`,
       type: "website",
       ...(restaurant.coverImage && { images: [restaurant.coverImage] }),

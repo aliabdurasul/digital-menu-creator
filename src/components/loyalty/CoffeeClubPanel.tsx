@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { X, Gift, Flame, Sparkles, ShoppingBag, ChevronDown, Heart, Zap, Star, Bell } from "lucide-react";
+import { Gift, ShoppingBag, ChevronDown, Bell, Flame, Zap } from "lucide-react";
 import { useLoyalty } from "@/components/menu/LoyaltyProvider";
 import { useCart } from "@/components/menu/CartProvider";
 
@@ -15,8 +15,9 @@ function useOptionalCart() {
 }
 
 /**
- * Full-screen loyalty panel — the "mini app" experience.
- * Opens from CoffeeClubButton, shows progress, rewards, bonuses.
+ * Full-screen loyalty panel.
+ * Shows: club name, stamp progress, next reward, push opt-in.
+ * Intentionally minimal — no multipliers, bonuses, or internal details.
  */
 export function CoffeeClubPanel() {
   const loyalty = useLoyalty();
@@ -26,19 +27,16 @@ export function CoffeeClubPanel() {
   const isOpen = loyalty?.panelOpen ?? false;
   const progress = loyalty?.progress;
 
-  // Reset "added" state when panel opens
   useEffect(() => {
     if (isOpen) setAddedToCart(false);
   }, [isOpen]);
 
-  // Lock body scroll while open
   useEffect(() => {
     if (isOpen) document.body.style.overflow = "hidden";
     else document.body.style.overflow = "";
     return () => { document.body.style.overflow = ""; };
   }, [isOpen]);
 
-  // Close on Escape
   useEffect(() => {
     if (!isOpen) return;
     const h = (e: KeyboardEvent) => {
@@ -54,14 +52,8 @@ export function CoffeeClubPanel() {
 
   const handleAddReward = useCallback(() => {
     if (!cart || !loyalty?.rewardItem) return;
-
-    // Check if reward is already in cart
     const existing = cart.items.find((i) => i.type === "loyalty_reward");
-    if (existing) {
-      setAddedToCart(true);
-      return;
-    }
-
+    if (existing) { setAddedToCart(true); return; }
     cart.addItem({
       menuItemId: loyalty.rewardItem.menuItemId || `reward_${Date.now()}`,
       name: loyalty.rewardItem.name,
@@ -74,7 +66,6 @@ export function CoffeeClubPanel() {
 
   const handleOrderNow = useCallback(() => {
     loyalty?.setPanelOpen(false);
-    // Scroll to top of menu
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [loyalty]);
 
@@ -86,9 +77,13 @@ export function CoffeeClubPanel() {
   const rewardReady = progress.reward.ready;
   const clubName = loyalty?.clubName || "Coffee Club";
   const rewardItem = loyalty?.rewardItem;
-
-  // Check if reward already in cart
   const rewardInCart = cart?.items.some((i) => i.type === "loyalty_reward") ?? false;
+  const streak = progress.streak;
+  const inactivityBonus = progress.inactivityBonus;
+  const secretReward = progress.secretReward;
+  const secretDaysLeft = secretReward?.expiresAt
+    ? Math.ceil((new Date(secretReward.expiresAt).getTime() - Date.now()) / 86400000)
+    : null;
 
   return (
     <div className="fixed inset-0 z-[70] flex flex-col">
@@ -98,10 +93,11 @@ export function CoffeeClubPanel() {
         onClick={handleClose}
       />
 
-      {/* Panel — slides up from bottom, full height */}
+      {/* Panel */}
       <div className="relative z-10 mt-auto w-full max-w-[480px] mx-auto h-[92vh] bg-background rounded-t-3xl shadow-2xl flex flex-col animate-slide-up overflow-hidden">
-        {/* ── Header ── */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b">
           <div className="flex items-center gap-2">
             <span className="text-2xl">☕</span>
             <h2 className="text-xl font-bold text-foreground">{clubName}</h2>
@@ -115,94 +111,100 @@ export function CoffeeClubPanel() {
           </button>
         </div>
 
-        {/* ── Scrollable content ── */}
-        <div className="flex-1 overflow-y-auto px-5 pb-24 space-y-5">
-          {/* ── Streak Banner ── */}
-          {progress.streak.count > 0 && (
-            <div className="flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200">
-              <Flame className="w-5 h-5 text-orange-500" />
-              <span className="text-sm font-bold text-orange-700">
-                {progress.streak.count} gün streak 🔥
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto px-5 pb-28 pt-5 space-y-6">
+
+          {/* Stamp progress */}
+          <StampTrack current={current} target={target} />
+
+          {/* Progress caption */}
+          <div className="text-center space-y-2">
+            {rewardReady ? (
+              <p className="text-lg font-bold text-amber-600">🎉 Ödülünüz Hazır!</p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                <span className="font-bold text-foreground">{stampsAway}</span> sipariş daha →{" "}
+                <span className="font-bold text-primary">{rewardItem?.name || "ÜcretSiZ KAHVE"}</span>
+              </p>
+            )}
+            {streak.active && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-100 border border-orange-200">
+                <Flame className="w-3.5 h-3.5 text-orange-500" />
+                <span className="text-xs font-semibold text-orange-700">{streak.count} günlük seri · {streak.bonusMultiplier}x puan</span>
+              </div>
+            )}
+          </div>
+
+          {/* P4 — Favorite item (social proof / personalization) */}
+          {!rewardReady && progress.favoriteItem && (
+            <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+              <span>❤️</span>
+              <span>En çok sipariş ettiğiniz:{" "}
+                <strong className="text-foreground">{progress.favoriteItem.name}</strong>
               </span>
-              {progress.streak.active && (
-                <span className="text-[10px] font-bold text-white bg-orange-500 rounded-full px-2 py-0.5">
-                  {progress.streak.bonusMultiplier}x
-                </span>
-              )}
             </div>
           )}
 
-          {/* ── Inactivity Welcome-Back Banner ── */}
-          {progress.inactivityBonus.active && (
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200">
-              <Zap className="w-5 h-5 text-emerald-600 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-emerald-700">
-                  Seni özledik! 🎉 {progress.inactivityBonus.multiplier}x kahve kazanın
-                </p>
-                <p className="text-xs text-emerald-500">
-                  Hoş geldin bonusu — bugün geçerli
-                </p>
+          {/* Inactivity bonus card */}
+          {inactivityBonus.active && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                <Zap className="w-4 h-4 text-emerald-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-emerald-800">Geri Döndün Bonusu! ⚡</p>
+                <p className="text-xs text-emerald-600">Bu siparişte {inactivityBonus.multiplier}x puan kazanırsın</p>
+                {inactivityBonus.expiresAt && (
+                  <p className="text-[10px] text-emerald-500 mt-0.5">{getExpiryText(inactivityBonus.expiresAt)}</p>
+                )}
               </div>
             </div>
           )}
 
-          {/* Stamp Track */}
-          <StampTrack current={current} target={target} />
-
-          {/* Progress message */}
-          <div className="text-center">
-            {rewardReady ? (
-              <p className="text-lg font-bold text-amber-600">
-                🎉 Ödülünüz Hazır!
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                <span className="font-semibold text-foreground">{stampsAway}</span> sipariş sonra →{" "}
-                <span className="font-semibold text-primary">
-                  {rewardItem?.name || "ÜCRETSİZ KAHVE"}
-                </span>
-              </p>
-            )}
-          </div>
-
-          {/* ── Secret Reward Celebration ── */}
-          {progress.secretReward?.won && (
-            <div className="bg-gradient-to-br from-violet-50 to-purple-50 border border-violet-200 rounded-2xl p-4 text-center space-y-2">
-              <div className="text-3xl">🎁✨</div>
-              <p className="text-sm font-bold text-violet-700">
-                Gizli Ödül Kazandınız!
-              </p>
-              <p className="text-lg font-bold text-violet-800">
-                %{progress.secretReward.discountPercent} İndirim
-              </p>
-              {progress.secretReward.expiresAt && (
-                <p className="text-xs text-violet-500">
-                  {getExpiryText(progress.secretReward.expiresAt)}
+          {/* Secret reward card — P3: urgency escalates within 48h */}
+          {secretReward?.won && (
+            <div className={`border rounded-2xl p-4 space-y-2 ${
+              secretDaysLeft !== null && secretDaysLeft <= 2
+                ? "bg-red-50 border-red-200"
+                : "bg-violet-50 border-violet-200"
+            }`}>
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🎁</span>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-bold ${
+                    secretDaysLeft !== null && secretDaysLeft <= 2 ? "text-red-800" : "text-violet-800"
+                  }`}>Gizli Ödül Kazandın!</p>
+                  <p className={`text-xs ${
+                    secretDaysLeft !== null && secretDaysLeft <= 2 ? "text-red-600" : "text-violet-600"
+                  }`}>%{secretReward.discountPercent} indirim · siparişinde otomatik uygulanır</p>
+                </div>
+              </div>
+              {secretReward.expiresAt && (
+                <p className={`text-[10px] font-medium ${
+                  secretDaysLeft !== null && secretDaysLeft <= 1
+                    ? "text-red-600 font-bold"
+                    : secretDaysLeft !== null && secretDaysLeft <= 2
+                      ? "text-red-500"
+                      : "text-violet-400"
+                }`}>
+                  {secretDaysLeft !== null && secretDaysLeft <= 1 ? "⚠️ Son gün! " : secretDaysLeft !== null && secretDaysLeft <= 2 ? "⏰ " : ""}
+                  {getExpiryText(secretReward.expiresAt)}
                 </p>
               )}
             </div>
           )}
 
-          {/* ── Reward Section ── */}
+          {/* Reward ready card */}
           {rewardReady && rewardItem && (
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 space-y-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 space-y-4">
               <div className="flex items-center gap-2">
                 <Gift className="w-5 h-5 text-amber-600" />
                 <h3 className="font-bold text-amber-700">Ödülünüz Hazır!</h3>
               </div>
-
-              {/* Reward item card */}
               <div className="flex items-center gap-4 bg-white rounded-xl p-3 border border-amber-100 shadow-sm">
                 {rewardItem.image ? (
                   <div className="relative w-16 h-16 shrink-0 rounded-lg overflow-hidden bg-muted">
-                    <Image
-                      src={rewardItem.image}
-                      alt={rewardItem.name}
-                      fill
-                      sizes="64px"
-                      className="object-cover"
-                    />
+                    <Image src={rewardItem.image} alt={rewardItem.name} fill sizes="64px" className="object-cover" />
                   </div>
                 ) : (
                   <div className="w-16 h-16 shrink-0 rounded-lg bg-amber-100 flex items-center justify-center">
@@ -211,11 +213,9 @@ export function CoffeeClubPanel() {
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-foreground">{rewardItem.name}</p>
-                  <p className="text-sm text-green-600 font-semibold">ÜCRETSİZ</p>
+                  <p className="text-sm text-green-600 font-semibold">ÜCRETSiZ</p>
                 </div>
               </div>
-
-              {/* Add to Cart CTA */}
               {cart && (
                 <button
                   type="button"
@@ -237,8 +237,6 @@ export function CoffeeClubPanel() {
                   )}
                 </button>
               )}
-
-              {/* Expiry */}
               {progress.reward.expiresAt && (
                 <p className="text-xs text-amber-500 text-center">
                   {getExpiryText(progress.reward.expiresAt)}
@@ -247,104 +245,31 @@ export function CoffeeClubPanel() {
             </div>
           )}
 
-          {/* ── Active Bonuses ── */}
-          {(progress.bonuses.happyHour || progress.bonuses.nearCompletion || progress.bonuses.multiplier > 1) && (
-            <div className="space-y-2">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-                Aktif Bonuslar
-              </h3>
-
-              {progress.bonuses.happyHour && (
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-purple-50 border border-purple-200">
-                  <Sparkles className="w-5 h-5 text-purple-600 shrink-0" />
-                  <div>
-                    <p className="text-sm font-semibold text-purple-700">
-                      ✨ {progress.bonuses.multiplier}x Kazanç Aktif
-                    </p>
-                    <p className="text-xs text-purple-500">
-                      Happy Hour — her sipariş {progress.bonuses.multiplier} kahve sayılır
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {progress.streak.active && !progress.bonuses.happyHour && (
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-orange-50 border border-orange-200">
-                  <Flame className="w-5 h-5 text-orange-500 shrink-0" />
-                  <div>
-                    <p className="text-sm font-semibold text-orange-700">
-                      🔥 Streak Bonusu — {progress.streak.bonusMultiplier}x Kazanç
-                    </p>
-                    <p className="text-xs text-orange-500">
-                      {progress.streak.count} gün üst üste geldin!
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {progress.bonuses.nearCompletion && !rewardReady && (
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-orange-50 border border-orange-200">
-                  <Star className="w-5 h-5 text-orange-600 shrink-0" />
-                  <div>
-                    <p className="text-sm font-semibold text-orange-700">
-                      🔥 Sadece {stampsAway} sipariş kaldı!
-                    </p>
-                    <p className="text-xs text-orange-500">
-                      Ödülüne çok az kaldı — devam et!
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── Favorite Item ── */}
-          {progress.favoriteItem && !rewardReady && (
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-pink-50 border border-pink-200">
-              <Heart className="w-5 h-5 text-pink-500 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-pink-700">
-                  Favori Ürünün
-                </p>
-                <p className="text-xs text-pink-500">
-                  {progress.favoriteItem.name} — tekrar sipariş ver ve kazanmaya devam et!
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* ── Upsell ── */}
-          {progress.upsell && !rewardReady && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-center">
-              <p className="text-sm text-blue-700">{progress.upsell.message}</p>
-            </div>
-          )}
-
-          {/* ── Push Notification Opt-in ── */}
+          {/* Push notification opt-in */}
           {loyalty?.pushStatus === "idle" && (
             <button
               type="button"
               onClick={() => loyalty?.triggerPushSheet("manual")}
-              className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors text-left active:scale-[0.98]"
+              className="w-full flex items-center gap-3 p-4 rounded-xl border border-border hover:bg-muted/60 transition-colors text-left active:scale-[0.98]"
             >
-              <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                <Bell className="w-4 h-4 text-blue-600" />
+              <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0">
+                <Bell className="w-4 h-4 text-foreground" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-blue-700">🔔 Coffee Club Bildirimleri</p>
-                <p className="text-xs text-blue-500">Ödül ve sipariş bildirimlerini aç</p>
+                <p className="text-sm font-semibold text-foreground">Sipariş ve ödül bildirimleri</p>
+                <p className="text-xs text-muted-foreground">Hazır olduğunda seni haberdar edelim</p>
               </div>
             </button>
           )}
           {loyalty?.pushStatus === "granted" && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-green-50 border border-green-200">
-              <Bell className="w-4 h-4 text-green-600 shrink-0" />
-              <p className="text-xs text-green-700 font-medium">✓ Bildirimler açık</p>
+            <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-muted/50 border border-border">
+              <Bell className="w-4 h-4 text-foreground shrink-0" />
+              <p className="text-xs text-muted-foreground font-medium">✓ Bildirimler açık</p>
             </div>
           )}
         </div>
 
-        {/* ── Sticky Footer CTA ── */}
+        {/* Sticky footer */}
         <div className="absolute bottom-0 inset-x-0 bg-background border-t px-5 py-4">
           <button
             type="button"
@@ -360,9 +285,8 @@ export function CoffeeClubPanel() {
   );
 }
 
-/* ─── Stamp Track (visual stamps) ─── */
+/* ─── Stamp Track ─── */
 function StampTrack({ current, target }: { current: number; target: number }) {
-  // Limit visual stamps to max 12 for layout; beyond that use a progress bar
   const useVisualStamps = target <= 12;
 
   if (!useVisualStamps) {
@@ -370,9 +294,7 @@ function StampTrack({ current, target }: { current: number; target: number }) {
     return (
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold text-foreground">
-            {current} / {target}
-          </p>
+          <p className="text-sm font-semibold text-foreground">{current} / {target}</p>
           <p className="text-xs text-muted-foreground">{percent}%</p>
         </div>
         <div className="h-3 rounded-full bg-muted overflow-hidden">
@@ -393,9 +315,7 @@ function StampTrack({ current, target }: { current: number; target: number }) {
           <div
             key={i}
             className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-all duration-300 ${
-              filled
-                ? "bg-primary/10 scale-100"
-                : "bg-muted scale-90 opacity-50"
+              filled ? "bg-primary/10 scale-100" : "bg-muted scale-90 opacity-50"
             }`}
           >
             {filled ? "☕" : "○"}
@@ -406,7 +326,6 @@ function StampTrack({ current, target }: { current: number; target: number }) {
   );
 }
 
-/* ─── Helpers ─── */
 function getExpiryText(expiresAt: string): string {
   const diff = new Date(expiresAt).getTime() - Date.now();
   if (diff <= 0) return "Süresi dolmuş";

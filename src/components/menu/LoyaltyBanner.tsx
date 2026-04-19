@@ -13,10 +13,30 @@ export function LoyaltyBanner() {
 
   if (!loyalty || loyalty.isLoading || !loyalty.progress) return null;
 
-  const { progress, reward, bonuses, upsell } = loyalty.progress;
+  const { progress, reward, bonuses, upsell, streak, inactivityBonus, secretReward } = loyalty.progress;
 
   // Don't show if target is 0 (program misconfigured)
   if (progress.target <= 0) return null;
+
+  // P1 — Endowed progress: first-visit banner when initial stamps were granted
+  // Fires once — confirmed === 0 means no order placed yet this session
+  if (progress.initial > 0 && progress.confirmed === 0) {
+    return (
+      <div className="max-w-[480px] mx-auto px-4 pt-3">
+        <div className="rounded-xl bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20 px-4 py-3 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🎁</span>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-foreground text-sm">Hoş geldiniz! {progress.initial} damgayla başladınız</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Sadece {progress.target - progress.initial} sipariş daha → {reward.type === "free_item" ? "ücretsiz kahve" : `%${reward.value} indirim`}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const progressInCycle = progress.current % progress.target;
   const fillPercent = Math.min(100, Math.round((progressInCycle / progress.target) * 100));
@@ -37,6 +57,26 @@ export function LoyaltyBanner() {
               <p className="text-xs text-amber-600 mt-0.5">{reward.message}</p>
               {expiryText && (
                 <p className="text-[10px] text-amber-500 mt-0.5">{expiryText}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Secret reward won → surprise banner (shown after reward ready, before near completion)
+  if (secretReward?.won) {
+    return (
+      <div className="max-w-[480px] mx-auto px-4 pt-3">
+        <div className="rounded-xl bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-300 shadow-md px-4 py-3 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🎁</span>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-violet-800 text-sm">Gizli Ödül Kazandın!</p>
+              <p className="text-xs text-violet-600 mt-0.5">%{secretReward.discountPercent} indirim · kahve kulübü paneline bak</p>
+              {secretReward.expiresAt && (
+                <p className="text-[10px] text-violet-400 mt-0.5">{getExpiryText(secretReward.expiresAt)}</p>
               )}
             </div>
           </div>
@@ -85,6 +125,19 @@ export function LoyaltyBanner() {
                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-semibold">
                   <Sparkles className="w-2.5 h-2.5" />
                   {bonuses.multiplier}x puan
+                </span>
+              )}
+              {/* Streak badge */}
+              {streak.active && (
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 text-[10px] font-semibold">
+                  <Flame className="w-2.5 h-2.5" />
+                  {streak.bonusMultiplier}x seri
+                </span>
+              )}
+              {/* Inactivity bonus badge */}
+              {inactivityBonus.active && (
+                <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-semibold">
+                  ⚡{inactivityBonus.multiplier}x geri dön
                 </span>
               )}
             </div>

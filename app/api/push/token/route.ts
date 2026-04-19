@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+// UUID v4 pattern — enforced to prevent arbitrary strings being stored as tokens
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function getServiceClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,6 +31,14 @@ export async function POST(req: NextRequest) {
         { error: "customerKey, restaurantId ve token gerekli" },
         { status: 400 }
       );
+    }
+
+    // Validate UUIDs and FCM token length to prevent abuse
+    if (!UUID_RE.test(customerKey) || !UUID_RE.test(restaurantId)) {
+      return NextResponse.json({ error: "Geçersiz kimlik" }, { status: 400 });
+    }
+    if (token.length < 32 || token.length > 512) {
+      return NextResponse.json({ error: "Geçersiz token" }, { status: 400 });
     }
 
     const supabase = getServiceClient();

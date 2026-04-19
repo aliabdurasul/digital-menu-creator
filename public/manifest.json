@@ -1,7 +1,7 @@
 {
-  "name": "Coffee Club — Sipariş ve Ödüller",
-  "short_name": "Coffee Club",
-  "description": "Hızlı sipariş ver, puan topla, bedava kahve kazan.",
+  "name": "Dijital Restoran Deneyimi",
+  "short_name": "Dijital Menü",
+  "description": "QR menü, masadan sipariş ve sadakat programı.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -25,9 +25,9 @@
   ],
   "shortcuts": [
     {
-      "name": "Coffee Club",
-      "short_name": "Club",
-      "description": "Coffee Club'u aç",
+      "name": "Menüye Git",
+      "short_name": "Menü",
+      "description": "Son ziyaret ettiğin restoranın menüsünü aç",
       "url": "/",
       "icons": [
         {

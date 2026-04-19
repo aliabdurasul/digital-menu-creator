@@ -66,6 +66,13 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
     const key = getOrCreateCustomerKey();
     setCustomerKey(key);
     void fetchProgress();
+    // Track last visited menu path for PWA start_url redirect
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname;
+      if (path.startsWith("/r/") || path.startsWith("/menu/")) {
+        localStorage.setItem("last_menu_path", path.startsWith("/menu/") ? path.replace("/menu/", "/r/") : path);
+      }
+    }
   }, [fetchProgress]);
 
   // Register FCM service worker on mount (does NOT request permission)
@@ -102,13 +109,15 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
   // Auto-trigger push sheet based on loyalty milestone (fires once after progress loads)
   useEffect(() => {
     if (!progress || pushStatus !== "idle") return;
-    if (progress.reward.ready) {
+    if (progress.secretReward?.won) {
+      triggerPushSheet("reward_ready");
+    } else if (progress.reward.ready) {
       triggerPushSheet("reward_ready");
     } else if (progress.bonuses.stampsAway <= 2 && progress.bonuses.stampsAway > 0) {
       triggerPushSheet("near_reward");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [progress?.reward.ready, progress?.bonuses.stampsAway, pushStatus]);
+  }, [progress?.reward.ready, progress?.bonuses.stampsAway, progress?.secretReward?.won, pushStatus]);
 
   /** Open push sheet — guards: pushStatus must be "idle", no active 24h snooze, sheet not already open. */
   const triggerPushSheet = useCallback(

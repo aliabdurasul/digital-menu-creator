@@ -75,7 +75,12 @@ export async function sendPush(
         fcmOptions: {
           link: payload.url || "/",
         },
+        // data keys must match what firebase-messaging-sw.js reads
+        // (title/body duplicated so SW background handler can render them
+        // without relying on notification object in all browser versions)
         data: {
+          title: payload.title,
+          body: payload.body,
           url: payload.url || "/",
           tag: payload.tag || "loyalty-notification",
         },

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { X, Plus, Minus, Trash2, CheckCircle2, Loader2, Bell, BellOff, Gift } from "lucide-react";
+import { X, Plus, Minus, Trash2, CheckCircle2, Loader2, Bell, Gift } from "lucide-react";
 import { useCart } from "@/components/menu/CartProvider";
 import { Button } from "@/components/ui/button";
 import { PhoneCapture, getCapturedPhone, getCapturedName } from "@/components/menu/PhoneCapture";
@@ -272,58 +272,29 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
 /* ─── Order Success Screen ─── */
 function OrderSuccessScreen({
   moduleType,
-  restaurantId,
-  onClose,
+  restaurantId: _restaurantId,
+  onClose: _onClose,
 }: {
   moduleType: string;
   restaurantId: string;
   onClose: () => void;
 }) {
   const [sessionCode, setSessionCode] = useState<string | null>(null);
-  const [notifPermission, setNotifPermission] = useState<string>("default");
+  const loyalty = useLoyalty();
   const isCafe = moduleType === "cafe";
 
   useEffect(() => {
     const sid = sessionStorage.getItem("session_id");
     setSessionCode(sid);
-
-    if ("Notification" in window) {
-      setNotifPermission(Notification.permission);
-    }
   }, []);
 
-  const handleEnableNotifications = useCallback(async () => {
-    if (!("Notification" in window)) return;
-    try {
-      const perm = await Notification.requestPermission();
-      setNotifPermission(perm);
-      if (perm === "granted") {
-        new Notification("Bildirimler Açıldı ✓", {
-          body: "Siparişiniz hazır olduğunda sizi bilgilendireceğiz.",
-          tag: "notif-test",
-        });
-        // Register FCM token so server-side push actually arrives
-        try {
-          const { getMessagingToken } = await import("@/lib/firebase-client");
-          const sw = await navigator.serviceWorker?.ready;
-          const token = await getMessagingToken(sw || undefined);
-          if (token) {
-            const { getOrCreateCustomerKey } = await import("@/lib/loyalty-client");
-            const customerKey = getOrCreateCustomerKey();
-            await fetch("/api/push/token", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ customerKey, restaurantId, token }),
-            });
-          }
-        } catch {
-          // Non-critical — FCM token registration failed
-        }
-      }
-    } catch {
-      // Permission request failed
-    }
-  }, [restaurantId]);
+  const pushStatus = loyalty?.pushStatus ?? "idle";
+  const progress = loyalty?.progress;
+  const rewardReady = progress?.reward.ready ?? false;
+  const progressInCycle = progress
+    ? progress.progress.current % progress.progress.target
+    : null;
+  const stampsAway = progress?.bonuses.stampsAway ?? null;
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
@@ -337,32 +308,55 @@ function OrderSuccessScreen({
       )}
       <p className="text-muted-foreground text-sm max-w-xs">
         {isCafe
-          ? "Siparişiniz baristaya iletildi. Hazır olduğunda bildirim alacaksınız. Self servis gelip almanız rica edilir."
+          ? "Siparişiniz baristaya iletildi. Self servis gelip almanız rica edilir."
           : "Siparişiniz mutfağa iletildi. Hazır olduğunda masanıza getirilecektir."}
       </p>
 
-      {isCafe && notifPermission === "default" && (
-        <button
-          type="button"
-          onClick={() => { void handleEnableNotifications(); }}
-          className="flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/20 px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
+      {/* C1 — Loyalty progress update (highest dopamine moment) */}
+      {progress && progressInCycle !== null && (
+        <div
+          className={`px-4 py-2.5 rounded-xl border text-center ${
+            rewardReady
+              ? "bg-amber-50 border-amber-200"
+              : "bg-primary/5 border-primary/20"
+          }`}
         >
-          <Bell className="w-4 h-4" />
-          Tarayıcı Bildirimini Aç
-        </button>
-      )}
-      {isCafe && notifPermission === "granted" && (
-        <p className="text-xs text-green-600 flex items-center gap-1">
-          <Bell className="w-3.5 h-3.5" /> Bildirim açık ✓ — sayfayı açık bırakın
-        </p>
-      )}
-      {isCafe && notifPermission === "denied" && (
-        <p className="text-xs text-destructive flex items-center gap-1">
-          <BellOff className="w-3.5 h-3.5" /> Bildirim engellendi — tarayıcı ayarlarından açabilirsiniz
-        </p>
+          {rewardReady ? (
+            <p className="text-sm font-bold text-amber-700">🎉 Ödül kazandınız!</p>
+          ) : (
+            <p className="text-sm font-semibold text-primary">
+              ☕ {progressInCycle}/{progress.progress.target}
+              {stampsAway !== null && stampsAway > 0 && (
+                <span className="text-xs font-normal text-muted-foreground ml-1">
+                  · {stampsAway} sipariş kaldı
+                </span>
+              )}
+            </p>
+          )}
+        </div>
       )}
 
-      <Button onClick={onClose} className="mt-2">Menüye Dön</Button>
+      {/* C3 — Upsell message from server */}
+      {progress?.upsell && (
+        <p className="text-xs text-muted-foreground italic">{progress.upsell.message}</p>
+      )}
+
+      {/* Push opt-in — uses canonical LoyaltyProvider flow */}
+      {isCafe && pushStatus === "idle" && (
+        <button
+          type="button"
+          onClick={() => loyalty?.triggerPushSheet("cart_add")}
+          className="flex items-center gap-2 rounded-xl bg-primary/10 border border-primary/20 px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors"
+        >
+          <Bell className="w-4 h-4" />
+          Hazır olunca bildir
+        </button>
+      )}
+      {isCafe && pushStatus === "granted" && (
+        <p className="text-xs text-green-600 flex items-center gap-1">
+          <Bell className="w-3.5 h-3.5" /> Bildirim açık ✓
+        </p>
+      )}
     </div>
   );
 }
@@ -371,33 +365,9 @@ function OrderSuccessScreen({
 function CartUpsell({ progress }: { progress: LoyaltyProgressResponse | null }) {
   if (!progress) return null;
 
-  const { stampsAway } = progress.bonuses;
+  const stampsAway = progress.bonuses.stampsAway;
   const rewardItem = progress.rewardItem;
-  const secretReward = progress.secretReward;
 
-  // Show "1 more order" nudge
-  if (stampsAway === 1 && !progress.reward.ready) {
-    return (
-      <div className="mx-5 mb-1 px-4 py-3 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 text-center">
-        <p className="text-sm font-semibold text-amber-700">
-          🎁 1 sipariş daha → <span className="text-amber-800">{rewardItem?.name || "ÜCRETSİZ kahve"}</span>!
-        </p>
-      </div>
-    );
-  }
-
-  // Show secret reward discount badge
-  if (secretReward?.won) {
-    return (
-      <div className="mx-5 mb-1 px-4 py-3 rounded-xl bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 text-center">
-        <p className="text-sm font-semibold text-violet-700">
-          🎁 Gizli ödülünüz aktif — %{secretReward.discountPercent} indirim!
-        </p>
-      </div>
-    );
-  }
-
-  // Show near-completion nudge (2-3 away)
   if (stampsAway <= 3 && stampsAway > 1 && !progress.reward.ready) {
     return (
       <div className="mx-5 mb-1 px-4 py-2.5 rounded-xl bg-blue-50 border border-blue-200 text-center">

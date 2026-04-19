@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLoyaltySnapshot } from "@/lib/loyalty";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * GET /api/loyalty/progress?restaurantId=xxx&customerKey=xxx
  * Public endpoint — returns loyalty progress for a customer_key.
@@ -17,12 +19,9 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Basic input validation
-  if (restaurantId.length > 50 || customerKey.length > 50) {
-    return NextResponse.json(
-      { error: "Geçersiz parametre" },
-      { status: 400 }
-    );
+  // Validate UUID format — prevents DB queries with arbitrary strings
+  if (!UUID_RE.test(restaurantId) || !UUID_RE.test(customerKey)) {
+    return NextResponse.json({ error: "Geçersiz kimlik formatı" }, { status: 400 });
   }
 
   try {
