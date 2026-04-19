@@ -13,40 +13,61 @@ import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 
 interface OrderingWrapperProps {
   restaurantId: string;
-  tableId: string;
+  /** Specific table for table-delivery orders. Omit for self-service (general route). */
+  tableId?: string;
   moduleType?: "cafe" | "restaurant";
+  /**
+   * When false, skips the internal LoyaltyProvider wrapper.
+   * Use this when a parent component already provides LoyaltyProvider.
+   * Defaults to true (table route behaviour — wraps its own loyalty context).
+   */
+  withLoyalty?: boolean;
   children: React.ReactNode;
 }
 
 /**
  * Wraps the menu in CartProvider + floating CartButton + CartDrawer.
- * Only mounted when the customer is on a table-specific URL.
+ * Supports both table-delivery (tableId present) and self-service (no tableId).
  */
-export function OrderingWrapper({ restaurantId, tableId, moduleType, children }: OrderingWrapperProps) {
+export function OrderingWrapper({ restaurantId, tableId, moduleType, withLoyalty = true, children }: OrderingWrapperProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [installSheetOpen, setInstallSheetOpen] = useState(false);
 
-  return (
-    <LoyaltyProvider restaurantId={restaurantId}>
-      <CartProvider tableId={tableId}>
-        {children}
-        <CartButton onClick={() => setDrawerOpen(true)} />
-        <CartDrawer
-          open={drawerOpen}
-          onClose={() => setDrawerOpen(false)}
-          restaurantId={restaurantId}
-          tableId={tableId}
-          moduleType={moduleType}
-        />
-        <OrderReadyWatcher moduleType={moduleType} />
-        <CoffeeClubPanel />
-        <CartPushTrigger onTriggerInstall={() => setInstallSheetOpen(true)} />
-        <PushPermissionSheet />
+  // Stable per-restaurant storage scope for self-service so the cart
+  // persists between navigations but never bleeds across tenants.
+  const cartScope = tableId ?? `self_${restaurantId}`;
+
+  const cartTree = (
+    <CartProvider tableId={cartScope}>
+      {children}
+      <CartButton onClick={() => setDrawerOpen(true)} />
+      <CartDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        restaurantId={restaurantId}
+        tableId={tableId}
+        moduleType={moduleType}
+      />
+      <OrderReadyWatcher moduleType={moduleType} />
+      {withLoyalty && <CoffeeClubPanel />}
+      {/* Install prompt only fires on the self-service route (no tableId). */}
+      {/* Showing it on a table QR would make the installed PWA open pinned to that table. */}
+      {!tableId && <CartPushTrigger onTriggerInstall={() => setInstallSheetOpen(true)} />}
+      {withLoyalty && <PushPermissionSheet />}
+      {!tableId && (
         <InstallPromptSheet
           open={installSheetOpen}
           onClose={() => setInstallSheetOpen(false)}
         />
-      </CartProvider>
+      )}
+    </CartProvider>
+  );
+
+  if (!withLoyalty) return cartTree;
+
+  return (
+    <LoyaltyProvider restaurantId={restaurantId}>
+      {cartTree}
     </LoyaltyProvider>
   );
 }

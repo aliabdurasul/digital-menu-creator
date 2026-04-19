@@ -42,7 +42,7 @@ export function AdminQRCode({ restaurant }: AdminQRCodeProps) {
     typeof window !== "undefined"
       ? window.location.origin
       : process.env.NEXT_PUBLIC_APP_URL || "https://lezzetiala.prestigeyazilim.app";
-  const publicUrl = `${appUrl}/menu/${restaurant.slug}`;
+  const publicUrl = `${appUrl}/r/${restaurant.slug}`;
 
   // ── Subscription check ──
   if (!restaurant.active) {
@@ -172,10 +172,10 @@ export function AdminQRCode({ restaurant }: AdminQRCodeProps) {
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
             <QrCode className="w-5 h-5 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">QR Kodunuz</h1>
+          <h1 className="text-2xl font-bold text-foreground">Self Servis QR</h1>
         </div>
         <p className="text-sm text-muted-foreground ml-[52px]">
-          Müşteriler bu kodu tarayarak dijital menünüzü anlık olarak görüntüleyebilir.
+          Müşteriler bu kodu tarayarak menüyü görüntüler ve self servis sipariş verebilir.
         </p>
       </div>
 

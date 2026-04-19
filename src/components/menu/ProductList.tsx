@@ -23,7 +23,9 @@ export function ProductList({ tableId }: { tableId?: string }) {
   const { restaurant, language } = useLanguage();
   const { products } = restaurant;
   const cartContext = useOptionalCart();
-  const cart = tableId ? cartContext : null;
+  // Show add-to-cart whenever a CartProvider is mounted above us,
+  // regardless of whether a tableId was passed (supports self-service route).
+  const cart = cartContext;
 
   const sortedCategories = useMemo(
     () => [...restaurant.categories].sort((a, b) => a.order - b.order),

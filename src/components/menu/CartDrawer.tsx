@@ -15,7 +15,8 @@ interface CartDrawerProps {
   open: boolean;
   onClose: () => void;
   restaurantId: string;
-  tableId: string;
+  /** Specific table for table-delivery. Undefined for self-service orders. */
+  tableId?: string;
   moduleType?: "cafe" | "restaurant";
 }
 

@@ -2,9 +2,11 @@ import { notFound } from "next/navigation";
 import { getRestaurantBySlug, getRestaurantBySlugTranslated } from "@/lib/db";
 import { MenuShell } from "@/components/menu/MenuShell";
 import { LoyaltyProvider } from "@/components/menu/LoyaltyProvider";
+import { OrderingWrapper } from "@/components/menu/OrderingWrapper";
 import { CoffeeClubPanel } from "@/components/loyalty/CoffeeClubPanel";
 import { PushPermissionSheet } from "@/components/loyalty/PushPermissionSheet";
 import { PublicInstallTrigger } from "@/components/loyalty/PublicInstallTrigger";
+import { canUseFeature } from "@/lib/features/engine";
 import { AlertTriangle } from "lucide-react";
 import type { Metadata, } from "next";
 import type { Restaurant } from "@/types";
@@ -94,9 +96,25 @@ export default async function MenuPage({ params }: MenuPageProps) {
       ? restaurantEn
       : null;
 
+  // Cafe tenants on the pro plan get self-service ordering on the general route.
+  // LoyaltyProvider is the parent so we pass withLoyalty={false} to avoid nesting.
+  const canOrder =
+    canUseFeature(restaurantTr.plan, "table_ordering") &&
+    restaurantTr.moduleType === "cafe";
+
   return (
     <LoyaltyProvider restaurantId={restaurantTr.id}>
-      <MenuShell restaurant={restaurantTr} restaurantEn={enData} />
+      {canOrder ? (
+        <OrderingWrapper
+          restaurantId={restaurantTr.id}
+          moduleType="cafe"
+          withLoyalty={false}
+        >
+          <MenuShell restaurant={restaurantTr} restaurantEn={enData} />
+        </OrderingWrapper>
+      ) : (
+        <MenuShell restaurant={restaurantTr} restaurantEn={enData} />
+      )}
       <CoffeeClubPanel />
       <PushPermissionSheet />
       <PublicInstallTrigger />

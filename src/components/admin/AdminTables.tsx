@@ -84,7 +84,7 @@ export function AdminTables({ restaurant }: AdminTablesProps) {
 
   const getTableUrl = (tableId: string) => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    return `${origin}/menu/${restaurant.slug}/table/${tableId}`;
+    return `${origin}/r/${restaurant.slug}/table/${tableId}`;
   };
 
   const copyUrl = (tableId: string) => {

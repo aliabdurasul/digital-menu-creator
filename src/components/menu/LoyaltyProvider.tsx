@@ -66,11 +66,16 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
     const key = getOrCreateCustomerKey();
     setCustomerKey(key);
     void fetchProgress();
-    // Track last visited menu path for PWA start_url redirect
+    // Track last visited menu path for PWA start_url redirect.
+    // Always persist the restaurant root — never a table path — so the
+    // installed app always opens into self-service ordering, not a pinned table.
     if (typeof window !== "undefined") {
       const path = window.location.pathname;
       if (path.startsWith("/r/") || path.startsWith("/menu/")) {
-        localStorage.setItem("last_menu_path", path.startsWith("/menu/") ? path.replace("/menu/", "/r/") : path);
+        const canonical = path.startsWith("/menu/") ? path.replace("/menu/", "/r/") : path;
+        // Strip /table/... suffix so a QR scan doesn't permanently pin the PWA to a table.
+        const basePath = canonical.replace(/\/table\/[^/]+.*$/, "");
+        localStorage.setItem("last_menu_path", basePath);
       }
     }
   }, [fetchProgress]);
