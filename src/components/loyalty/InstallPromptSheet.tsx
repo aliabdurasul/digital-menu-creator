@@ -144,17 +144,17 @@ function MainPrompt({
           <span className="text-3xl">☕</span>
         </div>
         <h2 className="text-[17px] font-bold text-foreground mb-1.5">
-          ☕ Coffee Club'a Katıl
+          Coffee Club'u Ekle
         </h2>
         <p className="text-sm text-muted-foreground">
-          Puanlarını kaybetme, bedava kahve kazan
+          Ana ekrana ekle, sipariş hazır bildirimini kaçırma.
         </p>
       </div>
 
       {/* Benefits */}
       <div className="space-y-2.5 mb-6">
         {([
-          { icon: "🎁", text: "Bedava kahve kazandığında hemen haber al" },
+          { icon: "🎁", text: "Siparişin hazır olduğunda hemen haber al" },
           { icon: "⚡", text: "1 dokunuşla sipariş — bekleme yok" },
           { icon: "☕", text: "Puanların kaybolmaz, her geldiğinde devam et" },
         ] as const).map((b) => (

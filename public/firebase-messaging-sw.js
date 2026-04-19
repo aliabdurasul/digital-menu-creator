@@ -23,9 +23,9 @@ messaging.onBackgroundMessage((payload) => {
   const data = payload.data || {};
   const notification = payload.notification || {};
 
-  const title = notification.title || data.title || "Seni özledik! ☕";
+  const title = data.title || notification.title || "Seni özledik! ☕";
   const options = {
-    body: notification.body || data.body || "Bugün gel, 2x kahve kazan!",
+    body: data.body || notification.body || "Bugün gel, 2x kahve kazan!",
     icon: data.icon || "/favicon.svg",
     badge: "/favicon.svg",
     tag: data.tag || "loyalty-notification",

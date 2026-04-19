@@ -62,25 +62,17 @@ export async function sendPush(
 
     await messaging.send({
       token: tokenRow.token,
-      notification: {
-        title: payload.title,
-        body: payload.body,
-      },
+      // firebase-messaging-sw.js is the single renderer for web push notifications.
+      // Omitting top-level notification + webpush.notification prevents browsers from
+      // showing duplicate alerts or triggering "possible spam detected" heuristics.
       webpush: {
-        notification: {
-          icon: payload.icon || "/favicon.svg",
-          badge: "/favicon.svg",
-          tag: payload.tag || "loyalty-notification",
-        },
         fcmOptions: {
           link: payload.url || "/",
         },
-        // data keys must match what firebase-messaging-sw.js reads
-        // (title/body duplicated so SW background handler can render them
-        // without relying on notification object in all browser versions)
         data: {
           title: payload.title,
           body: payload.body,
+          icon: payload.icon || "/favicon.svg",
           url: payload.url || "/",
           tag: payload.tag || "loyalty-notification",
         },
@@ -124,22 +116,15 @@ export async function sendPushDirect(
     const messaging = getAdminMessaging();
     await messaging.send({
       token,
-      notification: {
-        title: payload.title,
-        body: payload.body,
-      },
+      // firebase-messaging-sw.js is the single renderer for web push notifications.
       webpush: {
-        notification: {
-          icon: payload.icon || "/favicon.svg",
-          badge: "/favicon.svg",
-          tag: payload.tag || "push-welcome",
-        },
         fcmOptions: {
           link: payload.url || "/",
         },
         data: {
           title: payload.title,
           body: payload.body,
+          icon: payload.icon || "/favicon.svg",
           url: payload.url || "/",
           tag: payload.tag || "push-welcome",
         },

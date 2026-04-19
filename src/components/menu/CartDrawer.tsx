@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { X, Plus, Minus, Trash2, CheckCircle2, Loader2, Bell, Gift } from "lucide-react";
+import { X, Plus, Minus, Trash2, CheckCircle2, Loader2, Bell, Gift, Smartphone } from "lucide-react";
 import { useCart } from "@/components/menu/CartProvider";
 import { Button } from "@/components/ui/button";
 import { PhoneCapture, getCapturedPhone, getCapturedName } from "@/components/menu/PhoneCapture";
@@ -10,6 +10,8 @@ import { generateCafeSessionCode } from "@/lib/utils";
 import { getOrCreateCustomerKey } from "@/lib/loyalty-client";
 import { useLoyalty } from "@/components/menu/LoyaltyProvider";
 import type { LoyaltyProgressResponse } from "@/types";
+import { useInstallPrompt } from "@/hooks/useInstallPrompt";
+import { InstallPromptSheet } from "@/components/loyalty/InstallPromptSheet";
 
 interface CartDrawerProps {
   open: boolean;
@@ -281,7 +283,9 @@ function OrderSuccessScreen({
   onClose: () => void;
 }) {
   const [sessionCode, setSessionCode] = useState<string | null>(null);
+  const [installOpen, setInstallOpen] = useState(false);
   const loyalty = useLoyalty();
+  const { canInstall } = useInstallPrompt();
   const isCafe = moduleType === "cafe";
 
   useEffect(() => {
@@ -346,7 +350,7 @@ function OrderSuccessScreen({
       {isCafe && pushStatus === "idle" && (
         <button
           type="button"
-          onClick={() => loyalty?.triggerPushSheet("cart_add")}
+          onClick={() => loyalty?.triggerPushSheet("manual")}
           className="flex items-center gap-2 rounded-xl bg-primary/10 border border-primary/20 px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/20 transition-colors"
         >
           <Bell className="w-4 h-4" />
@@ -358,6 +362,18 @@ function OrderSuccessScreen({
           <Bell className="w-3.5 h-3.5" /> Bildirim açık ✓
         </p>
       )}
+      {/* Install CTA — surface for users who haven't installed the PWA yet */}
+      {isCafe && canInstall && (
+        <button
+          type="button"
+          onClick={() => setInstallOpen(true)}
+          className="flex items-center gap-2 rounded-xl bg-muted border border-border px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted/80 transition-colors"
+        >
+          <Smartphone className="w-4 h-4" />
+          Coffee Club'u Ana Ekrana Ekle
+        </button>
+      )}
+      <InstallPromptSheet open={installOpen} onClose={() => setInstallOpen(false)} />
     </div>
   );
 }
