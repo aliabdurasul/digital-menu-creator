@@ -26,7 +26,7 @@ export async function processInactivityPush(): Promise<{
   // Get all active loyalty programs with inactivity trigger enabled
   const { data: programs } = await supabase
     .from("loyalty_programs")
-    .select("id, restaurant_id, inactivity_trigger_days, inactivity_bonus_multiplier")
+    .select("id, restaurant_id, inactivity_trigger_days, inactivity_bonus_multiplier, restaurants(slug)")
     .eq("enabled", true)
     .gt("inactivity_trigger_days", 0);
 
@@ -57,11 +57,15 @@ export async function processInactivityPush(): Promise<{
 
     for (const row of staleProgress) {
       const bonus = program.inactivity_bonus_multiplier || 2;
+      const slug = (program as Record<string, unknown>).restaurants
+        ? ((program as Record<string, unknown>).restaurants as { slug?: string })?.slug
+        : undefined;
+      const menuUrl = slug ? `/r/${slug}` : `/r/${program.restaurant_id}`;
       const ok = await sendPush(row.customer_key, program.restaurant_id, {
         title: "Seni Özledik! ☕",
         body: `Gel, ${bonus}x puan kazan! Bonusun seni bekliyor.`,
         tag: "loyalty-inactivity",
-        url: `/menu/${program.restaurant_id}`,
+        url: menuUrl,
       });
 
       if (ok) {

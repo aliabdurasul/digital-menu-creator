@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { Gift, ShoppingBag, ChevronDown, Bell, Flame, Zap } from "lucide-react";
+import { Gift, ShoppingBag, ChevronDown, Bell, Flame, Zap, Smartphone } from "lucide-react";
 import { useLoyalty } from "@/components/menu/LoyaltyProvider";
 import { useCart } from "@/components/menu/CartProvider";
+import { useInstallPrompt } from "@/hooks/useInstallPrompt";
+import { InstallPromptSheet } from "@/components/loyalty/InstallPromptSheet";
 
 function useOptionalCart() {
   try {
@@ -267,6 +269,9 @@ export function CoffeeClubPanel() {
               <p className="text-xs text-muted-foreground font-medium">✓ Bildirimler açık</p>
             </div>
           )}
+
+          {/* Install app CTA — only when installable and not yet installed */}
+          <InstallCTA />
         </div>
 
         {/* Sticky footer */}
@@ -282,6 +287,44 @@ export function CoffeeClubPanel() {
         </div>
       </div>
     </div>
+  );
+}
+
+/* ─── Install CTA ─── */
+function InstallCTA() {
+  const { canInstall, isInstalled, triggerInstall } = useInstallPrompt();
+  const [installSheetOpen, setInstallSheetOpen] = useState(false);
+
+  // Also detect iOS non-standalone for manual install guide
+  const needsManualIOS =
+    typeof navigator !== "undefined" &&
+    /iphone|ipad|ipod/i.test(navigator.userAgent) &&
+    typeof window !== "undefined" &&
+    !window.matchMedia("(display-mode: standalone)").matches &&
+    !(window.navigator as { standalone?: boolean }).standalone;
+
+  if (isInstalled || (!canInstall && !needsManualIOS)) return null;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setInstallSheetOpen(true)}
+        className="w-full flex items-center gap-3 p-4 rounded-xl border border-border hover:bg-muted/60 transition-colors text-left active:scale-[0.98]"
+      >
+        <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0">
+          <Smartphone className="w-4 h-4 text-foreground" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-foreground">Uygulamayı Yükle</p>
+          <p className="text-xs text-muted-foreground">Ana ekrana ekle, daha hızlı eriş</p>
+        </div>
+      </button>
+      <InstallPromptSheet
+        open={installSheetOpen}
+        onClose={() => setInstallSheetOpen(false)}
+      />
+    </>
   );
 }
 

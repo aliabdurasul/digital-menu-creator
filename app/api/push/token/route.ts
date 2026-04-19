@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { sendPushDirect } from "@/lib/push";
 
 // UUID v4 pattern — enforced to prevent arbitrary strings being stored as tokens
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -20,10 +21,11 @@ function getServiceClient() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { customerKey, restaurantId, token } = body as {
+    const { customerKey, restaurantId, token, sendWelcome } = body as {
       customerKey?: string;
       restaurantId?: string;
       token?: string;
+      sendWelcome?: boolean;
     };
 
     if (!customerKey || !restaurantId || !token) {
@@ -62,6 +64,15 @@ export async function POST(req: NextRequest) {
         { error: "Token kaydedilemedi" },
         { status: 500 }
       );
+    }
+
+    // Send welcome push to confirm notifications work (non-blocking)
+    if (sendWelcome && token) {
+      sendPushDirect(token, {
+        title: "Bildirimler Açık! 🔔",
+        body: "Siparişin hazır olduğunda seni haberdar edeceğiz.",
+        tag: "push-welcome",
+      }).catch(() => {/* non-critical */});
     }
 
     return NextResponse.json({ success: true });

@@ -119,13 +119,16 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [progress?.reward.ready, progress?.bonuses.stampsAway, progress?.secretReward?.won, pushStatus]);
 
-  /** Open push sheet — guards: pushStatus must be "idle", no active 24h snooze, sheet not already open. */
+  /** Open push sheet — guards: pushStatus must be "idle", no active 24h snooze, sheet not already open. Manual reason bypasses snooze. */
   const triggerPushSheet = useCallback(
     (reason: "cart_add" | "near_reward" | "reward_ready" | "manual") => {
       if (typeof window === "undefined") return;
       if (pushStatus !== "idle" || pushSheetOpen) return;
-      const snoozed = localStorage.getItem("push_prompt_snoozed");
-      if (snoozed && Date.now() < new Date(snoozed).getTime() + 24 * 60 * 60 * 1000) return;
+      // Manual tap is explicit user intent — skip snooze guard
+      if (reason !== "manual") {
+        const snoozed = localStorage.getItem("push_prompt_snoozed");
+        if (snoozed && Date.now() < new Date(snoozed).getTime() + 24 * 60 * 60 * 1000) return;
+      }
       setPushSheetReason(reason);
       setPushSheetOpen(true);
     },
@@ -171,7 +174,7 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
         await fetch("/api/push/token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ customerKey, restaurantId, token }),
+          body: JSON.stringify({ customerKey, restaurantId, token, sendWelcome: true }),
         });
       }
     } catch {

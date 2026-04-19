@@ -20,6 +20,12 @@ export async function generateMetadata({ params }: TableMenuPageProps): Promise<
   return {
     title: `${restaurant.name} — Sipariş Ver`,
     description: `${restaurant.name} masadan sipariş verin.`,
+    manifest: `/api/manifest/${params.slug}`,
+    appleWebApp: {
+      capable: true,
+      title: restaurant.name,
+      statusBarStyle: "black-translucent",
+    },
   };
 }
 

@@ -136,13 +136,23 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
-      // Check reward_ready in DB
-      const { data: custProgress } = await supabase
-        .from("loyalty_customers")
-        .select("reward_ready")
+      // Look up active loyalty program for this restaurant
+      const { data: activeProgram } = await supabase
+        .from("loyalty_programs")
+        .select("id")
         .eq("restaurant_id", restaurantId)
-        .eq("customer_key", customerKey)
+        .eq("enabled", true)
         .single();
+
+      // Check reward_ready in loyalty_progress (matches consumeReward pattern)
+      const { data: custProgress } = activeProgram
+        ? await supabase
+            .from("loyalty_progress")
+            .select("reward_ready")
+            .eq("program_id", activeProgram.id)
+            .eq("customer_key", customerKey)
+            .single()
+        : { data: null };
 
       if (!custProgress?.reward_ready) {
         return NextResponse.json(

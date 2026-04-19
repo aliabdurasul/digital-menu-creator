@@ -20,6 +20,17 @@ function getServiceClient() {
   return createClient(url, key);
 }
 
+/** Resolve restaurant slug for push notification URLs. Falls back to restaurant ID. */
+async function getMenuUrl(restaurantId: string): Promise<string> {
+  const supabase = getServiceClient();
+  const { data } = await supabase
+    .from("restaurants")
+    .select("slug")
+    .eq("id", restaurantId)
+    .single();
+  return data?.slug ? `/r/${data.slug}` : `/r/${restaurantId}`;
+}
+
 /* ─── Helpers ─── */
 
 /** Check if current time falls within the program's happy hour window. */
@@ -676,12 +687,14 @@ export async function addPendingProgress(
 
   // 6b. Push notification: near completion (1 stamp away)
   if (stampsAway === 1 && !earnedNewReward) {
-    sendPush(customerKey, restaurantId, {
-      title: "1 Kahve Kaldı! ☕",
-      body: "Bir sonraki kahvende ödülünü kazan!",
-      tag: "loyalty-near-completion",
-      url: `/menu/${restaurantId}`,
-    }).catch((err) => console.error("[loyalty] Near-completion push failed:", err));
+    getMenuUrl(restaurantId).then((menuUrl) =>
+      sendPush(customerKey, restaurantId, {
+        title: "1 Kahve Kaldı! ☕",
+        body: "Bir sonraki kahvende ödülünü kazan!",
+        tag: "loyalty-near-completion",
+        url: menuUrl,
+      })
+    ).catch((err) => console.error("[loyalty] Near-completion push failed:", err));
   }
 
   await supabase
@@ -799,15 +812,17 @@ export async function confirmProgress(
     }
 
     // Push notification: reward earned
-    sendPush(customerKey, restaurantId, {
-      title: "Ödülünüz Hazır! 🎁",
-      body: renderTemplate(program.message_template, {
-        threshold: program.target_count,
-        reward: getRewardLabel(program as DbLoyaltyProgram),
-      }),
-      tag: "loyalty-reward",
-      url: `/menu/${restaurantId}`,
-    }).catch((err) => console.error("[loyalty] Reward push failed:", err));
+    getMenuUrl(restaurantId).then((menuUrl) =>
+      sendPush(customerKey, restaurantId, {
+        title: "Ödülünüz Hazır! 🎁",
+        body: renderTemplate(program.message_template, {
+          threshold: program.target_count,
+          reward: getRewardLabel(program as DbLoyaltyProgram),
+        }),
+        tag: "loyalty-reward",
+        url: menuUrl,
+      })
+    ).catch((err) => console.error("[loyalty] Reward push failed:", err));
   }
 
   // Update order columns for Realtime

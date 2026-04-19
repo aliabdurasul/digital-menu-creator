@@ -4,6 +4,7 @@ import { MenuShell } from "@/components/menu/MenuShell";
 import { LoyaltyProvider } from "@/components/menu/LoyaltyProvider";
 import { CoffeeClubPanel } from "@/components/loyalty/CoffeeClubPanel";
 import { PushPermissionSheet } from "@/components/loyalty/PushPermissionSheet";
+import { PublicInstallTrigger } from "@/components/loyalty/PublicInstallTrigger";
 import { AlertTriangle } from "lucide-react";
 import type { Metadata, } from "next";
 import type { Restaurant } from "@/types";
@@ -28,6 +29,12 @@ export async function generateMetadata({
   return {
     title: `${restaurant.name} — Dijital Menü`,
     description: `${restaurant.name} dijital menüsünü görüntüleyin. Kategorilere göz atın, fiyatları görün.`,
+    manifest: `/api/manifest/${params.slug}`,
+    appleWebApp: {
+      capable: true,
+      title: restaurant.name,
+      statusBarStyle: "black-translucent",
+    },
     openGraph: {
       title: `${restaurant.name} — Dijital Menü`,
       description: `${restaurant.name} dijital menüsünü görüntüleyin`,
@@ -92,6 +99,7 @@ export default async function MenuPage({ params }: MenuPageProps) {
       <MenuShell restaurant={restaurantTr} restaurantEn={enData} />
       <CoffeeClubPanel />
       <PushPermissionSheet />
+      <PublicInstallTrigger />
     </LoyaltyProvider>
   );
 }

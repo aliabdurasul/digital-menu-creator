@@ -111,3 +111,43 @@ export async function sendPush(
     return false;
   }
 }
+
+/**
+ * Send a push notification directly to a known FCM token.
+ * Used when we already have the token (e.g. welcome push after token registration).
+ */
+export async function sendPushDirect(
+  token: string,
+  payload: PushPayload
+): Promise<boolean> {
+  try {
+    const messaging = getAdminMessaging();
+    await messaging.send({
+      token,
+      notification: {
+        title: payload.title,
+        body: payload.body,
+      },
+      webpush: {
+        notification: {
+          icon: payload.icon || "/favicon.svg",
+          badge: "/favicon.svg",
+          tag: payload.tag || "push-welcome",
+        },
+        fcmOptions: {
+          link: payload.url || "/",
+        },
+        data: {
+          title: payload.title,
+          body: payload.body,
+          url: payload.url || "/",
+          tag: payload.tag || "push-welcome",
+        },
+      },
+    });
+    return true;
+  } catch (err) {
+    console.error("[push] Direct send failed:", err);
+    return false;
+  }
+}

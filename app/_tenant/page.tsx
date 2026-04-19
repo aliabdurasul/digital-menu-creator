@@ -5,11 +5,31 @@ import { MenuShell } from "@/components/menu/MenuShell";
 import { LoyaltyProvider } from "@/components/menu/LoyaltyProvider";
 import { CoffeeClubPanel } from "@/components/loyalty/CoffeeClubPanel";
 import { PushPermissionSheet } from "@/components/loyalty/PushPermissionSheet";
+import { PublicInstallTrigger } from "@/components/loyalty/PublicInstallTrigger";
 import { AlertTriangle } from "lucide-react";
+import type { Metadata } from "next";
 import type { Restaurant } from "@/types";
 
 /** ISR — regenerate every 60 seconds */
 export const revalidate = 60;
+
+/** Dynamic metadata for tenant pages — tenant-specific manifest + apple web app title */
+export async function generateMetadata(): Promise<Metadata> {
+  const tenant = await getTenantFromHeaders();
+  if (!tenant?.slug) return { title: "Menü" };
+  const restaurant = await getRestaurantBySlug(tenant.slug);
+  if (!restaurant) return { title: "Menü Bulunamadı" };
+  return {
+    title: `${restaurant.name} — Dijital Menü`,
+    description: `${restaurant.name} dijital menüsünü görüntüleyin.`,
+    manifest: `/api/manifest/${tenant.slug}`,
+    appleWebApp: {
+      capable: true,
+      title: restaurant.name,
+      statusBarStyle: "black-translucent",
+    },
+  };
+}
 
 function hasEnglishContent(tr: Restaurant, en: Restaurant): boolean {
   if (tr.name !== en.name || tr.description !== en.description) return true;
@@ -67,6 +87,7 @@ export default async function TenantPage() {
       <MenuShell restaurant={restaurantTr} restaurantEn={enData} />
       <CoffeeClubPanel />
       <PushPermissionSheet />
+      <PublicInstallTrigger />
     </LoyaltyProvider>
   );
 }
