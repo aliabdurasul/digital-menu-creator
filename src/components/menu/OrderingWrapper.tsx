@@ -84,23 +84,11 @@ function CartPushTrigger({ onTriggerInstall }: { onTriggerInstall: () => void })
   const { canInstall } = useInstallPrompt();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Push sheet: fires once per session on first item add
-  useEffect(() => {
-    if (items.length !== 1) return;
-    if (typeof window !== "undefined" && sessionStorage.getItem("push_cart_triggered")) return;
-
-    timerRef.current = setTimeout(() => {
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem("push_cart_triggered", "1");
-      }
-      loyalty?.triggerPushSheet("cart_add");
-    }, 1500);
-
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items.length]);
+  // Push prompt is ONLY shown via explicit user taps:
+  // - "Hazır olunca bildir" button on the order success screen
+  // - Bell icon in CoffeeClubPanel
+  // Automatic cart-add trigger removed to avoid Chrome spam classification.
+  // See: https://developer.chrome.com/blog/notification-permission-recommendations
 
   // Detect iOS non-standalone for manual install prompt
   const isIOS =

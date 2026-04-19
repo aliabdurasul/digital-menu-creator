@@ -111,18 +111,9 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
     })();
   }, [restaurantId, customerKey]);
 
-  // Auto-trigger push sheet based on loyalty milestone (fires once after progress loads)
-  useEffect(() => {
-    if (!progress || pushStatus !== "idle") return;
-    if (progress.secretReward?.won) {
-      triggerPushSheet("reward_ready");
-    } else if (progress.reward.ready) {
-      triggerPushSheet("reward_ready");
-    } else if (progress.bonuses.stampsAway <= 2 && progress.bonuses.stampsAway > 0) {
-      triggerPushSheet("near_reward");
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [progress?.reward.ready, progress?.bonuses.stampsAway, progress?.secretReward?.won, pushStatus]);
+  // Loyalty milestone auto-triggers removed to prevent Chrome spam classification.
+  // Push prompt is now only triggered by explicit user taps
+  // ("Hazır olunca bildir" button, CoffeeClubPanel bell icon).
 
   /** Open push sheet — guards: pushStatus must be "idle", no active 24h snooze, sheet not already open. Manual reason bypasses snooze. */
   const triggerPushSheet = useCallback(

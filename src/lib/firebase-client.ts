@@ -62,23 +62,6 @@ export async function getMessagingToken(
   }
 }
 
-/**
- * Request notification permission AND get FCM token.
- * Returns token string on success, null on failure/denial.
- * NOTE: Call from a user-gesture handler OR when permission is already "granted".
- */
-export async function requestNotificationPermission(
-  swRegistration?: ServiceWorkerRegistration
-): Promise<string | null> {
-  try {
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") {
-      console.log("[firebase-client] Notification permission denied");
-      return null;
-    }
-    return getMessagingToken(swRegistration);
-  } catch (err) {
-    console.error("[firebase-client] Failed to get FCM token:", err);
-    return null;
-  }
-}
+// requestNotificationPermission removed — permission is now requested inline
+// in LoyaltyProvider.requestPushPermission() to keep the user-gesture chain
+// intact (dynamic import + requestPermission breaks the gesture in some browsers).
