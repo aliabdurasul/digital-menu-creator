@@ -1,49 +1,66 @@
-// Firebase Cloud Messaging service worker (background message handler).
-// This file MUST live at the root of the public/ directory.
-// It handles push notifications when the app tab is not focused.
+// Push notification service worker.
+// Uses the native Web Push API — no Firebase compat SDK.
+//
+// WHY: firebase-messaging-compat.js intercepts the native push event via an
+// internal opaque handler before any JS code runs. Chrome's spam heuristic
+// activates when SW notification rendering is non-transparent, showing:
+//   "This site may be sending spam notifications"
+// A plain push listener gives Chrome exactly one transparent path:
+//   push event → showNotification() → Chrome trusts it.
+//
+// TOKEN MANAGEMENT: firebase-client.ts calls getToken() from firebase/messaging
+// (modular SDK, browser-side only) with serviceWorkerRegistration pointing here.
+// The SW itself never needs the Firebase SDK for token management to work.
 
-/* eslint-disable no-undef */
-importScripts("https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js");
-importScripts("https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging-compat.js");
+"use strict";
 
-// Public Firebase config (safe to expose — these are client-side keys)
-firebase.initializeApp({
-  apiKey: "AIzaSyD04KqRroeIP0pj0AFLhMWpwMenlWxE4rA",
-  authDomain: "digital-menu-loyalty.firebaseapp.com",
-  projectId: "digital-menu-loyalty",
-  storageBucket: "digital-menu-loyalty.firebasestorage.app",
-  messagingSenderId: "1016388652386",
-  appId: "1:1016388652386:web:f0f24b9c7f27b4d5abb03b",
+// Take control of all open tabs immediately on SW update.
+// Without this, users stay on the previous SW until they close all tabs.
+self.addEventListener("install", (event) => {
+  event.waitUntil(self.skipWaiting());
 });
 
-const messaging = firebase.messaging();
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
+});
 
-// Handle background push messages (tab not focused)
-messaging.onBackgroundMessage((payload) => {
-  const data = payload.data || {};
-  const notification = payload.notification || {};
+// Handle background push messages (tab not focused).
+// FCM sends data-only webpush payloads; fields are nested under `data`.
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
 
-  const title = data.title || notification.title || "Seni özledik! ☕";
+  let raw;
+  try {
+    raw = event.data.json();
+  } catch {
+    return; // Malformed payload — ignore silently
+  }
+
+  // FCM data-only webpush: fields under `data`. Guard `notification` for legacy.
+  const d = raw.data || {};
+  const n = raw.notification || {};
+
+  const title = d.title || n.title || "Bildirim";
   const options = {
-    body: data.body || notification.body || "Bugün gel, 2x kahve kazan!",
-    icon: data.icon || "/favicon.svg",
+    body: d.body || n.body || "",
+    icon: d.icon || "/favicon.svg",
     badge: "/favicon.svg",
-    tag: data.tag || "loyalty-notification",
-    data: { url: data.url || "/" },
-    vibrate: [200, 100, 200],
+    tag: d.tag || "loyalty-notification",
+    data: { url: d.url || "/" },
+    vibrate: [100, 50, 100],
     actions: [{ action: "open", title: "Menüyü Aç" }],
   };
 
-  return self.registration.showNotification(title, options);
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
-// Handle notification clicks — focus existing tab or open new one
+// Handle notification click — focus existing tab or open new one.
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const url = event.notification.data?.url || "/";
 
   event.waitUntil(
-    clients
+    self.clients
       .matchAll({ type: "window", includeUncontrolled: true })
       .then((windowClients) => {
         for (const client of windowClients) {
@@ -51,7 +68,7 @@ self.addEventListener("notificationclick", (event) => {
             return client.focus();
           }
         }
-        return clients.openWindow(url);
+        return self.clients.openWindow(url);
       })
   );
 });
