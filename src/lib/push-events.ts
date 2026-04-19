@@ -270,17 +270,19 @@ async function logEvent(
   status: "sent" | "throttled" | "failed",
   reason?: string
 ): Promise<void> {
-  await supabase.from("push_events").insert({
-    event_type: event.type,
-    customer_key: event.customerKey,
-    restaurant_id: event.restaurantId,
-    status,
-    reason: reason || null,
-    meta: event.meta || {},
-    created_at: new Date().toISOString(),
-  }).then(() => {}).catch((err) => {
+  try {
+    await supabase.from("push_events").insert({
+      event_type: event.type,
+      customer_key: event.customerKey,
+      restaurant_id: event.restaurantId,
+      status,
+      reason: reason || null,
+      meta: event.meta || {},
+      created_at: new Date().toISOString(),
+    });
+  } catch (err) {
     console.error("[push-events] Failed to log event:", err);
-  });
+  }
 }
 
 /* ──────────────────────────────────────────────────────────── */
