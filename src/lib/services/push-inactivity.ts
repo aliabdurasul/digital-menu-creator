@@ -7,7 +7,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import { sendPush } from "@/lib/push";
+import { emitPushEvent } from "@/lib/push-events";
 
 function getServiceClient() {
   return createClient(
@@ -61,12 +61,16 @@ export async function processInactivityPush(): Promise<{
         ? ((program as Record<string, unknown>).restaurants as { slug?: string })?.slug
         : undefined;
       const menuUrl = slug ? `/r/${slug}` : `/r/${program.restaurant_id}`;
-      const ok = await sendPush(row.customer_key, program.restaurant_id, {
-        title: "Seni Özledik! ☕",
-        body: `Gel, ${bonus}x puan kazan! Bonusun seni bekliyor.`,
-        tag: "loyalty-inactivity",
-        url: menuUrl,
+      const result = await emitPushEvent({
+        type: "inactivity_comeback",
+        customerKey: row.customer_key,
+        restaurantId: program.restaurant_id,
+        meta: {
+          menuUrl,
+          bonusText: `Gel, ${bonus}x puan kazan! Bonusun seni bekliyor.`,
+        },
       });
+      const ok = result.sent;
 
       if (ok) {
         sent++;

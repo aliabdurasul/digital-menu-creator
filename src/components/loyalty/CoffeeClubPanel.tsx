@@ -186,7 +186,7 @@ export function CoffeeClubPanel() {
                     <span className="text-white/90">🎯</span>
                     <p className="text-sm text-white/90">
                       {rewardReady ? (
-                        <span className="font-bold text-[#C89B3C]">🎉 Ödülünüz Hazır!</span>
+                        <span className="font-bold text-[#C89B3C]">🔓 Ödül Kilidi Açıldı!</span>
                       ) : (
                         <>
                           <span className="font-bold text-white">{stampsAway} sipariş</span>
@@ -223,7 +223,7 @@ export function CoffeeClubPanel() {
                 <StampTrack current={current} target={target} rewardReady={rewardReady} />
                 <div className="text-center mt-3">
                   {rewardReady ? (
-                    <p className="text-sm font-bold text-[#C89B3C]">🎉 Hediyenizi almayı unutmayın!</p>
+                    <p className="text-sm font-bold text-[#C89B3C]">🔓 İstediğin zaman kullanabilirsin!</p>
                   ) : (
                     <p className="text-xs text-[#6B4226]/50">
                       <span className="font-bold text-[#6B4226]">{stampsAway}</span> sipariş sonra →{" "}
@@ -359,7 +359,7 @@ export function CoffeeClubPanel() {
                 <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 space-y-4 shadow-sm">
                   <div className="flex items-center gap-2">
                     <Trophy className="w-5 h-5 text-[#C89B3C]" />
-                    <h3 className="font-bold text-[#6B4226]">Ödülünüz Hazır!</h3>
+                    <h3 className="font-bold text-[#6B4226]">🔓 Ödül Kilidi Açıldı!</h3>
                   </div>
                   <div className="flex items-center gap-4 bg-white rounded-xl p-3 border border-amber-100 shadow-sm">
                     {rewardItem.image ? (

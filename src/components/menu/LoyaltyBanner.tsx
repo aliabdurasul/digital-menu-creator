@@ -53,8 +53,8 @@ export function LoyaltyBanner() {
               <Gift className="w-5 h-5 text-amber-600 animate-bounce" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-amber-800 text-sm">🎁 Ödülünüz Hazır!</p>
-              <p className="text-xs text-amber-600 mt-0.5">{reward.message}</p>
+              <p className="font-bold text-amber-800 text-sm">🔓 Ödül Kilidi Açıldı!</p>
+              <p className="text-xs text-amber-600 mt-0.5">İstediğin zaman kullanabilirsin</p>
               {expiryText && (
                 <p className="text-[10px] text-amber-500 mt-0.5">{expiryText}</p>
               )}

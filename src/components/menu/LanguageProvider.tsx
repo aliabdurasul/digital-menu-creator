@@ -37,11 +37,19 @@ export function LanguageProvider({
   const [language, setLanguageRaw] = useState<Lang>("tr");
 
   // Hydrate from localStorage after mount (avoids SSR mismatch)
+  // If no stored preference exists, bootstrap from browser language
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY) as Lang | null;
       if (stored === "en" && hasEnglish) {
         setLanguageRaw("en");
+      } else if (!stored && hasEnglish) {
+        // First visit: detect browser language
+        const browserLang = navigator.language?.toLowerCase() ?? "";
+        if (!browserLang.startsWith("tr")) {
+          setLanguageRaw("en");
+          localStorage.setItem(STORAGE_KEY, "en");
+        }
       }
     } catch {
       // localStorage unavailable

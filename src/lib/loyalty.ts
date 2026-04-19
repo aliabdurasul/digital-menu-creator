@@ -11,24 +11,13 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { sendNotification, renderTemplate } from "./notifications";
-import { sendPush } from "./push";
+import { emitPushEvent, getRestaurantMenuUrl } from "./push-events";
 import type { LoyaltyProgressResponse, DbLoyaltyProgram, DbLoyaltyProgress, DbSecretReward } from "@/types";
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   return createClient(url, key);
-}
-
-/** Resolve restaurant slug for push notification URLs. Falls back to restaurant ID. */
-async function getMenuUrl(restaurantId: string): Promise<string> {
-  const supabase = getServiceClient();
-  const { data } = await supabase
-    .from("restaurants")
-    .select("slug")
-    .eq("id", restaurantId)
-    .single();
-  return data?.slug ? `/r/${data.slug}` : `/r/${restaurantId}`;
 }
 
 /* ─── Helpers ─── */
@@ -685,16 +674,16 @@ export async function addPendingProgress(
   // 6. Write loyalty state onto order row — triggers Supabase Realtime
   const stampsAway = Math.max(0, target - (effectiveTotal % target));
 
-  // 6b. Push notification: near completion (1 stamp away)
+  // 6b. Push event: near completion (1 stamp away)
   if (stampsAway === 1 && !earnedNewReward) {
-    getMenuUrl(restaurantId).then((menuUrl) =>
-      sendPush(customerKey, restaurantId, {
-        title: "1 Kahve Kaldı! ☕",
-        body: "Bir sonraki kahvende ödülünü kazan!",
-        tag: "loyalty-near-completion",
-        url: menuUrl,
+    getRestaurantMenuUrl(restaurantId).then((menuUrl) =>
+      emitPushEvent({
+        type: "loyalty_near_completion",
+        customerKey,
+        restaurantId,
+        meta: { menuUrl },
       })
-    ).catch((err) => console.error("[loyalty] Near-completion push failed:", err));
+    ).catch((err) => console.error("[loyalty] Near-completion push event failed:", err));
   }
 
   await supabase
@@ -811,18 +800,21 @@ export async function confirmProgress(
       }
     }
 
-    // Push notification: reward earned
-    getMenuUrl(restaurantId).then((menuUrl) =>
-      sendPush(customerKey, restaurantId, {
-        title: "Ödülünüz Hazır! 🎁",
-        body: renderTemplate(program.message_template, {
-          threshold: program.target_count,
-          reward: getRewardLabel(program as DbLoyaltyProgram),
-        }),
-        tag: "loyalty-reward",
-        url: menuUrl,
+    // Push event: reward unlocked
+    getRestaurantMenuUrl(restaurantId).then((menuUrl) =>
+      emitPushEvent({
+        type: "loyalty_reward_unlocked",
+        customerKey,
+        restaurantId,
+        meta: {
+          menuUrl,
+          rewardMessage: renderTemplate(program.message_template, {
+            threshold: program.target_count,
+            reward: getRewardLabel(program as DbLoyaltyProgram),
+          }),
+        },
       })
-    ).catch((err) => console.error("[loyalty] Reward push failed:", err));
+    ).catch((err) => console.error("[loyalty] Reward push event failed:", err));
   }
 
   // Update order columns for Realtime

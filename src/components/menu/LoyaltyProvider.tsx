@@ -9,6 +9,8 @@ interface LoyaltyContextValue {
   isLoading: boolean;
   customerKey: string;
   refetch: () => Promise<void>;
+  /** Immediately update progress from an API response (e.g. order POST). Skips a network round-trip. */
+  updateFromResponse: (data: LoyaltyProgressResponse) => void;
   clubName: string;
   rewardItem: { name: string; image?: string; menuItemId?: string } | null;
   panelOpen: boolean;
@@ -41,7 +43,16 @@ interface LoyaltyProviderProps {
  * Exposes refetch() for CartDrawer to call after successful order.
  */
 export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps) {
-  const [progress, setProgress] = useState<LoyaltyProgressResponse | null>(null);
+  const CACHE_KEY = `loyalty_snapshot_${restaurantId}`;
+
+  // Hydrate from localStorage cache for instant UI (no loading flash)
+  const [progress, setProgress] = useState<LoyaltyProgressResponse | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      return cached ? JSON.parse(cached) : null;
+    } catch { return null; }
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [customerKey, setCustomerKey] = useState("");
   const [panelOpen, setPanelOpen] = useState(false);
@@ -50,17 +61,23 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
   const [pushSheetReason, setPushSheetReason] = useState<"cart_add" | "near_reward" | "reward_ready" | "manual">("cart_add");
   const swRegRef = useRef<ServiceWorkerRegistration | null>(null);
 
+  /** Persist snapshot to localStorage for fallback on next visit. */
+  const persistSnapshot = useCallback((data: LoyaltyProgressResponse) => {
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch { /* quota exceeded — non-critical */ }
+  }, [CACHE_KEY]);
+
   const fetchProgress = useCallback(async () => {
     if (!restaurantId) return;
     try {
       const result = await fetchLoyaltyProgress(restaurantId);
       setProgress(result);
+      persistSnapshot(result);
     } catch {
-      // Non-critical
+      // Keep last-known state — no-op on failure (stale > empty)
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId]);
+  }, [restaurantId, persistSnapshot]);
 
   useEffect(() => {
     const key = getOrCreateCustomerKey();
@@ -183,11 +200,18 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
     await fetchProgress();
   }, [fetchProgress]);
 
+  /** Immediately apply loyalty state from an API response without a network round-trip. */
+  const updateFromResponse = useCallback((data: LoyaltyProgressResponse) => {
+    setProgress(data);
+    persistSnapshot(data);
+    setIsLoading(false);
+  }, [persistSnapshot]);
+
   const clubName = progress?.clubName || "Coffee Club";
   const rewardItem = progress?.rewardItem ?? null;
 
   return (
-    <LoyaltyContext.Provider value={{ progress, isLoading, customerKey, refetch, clubName, rewardItem, panelOpen, setPanelOpen, requestPushPermission, pushStatus, pushSheetOpen, pushSheetReason, triggerPushSheet, dismissPushSheet }}>
+    <LoyaltyContext.Provider value={{ progress, isLoading, customerKey, refetch, updateFromResponse, clubName, rewardItem, panelOpen, setPanelOpen, requestPushPermission, pushStatus, pushSheetOpen, pushSheetReason, triggerPushSheet, dismissPushSheet }}>
       {children}
     </LoyaltyContext.Provider>
   );

@@ -41,11 +41,13 @@ self.addEventListener("push", (event) => {
   const n = raw.notification || {};
 
   const title = d.title || n.title || "Bildirim";
+  const tag = d.tag || "loyalty-notification";
   const options = {
     body: d.body || n.body || "",
     icon: d.icon || "/favicon.svg",
     badge: "/favicon.svg",
-    tag: d.tag || "loyalty-notification",
+    tag, // Same tag replaces previous notification (prevents stacking)
+    renotify: true, // Re-alert even when replacing same tag
     data: { url: d.url || "/" },
     vibrate: [100, 50, 100],
     actions: [{ action: "open", title: "Menüyü Aç" }],

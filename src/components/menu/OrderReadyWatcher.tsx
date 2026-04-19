@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { CheckCircle2, X } from "lucide-react";
+import { useLoyalty } from "@/components/menu/LoyaltyProvider";
 
 interface OrderStatusData {
   status?: string;
+  loyalty?: import("@/types").LoyaltyProgressResponse;
 }
 
 /**
@@ -25,6 +27,7 @@ export function OrderReadyWatcher({ moduleType }: { moduleType?: "cafe" | "resta
   const [orderDelivered, setOrderDelivered] = useState(false);
   const [sessionCode, setSessionCode] = useState<string | null>(null);
   const [dismissedReady, setDismissedReady] = useState(false);
+  const loyalty = useLoyalty();
 
   const isCafe = moduleType === "cafe";
 
@@ -62,6 +65,11 @@ export function OrderReadyWatcher({ moduleType }: { moduleType?: "cafe" | "resta
 
         if (data.status === "delivered") {
           setOrderDelivered(true);
+        }
+
+        // Sync loyalty state from status API (corrected/confirmed snapshot)
+        if (data.loyalty && loyalty?.updateFromResponse) {
+          loyalty.updateFromResponse(data.loyalty);
         }
       } catch {
         // Network error — retry on next tick

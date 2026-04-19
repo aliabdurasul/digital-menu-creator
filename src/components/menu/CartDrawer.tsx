@@ -87,7 +87,14 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
         throw new Error(data.error || "Sipariş gönderilemedi");
       }
 
-      loyalty?.refetch();
+      const data = await res.json();
+
+      // Use loyalty data from order response immediately (no extra fetch needed)
+      if (data.loyalty && loyalty?.updateFromResponse) {
+        loyalty.updateFromResponse(data.loyalty);
+      } else {
+        loyalty?.refetch();
+      }
 
       clearCart();
       setNote("");
@@ -276,7 +283,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
 function OrderSuccessScreen({
   moduleType,
   restaurantId: _restaurantId,
-  onClose: _onClose,
+  onClose,
 }: {
   moduleType: string;
   restaurantId: string;
@@ -327,7 +334,7 @@ function OrderSuccessScreen({
           }`}
         >
           {rewardReady ? (
-            <p className="text-sm font-bold text-amber-700">🎉 Ödül kazandınız!</p>
+            <p className="text-sm font-bold text-amber-700">🔓 Ödül Kilidi Açıldı!</p>
           ) : (
             <p className="text-sm font-semibold text-primary">
               ☕ {progressInCycle}/{progress.progress.target}
@@ -374,6 +381,15 @@ function OrderSuccessScreen({
         </button>
       )}
       <InstallPromptSheet open={installOpen} onClose={() => setInstallOpen(false)} />
+
+      {/* Return to menu CTA */}
+      <button
+        type="button"
+        onClick={onClose}
+        className="mt-2 text-sm font-semibold text-primary hover:underline transition-colors"
+      >
+        ← Menüye Dön
+      </button>
     </div>
   );
 }

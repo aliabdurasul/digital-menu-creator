@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendPush } from "@/lib/push";
+import { emitPushEvent } from "@/lib/push-events";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -27,11 +27,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const sent = await sendPush(customerKey, restaurantId, {
-      title: "🔔 Test Bildirimi",
-      body: "Push notification sistemi çalışıyor!",
-      tag: "push-test",
+    const result = await emitPushEvent({
+      type: "admin_test",
+      customerKey,
+      restaurantId,
+      meta: {
+        title: "🔔 Test Bildirimi",
+        body: "Push notification sistemi çalışıyor!",
+      },
     });
+    const sent = result.sent;
 
     return NextResponse.json({ sent });
   } catch (err) {

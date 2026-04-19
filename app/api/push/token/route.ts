@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendPushDirect } from "@/lib/push";
+import { emitPushEvent } from "@/lib/push-events";
 
 // UUID v4 pattern — enforced to prevent arbitrary strings being stored as tokens
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -67,11 +67,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Send welcome push to confirm notifications work (non-blocking)
-    if (sendWelcome && token) {
-      sendPushDirect(token, {
-        title: "Bildirimler Açık! 🔔",
-        body: "Siparişin hazır olduğunda seni haberdar edeceğiz.",
-        tag: "push-welcome",
+    if (sendWelcome && token && customerKey && restaurantId) {
+      emitPushEvent({
+        type: "welcome",
+        customerKey,
+        restaurantId,
+        token,
+        meta: {
+          title: "Bildirimler Açık! 🔔",
+          body: "Siparişin hazır olduğunda seni haberdar edeceğiz.",
+        },
       }).catch(() => {/* non-critical */});
     }
 
