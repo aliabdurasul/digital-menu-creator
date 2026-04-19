@@ -20,7 +20,7 @@ export async function GET(
   }
 
   const startUrl = `/r/${params.slug}`;
-  const logoUrl = restaurant.logo_url || "/favicon.svg";
+  const logoUrl = restaurant.logo || "/favicon.svg";
 
   const manifest = {
     name: restaurant.name,
