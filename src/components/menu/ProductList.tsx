@@ -129,6 +129,7 @@ export function ProductList({ tableId }: { tableId?: string }) {
                             onClick={(e) => {
                               e.stopPropagation();
                               cart.addItem({
+                                lineId: product.id,
                                 menuItemId: product.id,
                                 name: product.name,
                                 price: product.price,

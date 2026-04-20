@@ -53,6 +53,7 @@ export function AdminLoyalty({ restaurant }: Props) {
   const [upsellEnabled, setUpsellEnabled] = useState(false);
   const [clubName, setClubName] = useState("Coffee Club");
   const [rewardItemName, setRewardItemName] = useState("");
+  const [rewardItemId, setRewardItemId] = useState<string | null>(null);
   // Engagement Engine
   const [streakBonusEnabled, setStreakBonusEnabled] = useState(false);
   const [streakBonusThreshold, setStreakBonusThreshold] = useState(3);
@@ -107,6 +108,7 @@ export function AdminLoyalty({ restaurant }: Props) {
         setUpsellEnabled(p.upsell_enabled);
         setClubName(p.club_name || "Coffee Club");
         setRewardItemName(p.reward_item_name || "");
+        setRewardItemId(p.reward_item_id || null);
         // Engagement Engine
         setStreakBonusEnabled(p.streak_bonus_enabled);
         setStreakBonusThreshold(p.streak_bonus_threshold);
@@ -163,6 +165,7 @@ export function AdminLoyalty({ restaurant }: Props) {
       upsell_enabled: upsellEnabled,
       club_name: clubName,
       reward_item_name: rewardItemName || null,
+      reward_item_id: rewardItemId || null,
       // Engagement Engine
       streak_bonus_enabled: streakBonusEnabled,
       streak_bonus_threshold: streakBonusThreshold,
@@ -481,6 +484,26 @@ export function AdminLoyalty({ restaurant }: Props) {
 
           {/* ─────────── TAB 2: Ödül & Mağaza ─────────── */}
           <TabsContent value="rewards" className="space-y-4">
+            {/* Reward Item — pick from menu */}
+            <div>
+              <Label>Varsayılan Ödül Ürünü</Label>
+              <Select value={rewardItemId || ""} onValueChange={(v) => {
+                setRewardItemId(v || null);
+                const product = restaurant.products.find((p) => p.id === v);
+                if (product) setRewardItemName(product.name);
+              }}>
+                <SelectTrigger className="mt-1 w-80">
+                  <SelectValue placeholder="Menüden ürün seçin..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {restaurant.products.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">Sipariş tamamlandığında bu ürün sepete ücretsiz eklenecek.</p>
+            </div>
+
             {/* Reward Item Name Override */}
             <div>
               <Label>Ödül Ürün Adı (Geçersiz Kılma)</Label>
@@ -622,6 +645,25 @@ export function AdminLoyalty({ restaurant }: Props) {
                             placeholder="Ödül adı"
                             className="h-8 text-sm"
                           />
+                          <div>
+                            <Label className="text-[10px]">Bağlı Menü Ürünü</Label>
+                            <Select value={item.menu_item_id || ""} onValueChange={(v) => {
+                              const u = [...storeItems];
+                              const product = restaurant.products.find((p) => p.id === v);
+                              u[idx] = { ...u[idx], menu_item_id: v || null, name: product?.name || u[idx].name, image_url: product?.image || u[idx].image_url };
+                              setStoreItems(u);
+                              updateStoreItem(u[idx]);
+                            }}>
+                              <SelectTrigger className="h-8 text-sm mt-0.5">
+                                <SelectValue placeholder="Menüden ürün seçin..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {restaurant.products.map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                           <div className="flex items-center gap-2">
                             <div className="flex-1">
                               <Label className="text-[10px]">Puan</Label>

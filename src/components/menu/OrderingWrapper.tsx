@@ -9,7 +9,7 @@ import { LoyaltyProvider, useLoyalty } from "@/components/menu/LoyaltyProvider";
 import { CoffeeClubPanel } from "@/components/loyalty/CoffeeClubPanel";
 import { PushPermissionSheet } from "@/components/loyalty/PushPermissionSheet";
 import { InstallPromptSheet } from "@/components/loyalty/InstallPromptSheet";
-import { useInstallPrompt } from "@/hooks/useInstallPrompt";
+import { useInstallPrompt, InstallPromptProvider } from "@/hooks/useInstallPrompt";
 
 interface OrderingWrapperProps {
   restaurantId: string;
@@ -58,17 +58,20 @@ export function OrderingWrapper({ restaurantId, tableId, moduleType, withLoyalty
         <InstallPromptSheet
           open={installSheetOpen}
           onClose={() => setInstallSheetOpen(false)}
+          restaurantId={restaurantId}
         />
       )}
     </CartProvider>
   );
 
-  if (!withLoyalty) return cartTree;
+  if (!withLoyalty) return <InstallPromptProvider>{cartTree}</InstallPromptProvider>;
 
   return (
-    <LoyaltyProvider restaurantId={restaurantId}>
-      {cartTree}
-    </LoyaltyProvider>
+    <InstallPromptProvider>
+      <LoyaltyProvider restaurantId={restaurantId}>
+        {cartTree}
+      </LoyaltyProvider>
+    </InstallPromptProvider>
   );
 }
 

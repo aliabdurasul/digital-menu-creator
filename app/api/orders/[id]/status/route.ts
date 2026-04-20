@@ -161,6 +161,20 @@ export async function PATCH(
       } catch (err) {
         console.error("[order-status] Loyalty processing failed:", err);
       }
+
+      // Award order bonus points (non-blocking, keyed by orderId to prevent dupes)
+      if (order.customer_key) {
+        fetch(`${process.env.NEXT_PUBLIC_SITE_URL || ""}/api/loyalty/points`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customerKey: order.customer_key,
+            restaurantId: order.restaurant_id,
+            actionType: "order_bonus",
+            meta: { orderId: order.id },
+          }),
+        }).catch((err) => console.error("[order-status] Order bonus points failed:", err));
+      }
     }
 
     return NextResponse.json({

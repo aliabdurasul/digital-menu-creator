@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     const { restaurantId, tableId, items, note, sessionId, customerPhone, customerName, customerKey } = body as {
       restaurantId?: string;
       tableId?: string | null;
-      items?: { menuItemId: string; quantity: number; type?: "loyalty_reward"; name?: string }[];
+      items?: { menuItemId: string; quantity: number; type?: "loyalty_reward" | "point_store_reward"; name?: string; redemptionId?: string }[];
       note?: string;
       sessionId?: string;
       customerPhone?: string;
@@ -84,9 +84,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Separate regular items from loyalty reward items
-    const regularItems = items.filter((i) => i.type !== "loyalty_reward");
+    // Separate regular items from loyalty reward and point store items
+    const regularItems = items.filter((i) => !i.type);
     const rewardItems = items.filter((i) => i.type === "loyalty_reward");
+    const storeRewardItems = items.filter((i) => i.type === "point_store_reward");
 
     // 3. Fetch menu items to snapshot current prices (regular items only)
     const menuItemIds = regularItems.map((i) => i.menuItemId);
@@ -128,7 +129,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3b. Validate loyalty reward items — customer must have reward_ready
+    // 3b. Validate loyalty reward items — customer must have pending rewards
     if (rewardItems.length > 0) {
       if (!customerKey) {
         return NextResponse.json(
@@ -136,29 +137,59 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
+
+      // Only allow ONE reward item per order
+      if (rewardItems.length > 1) {
+        return NextResponse.json(
+          { error: "Sipariş başına en fazla bir sadakat ödülü kullanılabilir" },
+          { status: 400 }
+        );
+      }
+
       // Look up active loyalty program for this restaurant
       const { data: activeProgram } = await supabase
         .from("loyalty_programs")
-        .select("id")
+        .select("id, reward_type, reward_item_id, reward_pool")
         .eq("restaurant_id", restaurantId)
         .eq("enabled", true)
         .single();
 
-      // Check reward_ready in loyalty_progress (matches consumeReward pattern)
+      // Check pending_rewards (falls back to reward_ready for pre-migration rows)
       const { data: custProgress } = activeProgram
         ? await supabase
             .from("loyalty_progress")
-            .select("reward_ready")
+            .select("reward_ready, pending_rewards")
             .eq("program_id", activeProgram.id)
             .eq("customer_key", customerKey)
             .single()
         : { data: null };
 
-      if (!custProgress?.reward_ready) {
+      const pendingCount = custProgress?.pending_rewards ?? (custProgress?.reward_ready ? 1 : 0);
+      if (pendingCount <= 0) {
         return NextResponse.json(
           { error: "Sadakat ödülünüz mevcut değil veya süresi dolmuş" },
           { status: 400 }
         );
+      }
+
+      // For free_item rewards, validate that the submitted item matches allowed items
+      if (activeProgram && activeProgram.reward_type === "free_item") {
+        const rewardItem = rewardItems[0];
+        const rewardPool = (activeProgram.reward_pool ?? []) as Array<{ menuItemId?: string }>;
+        const allowedIds = new Set<string>();
+        if (activeProgram.reward_item_id) allowedIds.add(activeProgram.reward_item_id);
+        for (const poolItem of rewardPool) {
+          if (poolItem.menuItemId) allowedIds.add(poolItem.menuItemId);
+        }
+        // If specific items are configured, enforce them
+        if (allowedIds.size > 0 && rewardItem.menuItemId) {
+          if (!allowedIds.has(rewardItem.menuItemId)) {
+            return NextResponse.json(
+              { error: "Bu ürün sadakat ödülü olarak kullanılamaz" },
+              { status: 400 }
+            );
+          }
+        }
       }
     }
 
@@ -190,6 +221,17 @@ export async function POST(req: NextRequest) {
       orderItems.push({
         menu_item_id: item.menuItemId || null,
         name_snapshot: item.name || "Sadakat Ödülü",
+        price_snapshot: 0,
+        quantity: item.quantity,
+        is_loyalty_reward: true,
+      });
+    }
+
+    // Add point store reward items (price: 0)
+    for (const item of storeRewardItems) {
+      orderItems.push({
+        menu_item_id: item.menuItemId || null,
+        name_snapshot: item.name || "Puan Ödülü",
         price_snapshot: 0,
         quantity: item.quantity,
         is_loyalty_reward: true,
@@ -287,10 +329,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 7b. Link point store redemptions to this order
+    for (const item of storeRewardItems) {
+      if (item.redemptionId) {
+        await supabase
+          .from("point_redemptions")
+          .update({ order_id: order.id, status: "used" })
+          .eq("id", item.redemptionId)
+          .eq("customer_key", customerKey);
+      }
+    }
+
     // 8. If cafe with customerKey, process optimistic loyalty progress
+    //    Skip progress for reward-only orders (no paid items → no stamp).
     let loyalty: LoyaltyProgressResponse | undefined;
     const isCafe = restaurant.module_type === "cafe";
-    if (isCafe && customerKey) {
+    const hasPaidItems = regularItems.length > 0;
+    if (isCafe && customerKey && hasPaidItems) {
       try {
         const result = await addPendingProgress(
           restaurantId,
@@ -301,6 +356,14 @@ export async function POST(req: NextRequest) {
         if (result) loyalty = result;
       } catch {
         // Non-critical — skip loyalty info
+      }
+    } else if (isCafe && customerKey && !hasPaidItems) {
+      // Reward-only order: just refetch progress so the frontend sees updated pending_rewards
+      try {
+        const { getLoyaltySnapshot } = await import("@/lib/loyalty");
+        loyalty = await getLoyaltySnapshot(restaurantId, customerKey) ?? undefined;
+      } catch {
+        // Non-critical
       }
     }
 

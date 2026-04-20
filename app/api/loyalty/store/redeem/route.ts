@@ -100,5 +100,10 @@ export async function POST(req: NextRequest) {
     ok: true,
     redemption,
     newBalance: balance - item.cost_points,
+    item: {
+      name: item.name,
+      image_url: item.image_url,
+      menu_item_id: item.menu_item_id,
+    },
   });
 }

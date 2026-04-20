@@ -244,13 +244,16 @@ export interface DbOrderItem {
 }
 
 export interface CartItem {
+  /** Unique identity for this cart line. Regular items use menuItemId; reward lines use a separate key. */
+  lineId: string;
   menuItemId: string;
   name: string;
   price: number;
   image: string;
   quantity: number;
-  type?: "loyalty_reward";
-  loyaltyRewardId?: string;
+  type?: "loyalty_reward" | "point_store_reward";
+  /** DB id from point_redemptions — filled when a point-store item is added to cart */
+  redemptionId?: string;
 }
 
 export interface OrderWithItems extends DbOrder {
@@ -403,6 +406,7 @@ export interface DbLoyaltyProgress {
   total_spent: number;
   initial_progress: number;
   reward_ready: boolean;
+  pending_rewards: number;
   reward_expires_at: string | null;
   last_activity_at: string;
   /* ─── Engagement Engine v11 ─── */
@@ -434,6 +438,8 @@ export interface LoyaltyProgressResponse {
   };
   reward: {
     ready: boolean;
+    /** Number of unclaimed stamp rewards (can be > 1) */
+    pendingCount: number;
     type: LoyaltyRewardType;
     value: number;
     message: string | null;
@@ -465,6 +471,7 @@ export interface LoyaltyProgressResponse {
     name: string;
     image?: string;
     menuItemId?: string;
+    price?: number;
   } | null;
   upsell: {
     message: string;

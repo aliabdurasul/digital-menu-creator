@@ -292,7 +292,7 @@ async function detectFavoriteItem(
   supabase: ReturnType<typeof getServiceClient>,
   customerKey: string,
   restaurantId: string
-): Promise<{ name: string; image?: string; menuItemId?: string } | null> {
+): Promise<{ name: string; image?: string; menuItemId?: string; price?: number } | null> {
   // 1. Personal favorite: most-ordered item by this customer
   const { data: personalTop } = await supabase
     .rpc("get_customer_favorite_item", {
@@ -306,6 +306,7 @@ async function detectFavoriteItem(
       name: fav.name,
       image: fav.image_url || undefined,
       menuItemId: fav.menu_item_id || undefined,
+      price: fav.price ?? undefined,
     };
   }
 
@@ -319,7 +320,7 @@ async function detectFavoriteItem(
 async function getGlobalBestseller(
   supabase: ReturnType<typeof getServiceClient>,
   restaurantId: string
-): Promise<{ name: string; image?: string; menuItemId?: string } | null> {
+): Promise<{ name: string; image?: string; menuItemId?: string; price?: number } | null> {
   const { data } = await supabase
     .rpc("get_restaurant_bestseller", {
       p_restaurant_id: restaurantId,
@@ -330,6 +331,7 @@ async function getGlobalBestseller(
       name: data[0].name,
       image: data[0].image_url || undefined,
       menuItemId: data[0].menu_item_id || undefined,
+      price: data[0].price ?? undefined,
     };
   }
 
@@ -386,6 +388,7 @@ async function buildResponse(
     },
     reward: {
       ready: progress?.reward_ready ?? false,
+      pendingCount: progress?.pending_rewards ?? (progress?.reward_ready ? 1 : 0),
       type: program.reward_type,
       value: program.reward_value,
       message: progress?.reward_ready ? renderTemplate(program.message_template, {
@@ -636,8 +639,11 @@ export async function addPendingProgress(
   const previousRewards = target > 0 ? Math.floor(previousEffective / target) : 0;
   const newRewards = target > 0 ? Math.floor(effectiveTotal / target) : 0;
   const earnedNewReward = newRewards > previousRewards;
+  const rewardsJustEarned = newRewards - previousRewards; // can be > 1 if stamps jump
 
-  const rewardReady = earnedNewReward || currentProgress.reward_ready;
+  // Use pending_rewards count (accumulate multiple unlocked rewards)
+  const newPendingRewards = (currentProgress.pending_rewards ?? 0) + rewardsJustEarned;
+  const rewardReady = newPendingRewards > 0;
   const rewardExpiresAt = earnedNewReward && program.reward_expiry_days > 0
     ? new Date(Date.now() + program.reward_expiry_days * 86400000).toISOString()
     : currentProgress.reward_expires_at;
@@ -647,7 +653,8 @@ export async function addPendingProgress(
     .from("loyalty_progress")
     .update({
       current_count: newCurrent,
-      total_earned_rewards: currentProgress.total_earned_rewards + (earnedNewReward ? 1 : 0),
+      total_earned_rewards: currentProgress.total_earned_rewards + rewardsJustEarned,
+      pending_rewards: newPendingRewards,
       reward_ready: rewardReady,
       reward_expires_at: rewardExpiresAt,
       last_activity_at: new Date().toISOString(),
@@ -1052,35 +1059,23 @@ export async function consumeReward(
 
   const { data: progress } = await supabase
     .from("loyalty_progress")
-    .select("id, reward_ready")
+    .select("id, reward_ready, pending_rewards")
     .eq("customer_key", customerKey)
     .eq("program_id", program.id)
     .single();
 
-  if (!progress?.reward_ready) return false;
+  const pending = progress?.pending_rewards ?? (progress?.reward_ready ? 1 : 0);
+  if (!progress || pending <= 0) return false;
 
+  const newPending = pending - 1;
   await supabase
     .from("loyalty_progress")
     .update({
-      reward_ready: false,
-      reward_expires_at: null,
-      total_earned_rewards: progress.id ? undefined : 0, // keep existing
+      pending_rewards: newPending,
+      reward_ready: newPending > 0,
+      reward_expires_at: newPending > 0 ? progress.reward_expires_at : null,
     })
     .eq("id", progress.id);
-
-  // Increment total_earned_rewards separately to avoid race condition
-  const { data: current } = await supabase
-    .from("loyalty_progress")
-    .select("total_earned_rewards")
-    .eq("id", progress.id)
-    .single();
-
-  if (current) {
-    await supabase
-      .from("loyalty_progress")
-      .update({ total_earned_rewards: (current.total_earned_rewards || 0) + 1 })
-      .eq("id", progress.id);
-  }
 
   return true;
 }

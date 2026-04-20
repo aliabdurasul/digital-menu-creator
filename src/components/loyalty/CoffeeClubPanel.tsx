@@ -74,13 +74,16 @@ export function CoffeeClubPanel() {
   const handleAddReward = useCallback((overrideItem?: RewardPoolItem) => {
     if (!cart) return;
     const itemToUse = overrideItem ?? (loyalty?.rewardItem
-      ? { menuItemId: loyalty.rewardItem.menuItemId || `reward_${Date.now()}`, name: loyalty.rewardItem.name, image: loyalty.rewardItem.image }
+      ? { menuItemId: loyalty.rewardItem.menuItemId, name: loyalty.rewardItem.name, image: loyalty.rewardItem.image }
       : null);
     if (!itemToUse) return;
+    // Only allow one loyalty reward line at a time
     const existing = cart.items.find((i) => i.type === "loyalty_reward");
     if (existing) { setAddedToCart(true); return; }
+    const rewardLineId = `loyalty_reward_${Date.now()}`;
     cart.addItem({
-      menuItemId: itemToUse.menuItemId || `reward_${Date.now()}`,
+      lineId: rewardLineId,
+      menuItemId: itemToUse.menuItemId || rewardLineId,
       name: itemToUse.name,
       price: 0,
       image: itemToUse.image || "",
@@ -90,9 +93,22 @@ export function CoffeeClubPanel() {
   }, [cart, loyalty]);
 
   const handleOrderNow = useCallback(() => {
+    // Add favorite item to cart, then close panel
+    if (cart && loyalty?.progress?.favoriteItem) {
+      const fav = loyalty.progress.favoriteItem;
+      if (fav.menuItemId) {
+        cart.addItem({
+          lineId: fav.menuItemId,
+          menuItemId: fav.menuItemId,
+          name: fav.name,
+          price: fav.price ?? 0,
+          image: fav.image || "",
+        });
+      }
+    }
     loyalty?.setPanelOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [loyalty]);
+  }, [loyalty, cart]);
 
   if (!isOpen || !progress) return null;
 
@@ -548,7 +564,8 @@ export function CoffeeClubPanel() {
 
 function StoreTab({ restaurantId }: { restaurantId: string }) {
   const loyalty = useLoyalty();
-  const [items, setItems] = useState<Array<{ id: string; name: string; description: string; cost_points: number; stock: number; image_url: string }>>([]);
+  const cart = useOptionalCart();
+  const [items, setItems] = useState<Array<{ id: string; name: string; description: string; cost_points: number; stock: number; image_url: string; menu_item_id?: string | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [redeeming, setRedeeming] = useState<string | null>(null);
   const [redeemed, setRedeemed] = useState<Set<string>>(new Set());
@@ -577,6 +594,19 @@ function StoreTab({ restaurantId }: { restaurantId: string }) {
       if (data.ok) {
         setRedeemed((prev) => new Set(prev).add(item.id));
         loyalty.refetch();
+        // Add redeemed item to cart as a free point-store reward
+        if (cart) {
+          const rewardLineId = `store_reward_${data.redemption?.id ?? Date.now()}`;
+          cart.addItem({
+            lineId: rewardLineId,
+            menuItemId: data.item?.menu_item_id || rewardLineId,
+            name: data.item?.name || item.name,
+            price: 0,
+            image: data.item?.image_url || item.image_url || "",
+            type: "point_store_reward",
+            redemptionId: data.redemption?.id,
+          });
+        }
       }
     } catch { /* ignore */ }
     setRedeeming(null);
@@ -746,7 +776,7 @@ function SettingsTab() {
           </div>
           <div className="h-px bg-[#E8E4DF]" />
           <p className="text-xs text-[#6B4226]/40 leading-relaxed">
-            Her siparişte otomatik puan kazanırsın. Hedefe ulaştığında ödülün sepetine otomatik eklenir. Seri bonusu, happy hour ve geri dönüş bonusları puanlarını katlar.
+            Her siparişte otomatik puan kazanırsın. Hedefe ulaştığında ödülünü buradan sepetine ekleyebilirsin. Seri bonusu, happy hour ve geri dönüş bonusları puanlarını katlar.
           </p>
         </div>
       </div>

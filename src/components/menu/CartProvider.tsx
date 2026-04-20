@@ -6,8 +6,8 @@ import type { CartItem } from "@/types";
 interface CartContextValue {
   items: CartItem[];
   addItem: (item: Omit<CartItem, "quantity">) => void;
-  removeItem: (menuItemId: string) => void;
-  updateQuantity: (menuItemId: string, qty: number) => void;
+  removeItem: (lineId: string) => void;
+  updateQuantity: (lineId: string, qty: number) => void;
   clearCart: () => void;
   totalItems: number;
   totalPrice: number;
@@ -67,10 +67,15 @@ export function CartProvider({
 
   const addItem = useCallback((item: Omit<CartItem, "quantity">) => {
     setItems((prev) => {
-      const existing = prev.find((i) => i.menuItemId === item.menuItemId);
+      // Reward / point-store items always get their own line (never merge)
+      if (item.type === "loyalty_reward" || item.type === "point_store_reward") {
+        return [...prev, { ...item, quantity: 1 }];
+      }
+      // Regular items merge by menuItemId (only with other regular items)
+      const existing = prev.find((i) => i.lineId === item.lineId && !i.type);
       if (existing) {
         return prev.map((i) =>
-          i.menuItemId === item.menuItemId
+          i.lineId === item.lineId && !i.type
             ? { ...i, quantity: i.quantity + 1 }
             : i
         );
@@ -79,17 +84,17 @@ export function CartProvider({
     });
   }, []);
 
-  const removeItem = useCallback((menuItemId: string) => {
-    setItems((prev) => prev.filter((i) => i.menuItemId !== menuItemId));
+  const removeItem = useCallback((lineId: string) => {
+    setItems((prev) => prev.filter((i) => i.lineId !== lineId));
   }, []);
 
-  const updateQuantity = useCallback((menuItemId: string, qty: number) => {
+  const updateQuantity = useCallback((lineId: string, qty: number) => {
     if (qty <= 0) {
-      setItems((prev) => prev.filter((i) => i.menuItemId !== menuItemId));
+      setItems((prev) => prev.filter((i) => i.lineId !== lineId));
     } else {
       setItems((prev) =>
         prev.map((i) =>
-          i.menuItemId === menuItemId ? { ...i, quantity: qty } : i
+          i.lineId === lineId ? { ...i, quantity: qty } : i
         )
       );
     }

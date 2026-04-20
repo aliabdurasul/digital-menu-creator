@@ -65,6 +65,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
         menuItemId: i.menuItemId,
         quantity: i.quantity,
         ...(i.type === "loyalty_reward" ? { type: "loyalty_reward", name: i.name } : {}),
+        ...(i.type === "point_store_reward" ? { type: "point_store_reward", name: i.name, redemptionId: i.redemptionId } : {}),
       }));
 
       const res = await fetch("/api/orders", {
@@ -148,10 +149,10 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
                 </p>
               ) : (
                 items.map((item) => {
-                  const isReward = item.type === "loyalty_reward";
+                  const isReward = item.type === "loyalty_reward" || item.type === "point_store_reward";
                   return (
                   <div
-                    key={item.menuItemId}
+                    key={item.lineId}
                     className={`flex items-center gap-3 p-2 rounded-lg border ${
                       isReward ? "bg-amber-50 border-amber-200" : "bg-card"
                     }`}
@@ -196,7 +197,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
-                        onClick={() => updateQuantity(item.menuItemId, item.quantity - 1)}
+                        onClick={() => updateQuantity(item.lineId, item.quantity - 1)}
                         className="w-7 h-7 rounded-full border bg-background flex items-center justify-center hover:bg-muted transition-colors"
                       >
                         {item.quantity === 1 || isReward ? (
@@ -212,7 +213,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
                           </span>
                           <button
                             type="button"
-                            onClick={() => updateQuantity(item.menuItemId, item.quantity + 1)}
+                            onClick={() => updateQuantity(item.lineId, item.quantity + 1)}
                             className="w-7 h-7 rounded-full border bg-background flex items-center justify-center hover:bg-muted transition-colors"
                           >
                             <Plus className="w-3.5 h-3.5" />
@@ -282,7 +283,7 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
 /* ─── Order Success Screen ─── */
 function OrderSuccessScreen({
   moduleType,
-  restaurantId: _restaurantId,
+  restaurantId,
   onClose,
 }: {
   moduleType: string;
@@ -294,6 +295,7 @@ function OrderSuccessScreen({
   const loyalty = useLoyalty();
   const { canInstall } = useInstallPrompt();
   const isCafe = moduleType === "cafe";
+  const customerKey = typeof window !== "undefined" ? getOrCreateCustomerKey() : undefined;
 
   useEffect(() => {
     const sid = sessionStorage.getItem("session_id");
@@ -380,7 +382,7 @@ function OrderSuccessScreen({
           Coffee Club'u Ana Ekrana Ekle
         </button>
       )}
-      <InstallPromptSheet open={installOpen} onClose={() => setInstallOpen(false)} />
+      <InstallPromptSheet open={installOpen} onClose={() => setInstallOpen(false)} customerKey={customerKey} restaurantId={restaurantId} />
 
       {/* Return to menu CTA */}
       <button
