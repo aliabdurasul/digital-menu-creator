@@ -421,6 +421,7 @@ async function buildResponse(
     upsell: extras.upsellMessage ? { message: extras.upsellMessage, recommendedItem: extras.upsellItem } : null,
     clubName: program.club_name || "Coffee Club",
     rewardItem,
+    points: null,
   };
 }
 
