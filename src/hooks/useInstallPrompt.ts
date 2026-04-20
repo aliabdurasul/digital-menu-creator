@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, createContext, useContext, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useRef, createContext, useContext, createElement, type ReactNode } from "react";
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -73,17 +73,17 @@ export function InstallPromptProvider({ children }: { children: ReactNode }) {
     installedCallbacksRef.current.push(cb);
   }, []);
 
-  return (
-    <InstallPromptContext.Provider
-      value={{
+  return createElement(
+    InstallPromptContext.Provider,
+    {
+      value: {
         canInstall: !!promptEvent && !isInstalled,
         isInstalled,
         triggerInstall,
         onInstalled: registerOnInstalled,
-      }}
-    >
-      {children}
-    </InstallPromptContext.Provider>
+      },
+    },
+    children
   );
 }
 
