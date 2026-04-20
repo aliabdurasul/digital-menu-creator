@@ -239,7 +239,6 @@ export function CoffeeClubPanel() {
               {progress.points && (
                 <PointsSection
                   points={progress.points}
-                  restaurantId={loyalty?.progress ? undefined : undefined}
                 />
               )}
 
