@@ -12,7 +12,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { sendNotification, renderTemplate } from "./notifications";
 import { emitPushEvent, getRestaurantMenuUrl } from "./push-events";
-import type { LoyaltyProgressResponse, DbLoyaltyProgram, DbLoyaltyProgress, DbSecretReward } from "@/types";
+import type { LoyaltyProgressResponse, DbLoyaltyProgram, DbLoyaltyProgress, DbSecretReward, PointAction } from "@/types";
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -853,7 +853,7 @@ async function getPointsData(
   customerKey: string,
   restaurantId: string,
   pointsEnabled: boolean
-): Promise<{ balance: number; history: Array<{ id: string; action_type: string; points: number; created_at: string; meta?: Record<string, unknown> }> } | null> {
+): Promise<{ balance: number; history: PointAction[] } | null> {
   if (!pointsEnabled) return null;
 
   const { data: actions } = await supabase
