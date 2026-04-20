@@ -345,7 +345,7 @@ async function buildResponse(
     upsellItem?: string;
     secretReward?: DbSecretReward | null;
     favoriteItem?: { name: string; image?: string; menuItemId?: string } | null;
-    pointsData?: { balance: number; history: Array<{ id: string; action_type: string; points: number; created_at: string; meta?: Record<string, unknown> }> } | null;
+    pointsData?: { balance: number; history: import("@/types").PointAction[] } | null;
   } = {}
 ): Promise<LoyaltyProgressResponse> {
   const current = progress?.current_count ?? 0;
@@ -875,7 +875,7 @@ async function getPointsData(
 
   return {
     balance: earned - spent,
-    history: (actions ?? []) as Array<{ id: string; action_type: string; points: number; created_at: string; meta?: Record<string, unknown> }>,
+    history: (actions ?? []) as import("@/types").PointAction[],
   };
 }
 
