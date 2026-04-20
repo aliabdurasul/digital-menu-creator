@@ -949,6 +949,7 @@ export async function getLoyaltySnapshot(
       favorite_item_id: null,
       inactivity_bonus_active: false,
       inactivity_bonus_expires_at: null,
+      pending_rewards: 0,
     };
 
     const upsell = program.upsell_enabled
