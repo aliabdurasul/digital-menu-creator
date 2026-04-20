@@ -1,9 +1,10 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from "react";
-import type { LoyaltyProgressResponse } from "@/types";
+import type { LoyaltyProgressResponse, RewardPoolItem } from "@/types";
 import { getOrCreateCustomerKey, fetchLoyaltyProgress } from "@/lib/loyalty-client";
 import { useAutoReferral } from "@/components/loyalty/ReferralCard";
+import { OnboardingSheet } from "@/components/loyalty/OnboardingSheet";
 
 interface LoyaltyContextValue {
   progress: LoyaltyProgressResponse | null;
@@ -15,6 +16,8 @@ interface LoyaltyContextValue {
   updateFromResponse: (data: LoyaltyProgressResponse) => void;
   clubName: string;
   rewardItem: { name: string; image?: string; menuItemId?: string } | null;
+  /** Admin-configured pool of selectable reward products. Empty = single-item behaviour. */
+  rewardPool: RewardPoolItem[];
   panelOpen: boolean;
   setPanelOpen: (open: boolean) => void;
   /** Call from a user-gesture handler (tap/click) to request push permission */
@@ -26,6 +29,10 @@ interface LoyaltyContextValue {
   triggerPushSheet: (reason: "cart_add" | "near_reward" | "reward_ready" | "manual") => void;
   /** Close the sheet and snooze for 24h. */
   dismissPushSheet: () => void;
+  /** True when first-visit onboarding sheet should be shown */
+  onboardingOpen: boolean;
+  /** Mark onboarding as seen and close it */
+  dismissOnboarding: () => void;
 }
 
 const LoyaltyContext = createContext<LoyaltyContextValue | null>(null);
@@ -61,7 +68,13 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
   const [pushStatus, setPushStatus] = useState<"idle" | "granted" | "denied">("idle");
   const [pushSheetOpen, setPushSheetOpen] = useState(false);
   const [pushSheetReason, setPushSheetReason] = useState<"cart_add" | "near_reward" | "reward_ready" | "manual">("cart_add");
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
   const swRegRef = useRef<ServiceWorkerRegistration | null>(null);
+
+  // Detect user's preferred push language (tr or en)
+  const pushLanguage = typeof navigator !== "undefined"
+    ? (navigator.language.toLowerCase().startsWith("en") ? "en" : "tr")
+    : "tr";
 
   /** Persist snapshot to localStorage for fallback on next visit. */
   const persistSnapshot = useCallback((data: LoyaltyProgressResponse) => {
@@ -121,7 +134,7 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
             await fetch("/api/push/token", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ customerKey, restaurantId, token }),
+              body: JSON.stringify({ customerKey, restaurantId, token, language: pushLanguage }),
             });
           }
         } else if (Notification.permission === "denied") {
@@ -192,13 +205,13 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
         await fetch("/api/push/token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ customerKey, restaurantId, token, sendWelcome: true }),
+          body: JSON.stringify({ customerKey, restaurantId, token, sendWelcome: true, language: pushLanguage }),
         });
       }
     } catch {
       // Non-critical
     }
-  }, [customerKey, restaurantId, pushStatus]);
+  }, [customerKey, restaurantId, pushStatus, pushLanguage]);
 
   const refetch = useCallback(async () => {
     setIsLoading(true);
@@ -214,10 +227,28 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
 
   const clubName = progress?.clubName || "Coffee Club";
   const rewardItem = progress?.rewardItem ?? null;
+  const rewardPool = progress?.rewardPool ?? [];
+
+  // Show onboarding on first visit once the loyalty program is loaded
+  useEffect(() => {
+    if (!progress) return;
+    if (typeof window !== "undefined" && !localStorage.getItem("loyalty_onboarding_seen")) {
+      const t = setTimeout(() => setOnboardingOpen(true), 1500);
+      return () => clearTimeout(t);
+    }
+  }, [progress]);
+
+  const dismissOnboarding = useCallback(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("loyalty_onboarding_seen", "1");
+    }
+    setOnboardingOpen(false);
+  }, []);
 
   return (
-    <LoyaltyContext.Provider value={{ progress, isLoading, customerKey, restaurantId, refetch, updateFromResponse, clubName, rewardItem, panelOpen, setPanelOpen, requestPushPermission, pushStatus, pushSheetOpen, pushSheetReason, triggerPushSheet, dismissPushSheet }}>
+    <LoyaltyContext.Provider value={{ progress, isLoading, customerKey, restaurantId, refetch, updateFromResponse, clubName, rewardItem, rewardPool, panelOpen, setPanelOpen, requestPushPermission, pushStatus, pushSheetOpen, pushSheetReason, triggerPushSheet, dismissPushSheet, onboardingOpen, dismissOnboarding }}>
       {children}
+      <OnboardingSheet open={onboardingOpen} onClose={dismissOnboarding} clubName={clubName} />
     </LoyaltyContext.Provider>
   );
 }

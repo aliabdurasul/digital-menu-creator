@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -9,6 +9,11 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export type InstallOutcome = "accepted" | "dismissed" | "unavailable";
+
+interface UseInstallPromptOptions {
+  /** Called when the PWA is successfully installed (via any method). */
+  onInstalled?: () => void;
+}
 
 /**
  * Captures the browser `beforeinstallprompt` event so we can defer and
@@ -23,9 +28,10 @@ export type InstallOutcome = "accepted" | "dismissed" | "unavailable";
  * `triggerInstall()` — shows the deferred browser install prompt.
  *                      Returns "accepted" | "dismissed" | "unavailable".
  */
-export function useInstallPrompt() {
+export function useInstallPrompt(options?: UseInstallPromptOptions) {
   const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const onInstalledRef = useRef(options?.onInstalled);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -47,6 +53,7 @@ export function useInstallPrompt() {
     const handleAppInstalled = () => {
       setIsInstalled(true);
       setPromptEvent(null);
+      onInstalledRef.current?.();
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstall);

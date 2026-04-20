@@ -386,6 +386,8 @@ export interface DbLoyaltyProgram {
   referral_points: number;
   referee_bonus_points: number;
   order_points_per_item: number;
+  /** Pool of eligible reward products (v15). Empty array = single-item behaviour. */
+  reward_pool: RewardPoolItem[];
   created_at: string;
 }
 
@@ -474,10 +476,21 @@ export interface LoyaltyProgressResponse {
     image?: string;
     menuItemId?: string;
   } | null;
+  /** Pool of admin-configured reward products. Empty = use rewardItem only. */
+  rewardPool: RewardPoolItem[];
   points: {
     balance: number;
     history: PointAction[];
   } | null;
+}
+
+/* ─── Reward Pool ─── */
+
+/** A menu item eligible as a loyalty stamp reward (admin configures pool, customer picks one). */
+export interface RewardPoolItem {
+  menuItemId: string;
+  name: string;
+  image?: string;
 }
 
 /* ─── Point Store & Referral Types ─── */

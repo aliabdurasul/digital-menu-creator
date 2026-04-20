@@ -25,6 +25,9 @@ type SheetState = "prompt" | "success";
 interface InstallPromptSheetProps {
   open: boolean;
   onClose: () => void;
+  /** If provided, awards pwa_install points after successful installation */
+  customerKey?: string;
+  restaurantId?: string;
 }
 
 /**
@@ -35,11 +38,21 @@ interface InstallPromptSheetProps {
  * Triggered by `InstallTrigger` inside `OrderingWrapper` after first order
  * or after significant engagement (loyalty panel open). Respects 48h snooze.
  */
-export function InstallPromptSheet({ open, onClose }: InstallPromptSheetProps) {
+export function InstallPromptSheet({ open, onClose, customerKey, restaurantId }: InstallPromptSheetProps) {
   const { canInstall, triggerInstall } = useInstallPrompt();
   const [state, setState] = useState<SheetState>("prompt");
   const [installing, setInstalling] = useState(false);
   const [showIOSSteps, setShowIOSSteps] = useState(false);
+
+  /** Fire-and-forget: award pwa_install points (unique constraint prevents duplicates) */
+  const awardPwaPoints = () => {
+    if (!customerKey || !restaurantId) return;
+    fetch("/api/loyalty/points", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ customerKey, restaurantId, actionType: "pwa_install" }),
+    }).catch(() => {/* non-critical */});
+  };
 
   // Detect iOS non-standalone (must manually add to home screen)
   const isIOS =
@@ -63,6 +76,7 @@ export function InstallPromptSheet({ open, onClose }: InstallPromptSheetProps) {
     const outcome = await triggerInstall();
     setInstalling(false);
     if (outcome === "accepted") {
+      awardPwaPoints();
       setState("success");
       setTimeout(() => {
         snooze();

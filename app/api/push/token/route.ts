@@ -21,11 +21,12 @@ function getServiceClient() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { customerKey, restaurantId, token, sendWelcome } = body as {
+    const { customerKey, restaurantId, token, sendWelcome, language } = body as {
       customerKey?: string;
       restaurantId?: string;
       token?: string;
       sendWelcome?: boolean;
+      language?: string;
     };
 
     if (!customerKey || !restaurantId || !token) {
@@ -43,6 +44,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Geçersiz token" }, { status: 400 });
     }
 
+    // Validate language — only 'tr' and 'en' supported
+    const safeLanguage = language === "en" ? "en" : "tr";
+
     const supabase = getServiceClient();
 
     // Upsert: one token per customer per restaurant
@@ -51,6 +55,7 @@ export async function POST(req: NextRequest) {
         customer_key: customerKey,
         restaurant_id: restaurantId,
         token,
+        language: safeLanguage,
         updated_at: new Date().toISOString(),
       },
       {
@@ -68,14 +73,18 @@ export async function POST(req: NextRequest) {
 
     // Send welcome push to confirm notifications work (non-blocking)
     if (sendWelcome && token && customerKey && restaurantId) {
+      const isEn = safeLanguage === "en";
       emitPushEvent({
         type: "welcome",
         customerKey,
         restaurantId,
         token,
         meta: {
-          title: "Bildirimler Açık! 🔔",
-          body: "Siparişin hazır olduğunda seni haberdar edeceğiz.",
+          title: isEn ? "Notifications On! 🔔" : "Bildirimler Açık! 🔔",
+          body: isEn
+            ? "We'll let you know when your order is ready."
+            : "Siparişin hazır olduğunda seni haberdar edeceğiz.",
+          language: safeLanguage,
         },
       }).catch(() => {/* non-critical */});
     }

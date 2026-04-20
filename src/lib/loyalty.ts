@@ -422,6 +422,7 @@ async function buildResponse(
     upsell: extras.upsellMessage ? { message: extras.upsellMessage, recommendedItem: extras.upsellItem } : null,
     clubName: program.club_name || "Coffee Club",
     rewardItem,
+    rewardPool: (program.reward_pool as import("@/types").RewardPoolItem[]) ?? [],
     points: extras.pointsData ?? null,
   };
 }

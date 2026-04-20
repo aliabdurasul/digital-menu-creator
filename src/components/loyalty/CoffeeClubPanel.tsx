@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Image from "next/image";
 import {
@@ -17,6 +15,7 @@ import {
   ChevronRight,
   Star,
   Store,
+  Check,
 } from "lucide-react";
 import { useLoyalty } from "@/components/menu/LoyaltyProvider";
 import { useCart } from "@/components/menu/CartProvider";
@@ -24,6 +23,7 @@ import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import { InstallPromptSheet } from "@/components/loyalty/InstallPromptSheet";
 import { PointStoreSheet } from "@/components/loyalty/PointStoreSheet";
 import { ReferralCard } from "@/components/loyalty/ReferralCard";
+import type { RewardPoolItem } from "@/types";
 
 function useOptionalCart() {
   try {
@@ -43,12 +43,13 @@ export function CoffeeClubPanel() {
   const [addedToCart, setAddedToCart] = useState(false);
   const [activeTab, setActiveTab] = useState<"home" | "store" | "settings">("home");
   const [storeSheetOpen, setStoreSheetOpen] = useState(false);
+  const [selectedRewardItem, setSelectedRewardItem] = useState<RewardPoolItem | null>(null);
 
   const isOpen = loyalty?.panelOpen ?? false;
   const progress = loyalty?.progress;
 
   useEffect(() => {
-    if (isOpen) { setAddedToCart(false); setActiveTab("home"); }
+    if (isOpen) { setAddedToCart(false); setActiveTab("home"); setSelectedRewardItem(null); }
   }, [isOpen]);
 
   useEffect(() => {
@@ -68,15 +69,19 @@ export function CoffeeClubPanel() {
 
   const handleClose = useCallback(() => loyalty?.setPanelOpen(false), [loyalty]);
 
-  const handleAddReward = useCallback(() => {
-    if (!cart || !loyalty?.rewardItem) return;
+  const handleAddReward = useCallback((overrideItem?: RewardPoolItem) => {
+    if (!cart) return;
+    const itemToUse = overrideItem ?? (loyalty?.rewardItem
+      ? { menuItemId: loyalty.rewardItem.menuItemId || `reward_${Date.now()}`, name: loyalty.rewardItem.name, image: loyalty.rewardItem.image }
+      : null);
+    if (!itemToUse) return;
     const existing = cart.items.find((i) => i.type === "loyalty_reward");
     if (existing) { setAddedToCart(true); return; }
     cart.addItem({
-      menuItemId: loyalty.rewardItem.menuItemId || `reward_${Date.now()}`,
-      name: loyalty.rewardItem.name,
+      menuItemId: itemToUse.menuItemId || `reward_${Date.now()}`,
+      name: itemToUse.name,
       price: 0,
-      image: loyalty.rewardItem.image || "",
+      image: itemToUse.image || "",
       type: "loyalty_reward",
     });
     setAddedToCart(true);
@@ -105,6 +110,8 @@ export function CoffeeClubPanel() {
   const pointsBalance = progress.points?.balance ?? 0;
   const hasPoints = !!progress.points;
   const rId = loyalty?.restaurantId ?? "";
+  const cKey = loyalty?.customerKey ?? "";
+  const rewardPool = loyalty?.rewardPool ?? [];
 
   const activeBoosterCount =
     (progress.bonuses.happyHour ? 1 : 0) +
@@ -405,25 +412,60 @@ export function CoffeeClubPanel() {
                     </div>
                   </div>
                   {cart && (
-                    <button
-                      type="button"
-                      onClick={handleAddReward}
-                      disabled={rewardInCart || addedToCart}
-                      className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all duration-200 ${
-                        rewardInCart || addedToCart
-                          ? "bg-[#4CAF50]/10 text-[#4CAF50] border border-[#4CAF50]/20"
-                          : "bg-[#C89B3C] text-white hover:bg-[#B8892F] active:scale-[0.98] shadow-md"
-                      }`}
-                    >
-                      {rewardInCart || addedToCart ? (
-                        <>✓ Sepete Eklendi</>
-                      ) : (
-                        <>
-                          <Gift className="w-4 h-4" />
-                          Ödülü Kullan
-                        </>
+                    <>
+                      {/* Reward pool selection — shown when admin configured multiple items */}
+                      {rewardPool.length > 1 && !rewardInCart && !addedToCart && (
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-[#6B4226]/60 uppercase tracking-wide">Ödül seç:</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {rewardPool.map((item) => {
+                              const isSelected = selectedRewardItem?.menuItemId === item.menuItemId;
+                              return (
+                                <button
+                                  key={item.menuItemId}
+                                  type="button"
+                                  onClick={() => setSelectedRewardItem(item)}
+                                  className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all ${
+                                    isSelected
+                                      ? "border-[#C89B3C] bg-[#C89B3C]/10"
+                                      : "border-[#E8E4DF] bg-white hover:border-[#C89B3C]/50"
+                                  }`}
+                                >
+                                  {item.image && (
+                                    <div className="relative w-8 h-8 shrink-0 rounded-lg overflow-hidden bg-[#F8F6F3]">
+                                      <Image src={item.image} alt={item.name} fill sizes="32px" className="object-cover" />
+                                    </div>
+                                  )}
+                                  <span className="text-xs font-medium text-[#3D2C1E] line-clamp-2">{item.name}</span>
+                                  {isSelected && <Check className="w-3.5 h-3.5 text-[#C89B3C] shrink-0 ml-auto" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
                       )}
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAddReward(selectedRewardItem ?? (rewardPool.length === 1 ? rewardPool[0] : undefined))}
+                        disabled={rewardInCart || addedToCart || (rewardPool.length > 1 && !selectedRewardItem)}
+                        className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all duration-200 ${
+                          rewardInCart || addedToCart
+                            ? "bg-[#4CAF50]/10 text-[#4CAF50] border border-[#4CAF50]/20"
+                            : rewardPool.length > 1 && !selectedRewardItem
+                            ? "bg-muted text-muted-foreground cursor-not-allowed"
+                            : "bg-[#C89B3C] text-white hover:bg-[#B8892F] active:scale-[0.98] shadow-md"
+                        }`}
+                      >
+                        {rewardInCart || addedToCart ? (
+                          <>✓ Sepete Eklendi</>
+                        ) : (
+                          <>
+                            <Gift className="w-4 h-4" />
+                            {rewardPool.length > 1 && !selectedRewardItem ? "Ödül Seçin" : "Ödülü Kullan"}
+                          </>
+                        )}
+                      </button>
+                    </>
                   )}
                   {progress.reward.expiresAt && (
                     <p className="text-[10px] text-amber-500 text-center font-medium">
@@ -712,7 +754,20 @@ function SettingsTab() {
 
 /* ─── Install Settings Card ─── */
 function InstallSettingsCard() {
-  const { canInstall, isInstalled } = useInstallPrompt();
+  const loyalty = useLoyalty();
+  const customerKey = loyalty?.customerKey ?? "";
+  const restaurantId = loyalty?.restaurantId ?? "";
+
+  const awardPwaPoints = useCallback(() => {
+    if (!customerKey || !restaurantId) return;
+    fetch("/api/loyalty/points", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ customerKey, restaurantId, actionType: "pwa_install" }),
+    }).catch(() => {});
+  }, [customerKey, restaurantId]);
+
+  const { canInstall, isInstalled } = useInstallPrompt({ onInstalled: awardPwaPoints });
   const [installSheetOpen, setInstallSheetOpen] = useState(false);
 
   const needsManualIOS =
@@ -755,7 +810,12 @@ function InstallSettingsCard() {
             </div>
             <ChevronRight className="w-4 h-4 text-[#6B4226]/30 shrink-0" />
           </button>
-          <InstallPromptSheet open={installSheetOpen} onClose={() => setInstallSheetOpen(false)} />
+          <InstallPromptSheet
+            open={installSheetOpen}
+            onClose={() => setInstallSheetOpen(false)}
+            customerKey={customerKey}
+            restaurantId={restaurantId}
+          />
         </>
       ) : (
         <div className="flex items-center gap-3 px-4 py-3.5">
