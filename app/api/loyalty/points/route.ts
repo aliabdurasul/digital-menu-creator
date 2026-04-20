@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const VALID_ACTIONS = ["pwa_install", "social_share", "review", "referral"] as const;
-type ActionType = (typeof VALID_ACTIONS)[number];
+const VALID_ACTIONS = ["pwa_install", "social_share", "review", "referral_bonus", "referee_bonus", "order_bonus"] as const;
+type ActionType = typeof VALID_ACTIONS[number];
 
 function getServiceClient() {
   return createClient(
@@ -13,133 +13,77 @@ function getServiceClient() {
 }
 
 /**
- * POST /api/loyalty/points — Record a point-earning action.
- * Body: { customerKey, restaurantId, action }
- *
- * One-time actions (pwa_install, referral) are idempotent.
- * Returns the points earned and new total.
+ * POST /api/loyalty/points
+ * Body: { customerKey, restaurantId, actionType, meta? }
+ * Earns points for the given action.
  */
 export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const { customerKey, restaurantId, action } = body as {
-      customerKey?: string;
-      restaurantId?: string;
-      action?: string;
-    };
+  const body = await req.json();
+  const { customerKey, restaurantId, actionType, meta } = body as {
+    customerKey?: string;
+    restaurantId?: string;
+    actionType?: string;
+    meta?: Record<string, unknown>;
+  };
 
-    if (!customerKey || !restaurantId || !action) {
-      return NextResponse.json(
-        { error: "customerKey, restaurantId ve action gerekli" },
-        { status: 400 }
-      );
-    }
+  if (!customerKey || !restaurantId || !actionType) {
+    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  }
+  if (!UUID_RE.test(restaurantId) || !UUID_RE.test(customerKey)) {
+    return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
+  }
+  if (!VALID_ACTIONS.includes(actionType as ActionType)) {
+    return NextResponse.json({ error: "Invalid action type" }, { status: 400 });
+  }
 
-    if (!UUID_RE.test(customerKey) || !UUID_RE.test(restaurantId)) {
-      return NextResponse.json({ error: "Geçersiz kimlik" }, { status: 400 });
-    }
+  const supabase = getServiceClient();
 
-    if (!VALID_ACTIONS.includes(action as ActionType)) {
-      return NextResponse.json({ error: "Geçersiz aksiyon" }, { status: 400 });
-    }
+  // Get program to check points_enabled and configured values
+  const { data: program } = await supabase
+    .from("loyalty_programs")
+    .select("points_enabled, pwa_install_points, social_share_points, review_points, referral_points, referee_bonus_points, order_points_per_item")
+    .eq("restaurant_id", restaurantId)
+    .single();
 
-    const supabase = getServiceClient();
+  if (!program?.points_enabled) {
+    return NextResponse.json({ error: "Points system not enabled" }, { status: 400 });
+  }
 
-    // Look up points config from loyalty_programs
-    const { data: program } = await supabase
-      .from("loyalty_programs")
-      .select("points_enabled, pwa_install_points, social_share_points, review_points")
-      .eq("restaurant_id", restaurantId)
-      .single();
+  // Map action to configured point value
+  const pointMap: Record<ActionType, number> = {
+    pwa_install: program.pwa_install_points ?? 50,
+    social_share: program.social_share_points ?? 20,
+    review: program.review_points ?? 30,
+    referral_bonus: program.referral_points ?? 100,
+    referee_bonus: program.referee_bonus_points ?? 50,
+    order_bonus: program.order_points_per_item ?? 10,
+  };
 
-    if (!program?.points_enabled) {
-      return NextResponse.json({ error: "Puan sistemi aktif değil" }, { status: 400 });
-    }
+  const points = pointMap[actionType as ActionType];
+  if (points <= 0) {
+    return NextResponse.json({ error: "Action disabled" }, { status: 400 });
+  }
 
-    // Determine points for this action
-    const pointsMap: Record<string, number> = {
-      pwa_install: program.pwa_install_points ?? 50,
-      social_share: program.social_share_points ?? 20,
-      review: program.review_points ?? 30,
-      referral: 50,
-    };
-    const points = pointsMap[action] || 0;
-
-    if (points <= 0) {
-      return NextResponse.json({ error: "Bu aksiyon için puan tanımlı değil" }, { status: 400 });
-    }
-
-    // Insert action (unique constraint handles idempotency for one-time actions)
-    const { error } = await supabase.from("point_actions").insert({
+  // For one-time actions, the unique index will prevent duplicates
+  const { data, error } = await supabase
+    .from("point_actions")
+    .insert({
       customer_key: customerKey,
       restaurant_id: restaurantId,
-      action_type: action,
+      action_type: actionType,
       points,
-    });
+      meta: meta ?? {},
+    })
+    .select("id, points, action_type, created_at")
+    .single();
 
-    if (error) {
-      // Unique constraint violation = already claimed
-      if (error.code === "23505") {
-        return NextResponse.json({ error: "Bu ödül zaten alındı", alreadyClaimed: true }, { status: 409 });
-      }
-      console.error("[loyalty/points] Insert failed:", error);
-      return NextResponse.json({ error: "Puan kaydedilemedi" }, { status: 500 });
+  if (error) {
+    // Duplicate one-time action
+    if (error.code === "23505") {
+      return NextResponse.json({ error: "Already earned", alreadyClaimed: true }, { status: 409 });
     }
-
-    // Calculate new total
-    const { data: totalData } = await supabase
-      .from("point_actions")
-      .select("points")
-      .eq("customer_key", customerKey)
-      .eq("restaurant_id", restaurantId);
-
-    const total = (totalData || []).reduce((sum, row) => sum + (row.points || 0), 0);
-
-    return NextResponse.json({ success: true, pointsEarned: points, totalPoints: total });
-  } catch {
-    return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });
-  }
-}
-
-/**
- * GET /api/loyalty/points?customerKey=...&restaurantId=...
- * Returns the customer's total points and action history.
- */
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const customerKey = searchParams.get("customerKey");
-  const restaurantId = searchParams.get("restaurantId");
-
-  if (!customerKey || !restaurantId) {
-    return NextResponse.json({ error: "customerKey ve restaurantId gerekli" }, { status: 400 });
+    return NextResponse.json({ error: "Failed to record points" }, { status: 500 });
   }
 
-  if (!UUID_RE.test(customerKey) || !UUID_RE.test(restaurantId)) {
-    return NextResponse.json({ error: "Geçersiz kimlik" }, { status: 400 });
-  }
-
-  try {
-    const supabase = getServiceClient();
-
-    const { data } = await supabase
-      .from("point_actions")
-      .select("action_type, points, created_at")
-      .eq("customer_key", customerKey)
-      .eq("restaurant_id", restaurantId)
-      .order("created_at", { ascending: false });
-
-    const actions = data || [];
-    const total = actions.reduce((sum, row) => sum + (row.points || 0), 0);
-
-    return NextResponse.json({
-      totalPoints: total,
-      actions: actions.map((a) => ({
-        action: a.action_type,
-        points: a.points,
-        date: a.created_at,
-      })),
-    });
-  } catch {
-    return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });
-  }
+  return NextResponse.json({ ok: true, action: data });
 }

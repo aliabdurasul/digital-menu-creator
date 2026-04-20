@@ -7,7 +7,6 @@ import { OrderingWrapper } from "@/components/menu/OrderingWrapper";
 import { CoffeeClubPanel } from "@/components/loyalty/CoffeeClubPanel";
 import { PushPermissionSheet } from "@/components/loyalty/PushPermissionSheet";
 import { PublicInstallTrigger } from "@/components/loyalty/PublicInstallTrigger";
-import { OnboardingSheet } from "@/components/loyalty/OnboardingSheet";
 import { canUseFeature } from "@/lib/features/engine";
 import { AlertTriangle } from "lucide-react";
 import type { Metadata } from "next";
@@ -105,7 +104,6 @@ export default async function TenantPage() {
       <CoffeeClubPanel />
       <PushPermissionSheet />
       <PublicInstallTrigger />
-      <OnboardingSheet />
     </LoyaltyProvider>
   );
 }

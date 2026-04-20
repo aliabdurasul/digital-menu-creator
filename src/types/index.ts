@@ -377,11 +377,15 @@ export interface DbLoyaltyProgram {
   secret_reward_enabled: boolean;
   secret_reward_probability: number;
   secret_reward_discount_percent: number;
-  /* ─── Action-Based Points v15 ─── */
+  /* ─── Point Store & Referral v14 ─── */
   points_enabled: boolean;
   pwa_install_points: number;
   social_share_points: number;
   review_points: number;
+  referral_enabled: boolean;
+  referral_points: number;
+  referee_bonus_points: number;
+  order_points_per_item: number;
   created_at: string;
 }
 
@@ -471,7 +475,54 @@ export interface LoyaltyProgressResponse {
     menuItemId?: string;
   } | null;
   points: {
-    total: number;
-    actions: { action: string; points: number; date: string }[];
+    balance: number;
+    history: PointAction[];
   } | null;
+}
+
+/* ─── Point Store & Referral Types ─── */
+
+export interface PointAction {
+  id: string;
+  action_type: "pwa_install" | "social_share" | "review" | "referral_bonus" | "referee_bonus" | "order_bonus";
+  points: number;
+  created_at: string;
+  meta?: Record<string, unknown>;
+}
+
+export interface PointStoreItem {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  description: string;
+  image_url: string;
+  cost_points: number;
+  menu_item_id?: string | null;
+  stock: number;
+  active: boolean;
+  sort_order: number;
+}
+
+export interface PointRedemption {
+  id: string;
+  customer_key: string;
+  store_item_id: string;
+  points_spent: number;
+  status: "pending" | "used" | "expired";
+  created_at: string;
+}
+
+export interface ReferralCode {
+  code: string;
+  customer_key: string;
+  restaurant_id: string;
+}
+
+export interface ReferralTrack {
+  id: string;
+  referrer_key: string;
+  referee_key: string;
+  referrer_points: number;
+  referee_points: number;
+  created_at: string;
 }

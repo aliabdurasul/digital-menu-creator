@@ -345,6 +345,7 @@ async function buildResponse(
     upsellItem?: string;
     secretReward?: DbSecretReward | null;
     favoriteItem?: { name: string; image?: string; menuItemId?: string } | null;
+    pointsData?: { balance: number; history: Array<{ id: string; action_type: string; points: number; created_at: string; meta?: Record<string, unknown> }> } | null;
   } = {}
 ): Promise<LoyaltyProgressResponse> {
   const current = progress?.current_count ?? 0;
@@ -421,7 +422,7 @@ async function buildResponse(
     upsell: extras.upsellMessage ? { message: extras.upsellMessage, recommendedItem: extras.upsellItem } : null,
     clubName: program.club_name || "Coffee Club",
     rewardItem,
-    points: null,
+    points: extras.pointsData ?? null,
   };
 }
 
@@ -845,6 +846,39 @@ export async function confirmProgress(
   return await buildResponse(program as DbLoyaltyProgram, updated, {});
 }
 
+/* ─── Points Balance ─── */
+
+async function getPointsData(
+  supabase: ReturnType<typeof getServiceClient>,
+  customerKey: string,
+  restaurantId: string,
+  pointsEnabled: boolean
+): Promise<{ balance: number; history: Array<{ id: string; action_type: string; points: number; created_at: string; meta?: Record<string, unknown> }> } | null> {
+  if (!pointsEnabled) return null;
+
+  const { data: actions } = await supabase
+    .from("point_actions")
+    .select("id, action_type, points, created_at, meta")
+    .eq("customer_key", customerKey)
+    .eq("restaurant_id", restaurantId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  const { data: redemptions } = await supabase
+    .from("point_redemptions")
+    .select("points_spent")
+    .eq("customer_key", customerKey)
+    .eq("restaurant_id", restaurantId);
+
+  const earned = (actions ?? []).reduce((s, a) => s + a.points, 0);
+  const spent = (redemptions ?? []).reduce((s, r) => s + r.points_spent, 0);
+
+  return {
+    balance: earned - spent,
+    history: (actions ?? []) as Array<{ id: string; action_type: string; points: number; created_at: string; meta?: Record<string, unknown> }>,
+  };
+}
+
 /**
  * Read-only snapshot — used by page load and polling.
  * Clears expired rewards automatically.
@@ -913,9 +947,12 @@ export async function getLoyaltySnapshot(
       ? await getUpsellMessage(program as DbLoyaltyProgram, fakeProgress, restaurantId)
       : null;
 
+    const pointsData = await getPointsData(supabase, customerKey, restaurantId, (program as DbLoyaltyProgram).points_enabled);
+
     return await buildResponse(program as DbLoyaltyProgram, fakeProgress, {
       upsellMessage: upsell?.message,
       upsellItem: upsell?.item,
+      pointsData,
     });
   }
 
@@ -938,11 +975,14 @@ export async function getLoyaltySnapshot(
     ? await getUpsellMessage(program as DbLoyaltyProgram, currentProgress, restaurantId)
     : null;
 
+  const pointsData = await getPointsData(supabase, customerKey, restaurantId, (program as DbLoyaltyProgram).points_enabled);
+
   return await buildResponse(program as DbLoyaltyProgram, currentProgress, {
     upsellMessage: upsell?.message,
     upsellItem: upsell?.item,
     secretReward,
     favoriteItem,
+    pointsData,
   });
 }
 

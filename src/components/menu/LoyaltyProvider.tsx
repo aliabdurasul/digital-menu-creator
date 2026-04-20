@@ -3,11 +3,13 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import type { LoyaltyProgressResponse } from "@/types";
 import { getOrCreateCustomerKey, fetchLoyaltyProgress } from "@/lib/loyalty-client";
+import { useAutoReferral } from "@/components/loyalty/ReferralCard";
 
 interface LoyaltyContextValue {
   progress: LoyaltyProgressResponse | null;
   isLoading: boolean;
   customerKey: string;
+  restaurantId: string;
   refetch: () => Promise<void>;
   /** Immediately update progress from an API response (e.g. order POST). Skips a network round-trip. */
   updateFromResponse: (data: LoyaltyProgressResponse) => void;
@@ -97,6 +99,9 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
     }
   }, [fetchProgress]);
 
+  // Auto-apply referral code from URL if present
+  useAutoReferral(restaurantId, customerKey);
+
   // Register FCM service worker on mount (does NOT request permission)
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
@@ -113,11 +118,10 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
           const { getMessagingToken } = await import("@/lib/firebase-client");
           const token = await getMessagingToken(swReg);
           if (token) {
-            const lang = localStorage.getItem("lezzet-lang") || "tr";
             await fetch("/api/push/token", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ customerKey, restaurantId, token, language: lang }),
+              body: JSON.stringify({ customerKey, restaurantId, token }),
             });
           }
         } else if (Notification.permission === "denied") {
@@ -185,11 +189,10 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
       const token = await getMessagingToken(swRegRef.current || undefined);
 
       if (token) {
-        const lang = localStorage.getItem("lezzet-lang") || "tr";
         await fetch("/api/push/token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ customerKey, restaurantId, token, sendWelcome: true, language: lang }),
+          body: JSON.stringify({ customerKey, restaurantId, token, sendWelcome: true }),
         });
       }
     } catch {
@@ -213,7 +216,7 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
   const rewardItem = progress?.rewardItem ?? null;
 
   return (
-    <LoyaltyContext.Provider value={{ progress, isLoading, customerKey, refetch, updateFromResponse, clubName, rewardItem, panelOpen, setPanelOpen, requestPushPermission, pushStatus, pushSheetOpen, pushSheetReason, triggerPushSheet, dismissPushSheet }}>
+    <LoyaltyContext.Provider value={{ progress, isLoading, customerKey, restaurantId, refetch, updateFromResponse, clubName, rewardItem, panelOpen, setPanelOpen, requestPushPermission, pushStatus, pushSheetOpen, pushSheetReason, triggerPushSheet, dismissPushSheet }}>
       {children}
     </LoyaltyContext.Provider>
   );

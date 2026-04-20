@@ -16,12 +16,14 @@ import {
   Trophy,
   ChevronRight,
   Star,
-  Download,
+  Store,
 } from "lucide-react";
 import { useLoyalty } from "@/components/menu/LoyaltyProvider";
 import { useCart } from "@/components/menu/CartProvider";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import { InstallPromptSheet } from "@/components/loyalty/InstallPromptSheet";
+import { PointStoreSheet } from "@/components/loyalty/PointStoreSheet";
+import { ReferralCard } from "@/components/loyalty/ReferralCard";
 
 function useOptionalCart() {
   try {
@@ -39,7 +41,8 @@ export function CoffeeClubPanel() {
   const loyalty = useLoyalty();
   const cart = useOptionalCart();
   const [addedToCart, setAddedToCart] = useState(false);
-  const [activeTab, setActiveTab] = useState<"home" | "settings">("home");
+  const [activeTab, setActiveTab] = useState<"home" | "store" | "settings">("home");
+  const [storeSheetOpen, setStoreSheetOpen] = useState(false);
 
   const isOpen = loyalty?.panelOpen ?? false;
   const progress = loyalty?.progress;
@@ -99,6 +102,9 @@ export function CoffeeClubPanel() {
   const secretDaysLeft = secretReward?.expiresAt
     ? Math.ceil((new Date(secretReward.expiresAt).getTime() - Date.now()) / 86400000)
     : null;
+  const pointsBalance = progress.points?.balance ?? 0;
+  const hasPoints = !!progress.points;
+  const rId = loyalty?.restaurantId ?? "";
 
   const activeBoosterCount =
     (progress.bonuses.happyHour ? 1 : 0) +
@@ -120,6 +126,12 @@ export function CoffeeClubPanel() {
             <h2 className="text-lg font-bold text-[#3D2C1E]">{clubName}</h2>
           </div>
           <div className="flex items-center gap-2">
+            {hasPoints && (
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#C89B3C]/10 border border-[#C89B3C]/20">
+                <Star className="w-3 h-3 text-[#C89B3C] fill-[#C89B3C]" />
+                <span className="text-xs font-bold text-[#C89B3C]">{pointsBalance}</span>
+              </div>
+            )}
             {streak.active && (
               <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-100 border border-orange-200">
                 <span className="text-sm">🔥</span>
@@ -149,6 +161,20 @@ export function CoffeeClubPanel() {
           >
             Kulübüm
           </button>
+          {progress.points && (
+            <button
+              type="button"
+              onClick={() => setActiveTab("store")}
+              className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1 ${
+                activeTab === "store"
+                  ? "bg-white text-[#6B4226] shadow-sm"
+                  : "text-[#6B4226]/50 hover:text-[#6B4226]/70"
+              }`}
+            >
+              <Store className="w-3.5 h-3.5" />
+              Mağaza
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setActiveTab("settings")}
@@ -234,13 +260,6 @@ export function CoffeeClubPanel() {
                   )}
                 </div>
               </div>
-
-              {/* ═══ POINTS & ACTIONS ═══ */}
-              {progress.points && (
-                <PointsSection
-                  points={progress.points}
-                />
-              )}
 
               {/* ═══ ACTIVE BOOSTERS ═══ */}
               {activeBoosterCount > 0 && (
@@ -445,7 +464,13 @@ export function CoffeeClubPanel() {
                   <p className="text-xs text-[#6B4226]/40 italic">{progress.upsell.message}</p>
                 </div>
               )}
+
+              {/* ═══ REFERRAL CARD ═══ */}
+              {rId && <ReferralCard restaurantId={rId} />}
             </>
+          ) : activeTab === "store" ? (
+            /* ═══ STORE TAB ═══ */
+            <StoreTab restaurantId={rId} />
           ) : (
             /* ═══ SETTINGS TAB ═══ */
             <SettingsTab />
@@ -471,6 +496,140 @@ export function CoffeeClubPanel() {
       </div>
     </div>
   );
+}
+
+/* ──────────────────────────────────────────────────────────── */
+/*  Store Tab (inline — shows point store items)                */
+/* ──────────────────────────────────────────────────────────── */
+
+function StoreTab({ restaurantId }: { restaurantId: string }) {
+  const loyalty = useLoyalty();
+  const [items, setItems] = useState<Array<{ id: string; name: string; description: string; cost_points: number; stock: number; image_url: string }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [redeeming, setRedeeming] = useState<string | null>(null);
+  const [redeemed, setRedeemed] = useState<Set<string>>(new Set());
+
+  const balance = loyalty?.progress?.points?.balance ?? 0;
+
+  useEffect(() => {
+    if (!restaurantId) return;
+    fetch(`/api/loyalty/store?restaurantId=${restaurantId}`)
+      .then((r) => r.json())
+      .then((d) => setItems(d.items ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [restaurantId]);
+
+  const handleRedeem = async (item: typeof items[0]) => {
+    if (!loyalty?.customerKey || balance < item.cost_points) return;
+    setRedeeming(item.id);
+    try {
+      const res = await fetch("/api/loyalty/store/redeem", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customerKey: loyalty.customerKey, restaurantId, storeItemId: item.id }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setRedeemed((prev) => new Set(prev).add(item.id));
+        loyalty.refetch();
+      }
+    } catch { /* ignore */ }
+    setRedeeming(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="w-6 h-6 border-2 border-[#6B4226]/20 border-t-[#6B4226] rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Balance header */}
+      <div className="bg-gradient-to-br from-[#C89B3C]/10 to-[#6B4226]/5 rounded-2xl p-4 border border-[#C89B3C]/15 text-center">
+        <p className="text-xs text-[#6B4226]/50 mb-1">Mevcut Puanın</p>
+        <div className="flex items-center justify-center gap-2">
+          <Star className="w-5 h-5 text-[#C89B3C] fill-[#C89B3C]" />
+          <span className="text-3xl font-bold text-[#C89B3C]">{balance}</span>
+        </div>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="text-center py-8 space-y-2">
+          <Gift className="w-10 h-10 text-[#6B4226]/15 mx-auto" />
+          <p className="text-sm text-[#6B4226]/40">Yakında ödüller eklenecek!</p>
+        </div>
+      ) : (
+        items.map((item) => {
+          const canAfford = balance >= item.cost_points;
+          const outOfStock = item.stock !== -1 && item.stock <= 0;
+          const justRedeemed = redeemed.has(item.id);
+
+          return (
+            <div key={item.id} className="bg-white rounded-2xl p-4 shadow-sm border border-[#E8E4DF]">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 shrink-0 rounded-xl bg-gradient-to-br from-[#C89B3C]/10 to-[#6B4226]/10 flex items-center justify-center">
+                  <Gift className="w-6 h-6 text-[#C89B3C]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-[#3D2C1E] truncate">{item.name}</p>
+                  {item.description && <p className="text-xs text-[#6B4226]/50 truncate">{item.description}</p>}
+                  <div className="flex items-center gap-1 mt-1">
+                    <Star className="w-3 h-3 text-[#C89B3C] fill-[#C89B3C]" />
+                    <span className="text-xs font-bold text-[#C89B3C]">{item.cost_points} puan</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={!canAfford || outOfStock || redeeming === item.id || justRedeemed}
+                  onClick={() => handleRedeem(item)}
+                  className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    justRedeemed
+                      ? "bg-[#4CAF50]/10 text-[#4CAF50] border border-[#4CAF50]/20"
+                      : canAfford && !outOfStock
+                        ? "bg-[#C89B3C] text-white hover:bg-[#B8892F] active:scale-95 shadow-sm"
+                        : "bg-[#E8E4DF] text-[#6B4226]/30 cursor-not-allowed"
+                  }`}
+                >
+                  {redeeming === item.id ? "..." : justRedeemed ? "✓ Alındı" : outOfStock ? "Tükendi" : "Al"}
+                </button>
+              </div>
+            </div>
+          );
+        })
+      )}
+
+      {/* Points history */}
+      {(loyalty?.progress?.points?.history ?? []).length > 0 && (
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <h3 className="text-xs font-bold text-[#6B4226]/60 uppercase tracking-wider mb-3">Son İşlemler</h3>
+          <div className="space-y-2">
+            {(loyalty?.progress?.points?.history ?? []).slice(0, 5).map((h) => (
+              <div key={h.id} className="flex items-center justify-between py-1.5 border-b border-[#E8E4DF] last:border-0">
+                <span className="text-xs text-[#6B4226]/70">{actionLabel(h.action_type)}</span>
+                <span className="text-xs font-bold text-[#4CAF50]">+{h.points}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function actionLabel(type: string): string {
+  const labels: Record<string, string> = {
+    pwa_install: "Uygulama yükleme",
+    social_share: "Sosyal paylaşım",
+    review: "Yorum bırakma",
+    referral_bonus: "Arkadaş daveti",
+    referee_bonus: "Davet bonusu",
+    order_bonus: "Sipariş puanı",
+  };
+  return labels[type] || type;
 }
 
 /* ──────────────────────────────────────────────────────────── */
@@ -611,92 +770,6 @@ function InstallSettingsCard() {
       )}
     </div>
   );
-}
-
-/* ──────────────────────────────────────────────────────────── */
-/*  Points & Actions Section                                    */
-/* ──────────────────────────────────────────────────────────── */
-
-function PointsSection({ points }: { points: { total: number; actions: { action: string; points: number; date: string }[] } }) {
-  const loyalty = useLoyalty();
-  const { canInstall, isInstalled } = useInstallPrompt();
-  const [installSheetOpen, setInstallSheetOpen] = useState(false);
-  const [claimingInstall, setClaimingInstall] = useState(false);
-
-  const hasPwaAction = points.actions.some((a) => a.action === "pwa_install");
-  const showInstallCTA = !isInstalled && !hasPwaAction && canInstall;
-
-  const handleClaimInstallPoints = useCallback(async () => {
-    if (!loyalty || claimingInstall) return;
-    setClaimingInstall(true);
-    try {
-      await fetch("/api/loyalty/points", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customerKey: loyalty.customerKey,
-          restaurantId: loyalty.progress?.clubName ? undefined : undefined, // Intentional: we need restaurantId
-          action: "pwa_install",
-        }),
-      });
-      loyalty.refetch();
-    } catch { /* non-critical */ }
-    setClaimingInstall(false);
-  }, [loyalty, claimingInstall]);
-
-  return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Star className="w-4 h-4 text-[#C89B3C] fill-[#C89B3C]" />
-          <h3 className="text-sm font-bold text-[#3D2C1E]">Puanlarım</h3>
-        </div>
-        <span className="text-lg font-bold text-[#C89B3C]">{points.total}</span>
-      </div>
-
-      {/* Install CTA */}
-      {showInstallCTA && (
-        <button
-          type="button"
-          onClick={() => setInstallSheetOpen(true)}
-          className="w-full flex items-center gap-3 px-3 py-3 rounded-xl bg-gradient-to-r from-[#C89B3C]/10 to-amber-50 border border-[#C89B3C]/20 hover:border-[#C89B3C]/40 transition-all active:scale-[0.98]"
-        >
-          <div className="w-9 h-9 rounded-lg bg-[#C89B3C]/15 flex items-center justify-center shrink-0">
-            <Download className="w-4 h-4 text-[#C89B3C]" />
-          </div>
-          <div className="flex-1 text-left">
-            <p className="text-sm font-semibold text-[#3D2C1E]">Uygulamayı İndir</p>
-            <p className="text-xs text-[#6B4226]/50">Ana ekrana ekle</p>
-          </div>
-          <span className="text-sm font-bold text-[#C89B3C]">+50 ⭐</span>
-        </button>
-      )}
-
-      {/* Recent actions */}
-      {points.actions.length > 0 && (
-        <div className="space-y-1.5 pt-1">
-          {points.actions.slice(0, 3).map((a, i) => (
-            <div key={i} className="flex items-center justify-between text-xs">
-              <span className="text-[#6B4226]/60">{getActionLabel(a.action)}</span>
-              <span className="font-semibold text-[#4CAF50]">+{a.points}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <InstallPromptSheet open={installSheetOpen} onClose={() => setInstallSheetOpen(false)} />
-    </div>
-  );
-}
-
-function getActionLabel(action: string): string {
-  switch (action) {
-    case "pwa_install": return "📱 Uygulama yüklendi";
-    case "social_share": return "📲 Sosyal medya paylaşımı";
-    case "review": return "⭐ Yorum bırakıldı";
-    case "referral": return "👥 Arkadaş daveti";
-    default: return action;
-  }
 }
 
 /* ──────────────────────────────────────────────────────────── */

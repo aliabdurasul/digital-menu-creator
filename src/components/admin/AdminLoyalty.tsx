@@ -16,8 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Award, Loader2, Save, Sparkles, Flame, Zap, Gift } from "lucide-react";
+import { Award, Loader2, Save, Sparkles, Flame, Zap, Gift, Store, Users, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import type { PointStoreItem } from "@/types";
 
 interface Props {
   restaurant: Restaurant;
@@ -60,13 +61,18 @@ export function AdminLoyalty({ restaurant }: Props) {
   const [secretRewardEnabled, setSecretRewardEnabled] = useState(false);
   const [secretRewardProbability, setSecretRewardProbability] = useState(5);
   const [secretRewardDiscount, setSecretRewardDiscount] = useState(10);
-  // Points system
+  // Points & Store
   const [pointsEnabled, setPointsEnabled] = useState(false);
   const [pwaInstallPoints, setPwaInstallPoints] = useState(50);
   const [socialSharePoints, setSocialSharePoints] = useState(20);
   const [reviewPoints, setReviewPoints] = useState(30);
-  // Admin tab
-  const [adminTab, setAdminTab] = useState<"basic" | "actions" | "engagement">("basic");
+  const [orderPointsPerItem, setOrderPointsPerItem] = useState(10);
+  const [storeItems, setStoreItems] = useState<PointStoreItem[]>([]);
+  const [storeLoading, setStoreLoading] = useState(false);
+  // Referral
+  const [referralEnabled, setReferralEnabled] = useState(false);
+  const [referralPoints, setReferralPoints] = useState(100);
+  const [refereeBonusPoints, setRefereeBonusPoints] = useState(50);
 
   useEffect(() => {
     async function load() {
@@ -106,12 +112,24 @@ export function AdminLoyalty({ restaurant }: Props) {
         setSecretRewardEnabled(p.secret_reward_enabled);
         setSecretRewardProbability(Math.round(p.secret_reward_probability * 100));
         setSecretRewardDiscount(p.secret_reward_discount_percent);
-        // Points system
+        // Points & Referral
         setPointsEnabled(p.points_enabled ?? false);
         setPwaInstallPoints(p.pwa_install_points ?? 50);
         setSocialSharePoints(p.social_share_points ?? 20);
         setReviewPoints(p.review_points ?? 30);
+        setOrderPointsPerItem(p.order_points_per_item ?? 10);
+        setReferralEnabled(p.referral_enabled ?? false);
+        setReferralPoints(p.referral_points ?? 100);
+        setRefereeBonusPoints(p.referee_bonus_points ?? 50);
       }
+      // Load store items
+      const { data: items } = await supabase
+        .from("point_store_items")
+        .select("*")
+        .eq("restaurant_id", restaurant.id)
+        .eq("active", true)
+        .order("sort_order", { ascending: true });
+      if (items) setStoreItems(items as PointStoreItem[]);
       setLoading(false);
     }
     load();
@@ -149,11 +167,15 @@ export function AdminLoyalty({ restaurant }: Props) {
       secret_reward_enabled: secretRewardEnabled,
       secret_reward_probability: secretRewardProbability / 100,
       secret_reward_discount_percent: secretRewardDiscount,
-      // Points system
+      // Points & Referral
       points_enabled: pointsEnabled,
       pwa_install_points: pwaInstallPoints,
       social_share_points: socialSharePoints,
       review_points: reviewPoints,
+      order_points_per_item: orderPointsPerItem,
+      referral_enabled: referralEnabled,
+      referral_points: referralPoints,
+      referee_bonus_points: refereeBonusPoints,
     };
 
     let error: unknown;
@@ -200,6 +222,35 @@ export function AdminLoyalty({ restaurant }: Props) {
     );
   };
 
+  /* ─── Store Item CRUD ─── */
+  const addStoreItem = async () => {
+    setStoreLoading(true);
+    const res = await fetch("/api/loyalty/store", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        restaurantId: restaurant.id,
+        item: { name: "Yeni Ödül", cost_points: 100 },
+      }),
+    });
+    const json = await res.json();
+    if (json.item) setStoreItems((prev) => [...prev, json.item]);
+    setStoreLoading(false);
+  };
+
+  const updateStoreItem = async (item: PointStoreItem) => {
+    await fetch("/api/loyalty/store", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ restaurantId: restaurant.id, item }),
+    });
+  };
+
+  const deleteStoreItem = async (id: string) => {
+    await fetch(`/api/loyalty/store?id=${id}&restaurantId=${restaurant.id}`, { method: "DELETE" });
+    setStoreItems((prev) => prev.filter((i) => i.id !== id));
+  };
+
   return (
     <div className="space-y-6 max-w-lg">
       {/* Header */}
@@ -225,30 +276,6 @@ export function AdminLoyalty({ restaurant }: Props) {
 
       {enabled && (
         <div className="space-y-4">
-          {/* ─── Tab Bar ─── */}
-          <div className="flex gap-1 bg-muted/50 rounded-lg p-1">
-            {([
-              { key: "basic" as const, label: "Temel" },
-              { key: "actions" as const, label: "Aksiyonlar" },
-              { key: "engagement" as const, label: "Engagement" },
-            ] as const).map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setAdminTab(tab.key)}
-                className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
-                  adminTab === tab.key
-                    ? "bg-background shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {adminTab === "basic" && (
-            <div className="space-y-4">
           {/* Club Name */}
           <div>
             <Label>Kulüp Adı</Label>
@@ -450,123 +477,6 @@ export function AdminLoyalty({ restaurant }: Props) {
             <Switch checked={upsellEnabled} onCheckedChange={setUpsellEnabled} />
           </div>
 
-          {/* Reward Expiry */}
-          <div>
-            <Label>Ödül Geçerlilik Süresi (gün)</Label>
-            <Input
-              type="number"
-              min={1}
-              max={365}
-              value={rewardExpiryDays}
-              onChange={(e) => setRewardExpiryDays(Number(e.target.value))}
-              className="mt-1 w-32"
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Ödül kazanıldıktan sonra {rewardExpiryDays} gün içinde kullanılmalıdır.
-            </p>
-          </div>
-
-          {/* Preview */}
-          <div className="p-4 rounded-lg border bg-primary/5">
-            <p className="text-sm font-medium mb-1">Ödül Özeti</p>
-            <p className="text-sm text-muted-foreground">
-              Her <strong>{targetCount}</strong> siparişte → <strong>{rewardLabel}</strong>
-            </p>
-            {initialMax > 0 && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Yeni müşteriler {initialMin}–{initialMax} puanla başlar.
-              </p>
-            )}
-          </div>
-
-          {/* Message Template */}
-          <div>
-            <Label>Bildirim Mesajı Şablonu</Label>
-            <Textarea
-              value={template}
-              onChange={(e) => setTemplate(e.target.value)}
-              className="mt-1"
-              rows={3}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Kullanılabilir değişkenler: {"{{name}}"}, {"{{threshold}}"}, {"{{reward}}"}
-            </p>
-          </div>
-            </div>
-          )}
-
-          {/* ─── ACTIONS TAB ─── */}
-          {adminTab === "actions" && (
-            <div className="space-y-4">
-              {/* Points System Toggle */}
-              <div className="flex items-center justify-between p-4 rounded-lg border">
-                <div>
-                  <p className="font-medium">Aksiyon Puanları</p>
-                  <p className="text-sm text-muted-foreground">
-                    Sipariş dışı aksiyonlarla puan kazandırın
-                  </p>
-                </div>
-                <Switch checked={pointsEnabled} onCheckedChange={setPointsEnabled} />
-              </div>
-
-              {pointsEnabled && (
-                <div className="space-y-3">
-                  <div className="p-4 rounded-lg border space-y-3">
-                    <h4 className="text-sm font-bold flex items-center gap-2">📱 PWA Yükleme</h4>
-                    <div>
-                      <Label className="text-xs">Puan</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={500}
-                        value={pwaInstallPoints}
-                        onChange={(e) => setPwaInstallPoints(Number(e.target.value))}
-                        className="w-24 mt-0.5"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Uygulamayı ana ekrana ekleyen müşteri kazanır.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-lg border space-y-3">
-                    <h4 className="text-sm font-bold flex items-center gap-2">📲 Sosyal Medya Paylaşımı</h4>
-                    <div>
-                      <Label className="text-xs">Puan</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={500}
-                        value={socialSharePoints}
-                        onChange={(e) => setSocialSharePoints(Number(e.target.value))}
-                        className="w-24 mt-0.5"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-lg border space-y-3">
-                    <h4 className="text-sm font-bold flex items-center gap-2">⭐ Yorum Bırakma</h4>
-                    <div>
-                      <Label className="text-xs">Puan</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={500}
-                        value={reviewPoints}
-                        onChange={(e) => setReviewPoints(Number(e.target.value))}
-                        className="w-24 mt-0.5"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ─── ENGAGEMENT TAB ─── */}
-          {adminTab === "engagement" && (
-            <div className="space-y-4">
-
           {/* ━━━ Engagement Engine ━━━ */}
           <div className="pt-4 border-t">
             <h3 className="text-lg font-bold flex items-center gap-2 mb-4">
@@ -714,8 +624,196 @@ export function AdminLoyalty({ restaurant }: Props) {
             </div>
           </div>
 
+          {/* ━━━ Puan Mağazası (Point Store) ━━━ */}
+          <div className="pt-4 border-t">
+            <h3 className="text-lg font-bold flex items-center gap-2 mb-4">
+              <Store className="w-5 h-5 text-blue-600" /> Puan Mağazası
+            </h3>
+
+            {/* Enable Points */}
+            <div className="flex items-center justify-between p-4 rounded-lg border mb-4">
+              <div>
+                <p className="font-medium text-sm">Puan Sistemi</p>
+                <p className="text-xs text-muted-foreground">
+                  Müşteriler aksiyonlarla puan kazanır, mağazadan ödül alır.
+                </p>
+              </div>
+              <Switch checked={pointsEnabled} onCheckedChange={setPointsEnabled} />
             </div>
-          )}
+
+            {pointsEnabled && (
+              <div className="space-y-4">
+                {/* Point earning config */}
+                <div className="p-4 rounded-lg border space-y-3">
+                  <p className="text-sm font-medium">Puan Kazanma Değerleri</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Sipariş başına</Label>
+                      <Input type="number" min={0} value={orderPointsPerItem} onChange={(e) => setOrderPointsPerItem(Number(e.target.value))} className="w-24 mt-0.5" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">PWA yükleme</Label>
+                      <Input type="number" min={0} value={pwaInstallPoints} onChange={(e) => setPwaInstallPoints(Number(e.target.value))} className="w-24 mt-0.5" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Sosyal paylaşım</Label>
+                      <Input type="number" min={0} value={socialSharePoints} onChange={(e) => setSocialSharePoints(Number(e.target.value))} className="w-24 mt-0.5" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Yorum bırakma</Label>
+                      <Input type="number" min={0} value={reviewPoints} onChange={(e) => setReviewPoints(Number(e.target.value))} className="w-24 mt-0.5" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Store items list */}
+                <div className="p-4 rounded-lg border space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">Mağaza Ödülleri</p>
+                    <Button variant="outline" size="sm" onClick={addStoreItem} disabled={storeLoading}>
+                      <Plus className="w-3.5 h-3.5 mr-1" /> Ekle
+                    </Button>
+                  </div>
+
+                  {storeItems.length === 0 && (
+                    <p className="text-xs text-muted-foreground py-3 text-center">
+                      Henüz mağaza ödülü eklenmemiş. İlk ödülü ekleyin.
+                    </p>
+                  )}
+
+                  {storeItems.map((item, idx) => (
+                    <div key={item.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border">
+                      <div className="flex-1 space-y-2">
+                        <Input
+                          value={item.name}
+                          onChange={(e) => {
+                            const updated = [...storeItems];
+                            updated[idx] = { ...updated[idx], name: e.target.value };
+                            setStoreItems(updated);
+                          }}
+                          onBlur={() => updateStoreItem(storeItems[idx])}
+                          placeholder="Ödül adı"
+                          className="h-8 text-sm"
+                        />
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1">
+                            <Label className="text-[10px]">Puan</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={item.cost_points}
+                              onChange={(e) => {
+                                const updated = [...storeItems];
+                                updated[idx] = { ...updated[idx], cost_points: Number(e.target.value) };
+                                setStoreItems(updated);
+                              }}
+                              onBlur={() => updateStoreItem(storeItems[idx])}
+                              className="h-8 w-20 text-sm"
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <Label className="text-[10px]">Stok (-1=sınırsız)</Label>
+                            <Input
+                              type="number"
+                              min={-1}
+                              value={item.stock}
+                              onChange={(e) => {
+                                const updated = [...storeItems];
+                                updated[idx] = { ...updated[idx], stock: Number(e.target.value) };
+                                setStoreItems(updated);
+                              }}
+                              onBlur={() => updateStoreItem(storeItems[idx])}
+                              className="h-8 w-20 text-sm"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="icon" className="shrink-0 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => deleteStoreItem(item.id)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ━━━ Referral (Davet) System ━━━ */}
+          <div className="pt-4 border-t">
+            <h3 className="text-lg font-bold flex items-center gap-2 mb-4">
+              <Users className="w-5 h-5 text-green-600" /> Davet Sistemi
+            </h3>
+
+            <div className="flex items-center justify-between p-4 rounded-lg border mb-4">
+              <div>
+                <p className="font-medium text-sm">Davet Sistemi</p>
+                <p className="text-xs text-muted-foreground">
+                  Müşteriler arkadaşlarını davet ederek puan kazansın.
+                </p>
+              </div>
+              <Switch checked={referralEnabled} onCheckedChange={setReferralEnabled} />
+            </div>
+
+            {referralEnabled && (
+              <div className="p-4 rounded-lg border space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Davet eden puan</Label>
+                    <Input type="number" min={0} value={referralPoints} onChange={(e) => setReferralPoints(Number(e.target.value))} className="w-24 mt-0.5" />
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Davet eden kişiye verilir.</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Davet edilen puan</Label>
+                    <Input type="number" min={0} value={refereeBonusPoints} onChange={(e) => setRefereeBonusPoints(Number(e.target.value))} className="w-24 mt-0.5" />
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Yeni müşteriye hoş geldin puanı.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Reward Expiry */}
+          <div>
+            <Label>Ödül Geçerlilik Süresi (gün)</Label>
+            <Input
+              type="number"
+              min={1}
+              max={365}
+              value={rewardExpiryDays}
+              onChange={(e) => setRewardExpiryDays(Number(e.target.value))}
+              className="mt-1 w-32"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Ödül kazanıldıktan sonra {rewardExpiryDays} gün içinde kullanılmalıdır.
+            </p>
+          </div>
+
+          {/* Preview */}
+          <div className="p-4 rounded-lg border bg-primary/5">
+            <p className="text-sm font-medium mb-1">Ödül Özeti</p>
+            <p className="text-sm text-muted-foreground">
+              Her <strong>{targetCount}</strong> siparişte → <strong>{rewardLabel}</strong>
+            </p>
+            {initialMax > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Yeni müşteriler {initialMin}–{initialMax} puanla başlar.
+              </p>
+            )}
+          </div>
+
+          {/* Message Template */}
+          <div>
+            <Label>Bildirim Mesajı Şablonu</Label>
+            <Textarea
+              value={template}
+              onChange={(e) => setTemplate(e.target.value)}
+              className="mt-1"
+              rows={3}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Kullanılabilir değişkenler: {"{{name}}"}, {"{{threshold}}"}, {"{{reward}}"}
+            </p>
+          </div>
         </div>
       )}
 
