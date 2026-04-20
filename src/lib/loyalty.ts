@@ -1060,7 +1060,7 @@ export async function consumeReward(
 
   const { data: progress } = await supabase
     .from("loyalty_progress")
-    .select("id, reward_ready, pending_rewards")
+    .select("id, reward_ready, pending_rewards, reward_expires_at")
     .eq("customer_key", customerKey)
     .eq("program_id", program.id)
     .single();
