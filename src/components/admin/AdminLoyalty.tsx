@@ -490,15 +490,20 @@ export function AdminLoyalty({ restaurant }: Props) {
             {/* Reward Item — pick from menu */}
             <div>
               <Label>Varsayılan Ödül Ürünü</Label>
-              <Select value={rewardItemId || ""} onValueChange={(v) => {
-                setRewardItemId(v || null);
-                const product = restaurant.products.find((p) => p.id === v);
-                if (product) setRewardItemName(product.name);
-              }}>
+              <Select
+                value={rewardItemId || "__none__"}
+                onValueChange={(v) => {
+                  const id = v === "__none__" ? null : v;
+                  setRewardItemId(id);
+                  const product = restaurant.products.find((p) => p.id === id);
+                  if (product) setRewardItemName(product.name);
+                }}
+              >
                 <SelectTrigger className="mt-1 w-80">
                   <SelectValue placeholder="Menüden ürün seçin..." />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__none__">Seçilmedi</SelectItem>
                   {restaurant.products.map((p) => (
                     <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                   ))}
@@ -522,12 +527,15 @@ export function AdminLoyalty({ restaurant }: Props) {
             {/* Featured Item — Günün Ürünü */}
             <div>
               <Label>Günün Ürünü (Öne Çıkan)</Label>
-              <Select value={featuredItemId || ""} onValueChange={(v) => setFeaturedItemId(v || null)}>
+              <Select
+                value={featuredItemId || "__auto__"}
+                onValueChange={(v) => setFeaturedItemId(v === "__auto__" ? null : v)}
+              >
                 <SelectTrigger className="mt-1 w-80">
                   <SelectValue placeholder="Otomatik (en çok sipariş edilen)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Otomatik</SelectItem>
+                  <SelectItem value="__auto__">Otomatik</SelectItem>
                   {restaurant.products.map((p) => (
                     <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                   ))}
