@@ -377,6 +377,11 @@ export interface DbLoyaltyProgram {
   secret_reward_enabled: boolean;
   secret_reward_probability: number;
   secret_reward_discount_percent: number;
+  /* ─── Action-Based Points v15 ─── */
+  points_enabled: boolean;
+  pwa_install_points: number;
+  social_share_points: number;
+  review_points: number;
   created_at: string;
 }
 
@@ -464,5 +469,9 @@ export interface LoyaltyProgressResponse {
     name: string;
     image?: string;
     menuItemId?: string;
+  } | null;
+  points: {
+    total: number;
+    actions: { action: string; points: number; date: string }[];
   } | null;
 }

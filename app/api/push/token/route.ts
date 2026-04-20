@@ -21,12 +21,16 @@ function getServiceClient() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { customerKey, restaurantId, token, sendWelcome } = body as {
+    const { customerKey, restaurantId, token, sendWelcome, language } = body as {
       customerKey?: string;
       restaurantId?: string;
       token?: string;
       sendWelcome?: boolean;
+      language?: string;
     };
+
+    // Sanitize language — only allow known values
+    const lang = language === "en" ? "en" : "tr";
 
     if (!customerKey || !restaurantId || !token) {
       return NextResponse.json(
@@ -51,6 +55,7 @@ export async function POST(req: NextRequest) {
         customer_key: customerKey,
         restaurant_id: restaurantId,
         token,
+        language: lang,
         updated_at: new Date().toISOString(),
       },
       {

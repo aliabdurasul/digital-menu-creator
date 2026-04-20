@@ -60,6 +60,13 @@ export function AdminLoyalty({ restaurant }: Props) {
   const [secretRewardEnabled, setSecretRewardEnabled] = useState(false);
   const [secretRewardProbability, setSecretRewardProbability] = useState(5);
   const [secretRewardDiscount, setSecretRewardDiscount] = useState(10);
+  // Points system
+  const [pointsEnabled, setPointsEnabled] = useState(false);
+  const [pwaInstallPoints, setPwaInstallPoints] = useState(50);
+  const [socialSharePoints, setSocialSharePoints] = useState(20);
+  const [reviewPoints, setReviewPoints] = useState(30);
+  // Admin tab
+  const [adminTab, setAdminTab] = useState<"basic" | "actions" | "engagement">("basic");
 
   useEffect(() => {
     async function load() {
@@ -99,6 +106,11 @@ export function AdminLoyalty({ restaurant }: Props) {
         setSecretRewardEnabled(p.secret_reward_enabled);
         setSecretRewardProbability(Math.round(p.secret_reward_probability * 100));
         setSecretRewardDiscount(p.secret_reward_discount_percent);
+        // Points system
+        setPointsEnabled(p.points_enabled ?? false);
+        setPwaInstallPoints(p.pwa_install_points ?? 50);
+        setSocialSharePoints(p.social_share_points ?? 20);
+        setReviewPoints(p.review_points ?? 30);
       }
       setLoading(false);
     }
@@ -137,6 +149,11 @@ export function AdminLoyalty({ restaurant }: Props) {
       secret_reward_enabled: secretRewardEnabled,
       secret_reward_probability: secretRewardProbability / 100,
       secret_reward_discount_percent: secretRewardDiscount,
+      // Points system
+      points_enabled: pointsEnabled,
+      pwa_install_points: pwaInstallPoints,
+      social_share_points: socialSharePoints,
+      review_points: reviewPoints,
     };
 
     let error: unknown;
@@ -208,6 +225,30 @@ export function AdminLoyalty({ restaurant }: Props) {
 
       {enabled && (
         <div className="space-y-4">
+          {/* ─── Tab Bar ─── */}
+          <div className="flex gap-1 bg-muted/50 rounded-lg p-1">
+            {([
+              { key: "basic" as const, label: "Temel" },
+              { key: "actions" as const, label: "Aksiyonlar" },
+              { key: "engagement" as const, label: "Engagement" },
+            ] as const).map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setAdminTab(tab.key)}
+                className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
+                  adminTab === tab.key
+                    ? "bg-background shadow-sm text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {adminTab === "basic" && (
+            <div className="space-y-4">
           {/* Club Name */}
           <div>
             <Label>Kulüp Adı</Label>
@@ -409,6 +450,123 @@ export function AdminLoyalty({ restaurant }: Props) {
             <Switch checked={upsellEnabled} onCheckedChange={setUpsellEnabled} />
           </div>
 
+          {/* Reward Expiry */}
+          <div>
+            <Label>Ödül Geçerlilik Süresi (gün)</Label>
+            <Input
+              type="number"
+              min={1}
+              max={365}
+              value={rewardExpiryDays}
+              onChange={(e) => setRewardExpiryDays(Number(e.target.value))}
+              className="mt-1 w-32"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Ödül kazanıldıktan sonra {rewardExpiryDays} gün içinde kullanılmalıdır.
+            </p>
+          </div>
+
+          {/* Preview */}
+          <div className="p-4 rounded-lg border bg-primary/5">
+            <p className="text-sm font-medium mb-1">Ödül Özeti</p>
+            <p className="text-sm text-muted-foreground">
+              Her <strong>{targetCount}</strong> siparişte → <strong>{rewardLabel}</strong>
+            </p>
+            {initialMax > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Yeni müşteriler {initialMin}–{initialMax} puanla başlar.
+              </p>
+            )}
+          </div>
+
+          {/* Message Template */}
+          <div>
+            <Label>Bildirim Mesajı Şablonu</Label>
+            <Textarea
+              value={template}
+              onChange={(e) => setTemplate(e.target.value)}
+              className="mt-1"
+              rows={3}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Kullanılabilir değişkenler: {"{{name}}"}, {"{{threshold}}"}, {"{{reward}}"}
+            </p>
+          </div>
+            </div>
+          )}
+
+          {/* ─── ACTIONS TAB ─── */}
+          {adminTab === "actions" && (
+            <div className="space-y-4">
+              {/* Points System Toggle */}
+              <div className="flex items-center justify-between p-4 rounded-lg border">
+                <div>
+                  <p className="font-medium">Aksiyon Puanları</p>
+                  <p className="text-sm text-muted-foreground">
+                    Sipariş dışı aksiyonlarla puan kazandırın
+                  </p>
+                </div>
+                <Switch checked={pointsEnabled} onCheckedChange={setPointsEnabled} />
+              </div>
+
+              {pointsEnabled && (
+                <div className="space-y-3">
+                  <div className="p-4 rounded-lg border space-y-3">
+                    <h4 className="text-sm font-bold flex items-center gap-2">📱 PWA Yükleme</h4>
+                    <div>
+                      <Label className="text-xs">Puan</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={500}
+                        value={pwaInstallPoints}
+                        onChange={(e) => setPwaInstallPoints(Number(e.target.value))}
+                        className="w-24 mt-0.5"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Uygulamayı ana ekrana ekleyen müşteri kazanır.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-lg border space-y-3">
+                    <h4 className="text-sm font-bold flex items-center gap-2">📲 Sosyal Medya Paylaşımı</h4>
+                    <div>
+                      <Label className="text-xs">Puan</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={500}
+                        value={socialSharePoints}
+                        onChange={(e) => setSocialSharePoints(Number(e.target.value))}
+                        className="w-24 mt-0.5"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-lg border space-y-3">
+                    <h4 className="text-sm font-bold flex items-center gap-2">⭐ Yorum Bırakma</h4>
+                    <div>
+                      <Label className="text-xs">Puan</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={500}
+                        value={reviewPoints}
+                        onChange={(e) => setReviewPoints(Number(e.target.value))}
+                        className="w-24 mt-0.5"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ─── ENGAGEMENT TAB ─── */}
+          {adminTab === "engagement" && (
+            <div className="space-y-4">
+
           {/* ━━━ Engagement Engine ━━━ */}
           <div className="pt-4 border-t">
             <h3 className="text-lg font-bold flex items-center gap-2 mb-4">
@@ -556,48 +714,8 @@ export function AdminLoyalty({ restaurant }: Props) {
             </div>
           </div>
 
-          {/* Reward Expiry */}
-          <div>
-            <Label>Ödül Geçerlilik Süresi (gün)</Label>
-            <Input
-              type="number"
-              min={1}
-              max={365}
-              value={rewardExpiryDays}
-              onChange={(e) => setRewardExpiryDays(Number(e.target.value))}
-              className="mt-1 w-32"
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Ödül kazanıldıktan sonra {rewardExpiryDays} gün içinde kullanılmalıdır.
-            </p>
-          </div>
-
-          {/* Preview */}
-          <div className="p-4 rounded-lg border bg-primary/5">
-            <p className="text-sm font-medium mb-1">Ödül Özeti</p>
-            <p className="text-sm text-muted-foreground">
-              Her <strong>{targetCount}</strong> siparişte → <strong>{rewardLabel}</strong>
-            </p>
-            {initialMax > 0 && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Yeni müşteriler {initialMin}–{initialMax} puanla başlar.
-              </p>
-            )}
-          </div>
-
-          {/* Message Template */}
-          <div>
-            <Label>Bildirim Mesajı Şablonu</Label>
-            <Textarea
-              value={template}
-              onChange={(e) => setTemplate(e.target.value)}
-              className="mt-1"
-              rows={3}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Kullanılabilir değişkenler: {"{{name}}"}, {"{{threshold}}"}, {"{{reward}}"}
-            </p>
-          </div>
+            </div>
+          )}
         </div>
       )}
 

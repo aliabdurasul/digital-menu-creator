@@ -15,6 +15,8 @@ import {
   Clock,
   Trophy,
   ChevronRight,
+  Star,
+  Download,
 } from "lucide-react";
 import { useLoyalty } from "@/components/menu/LoyaltyProvider";
 import { useCart } from "@/components/menu/CartProvider";
@@ -232,6 +234,14 @@ export function CoffeeClubPanel() {
                   )}
                 </div>
               </div>
+
+              {/* ═══ POINTS & ACTIONS ═══ */}
+              {progress.points && (
+                <PointsSection
+                  points={progress.points}
+                  restaurantId={loyalty?.progress ? undefined : undefined}
+                />
+              )}
 
               {/* ═══ ACTIVE BOOSTERS ═══ */}
               {activeBoosterCount > 0 && (
@@ -602,6 +612,92 @@ function InstallSettingsCard() {
       )}
     </div>
   );
+}
+
+/* ──────────────────────────────────────────────────────────── */
+/*  Points & Actions Section                                    */
+/* ──────────────────────────────────────────────────────────── */
+
+function PointsSection({ points }: { points: { total: number; actions: { action: string; points: number; date: string }[] } }) {
+  const loyalty = useLoyalty();
+  const { canInstall, isInstalled } = useInstallPrompt();
+  const [installSheetOpen, setInstallSheetOpen] = useState(false);
+  const [claimingInstall, setClaimingInstall] = useState(false);
+
+  const hasPwaAction = points.actions.some((a) => a.action === "pwa_install");
+  const showInstallCTA = !isInstalled && !hasPwaAction && canInstall;
+
+  const handleClaimInstallPoints = useCallback(async () => {
+    if (!loyalty || claimingInstall) return;
+    setClaimingInstall(true);
+    try {
+      await fetch("/api/loyalty/points", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerKey: loyalty.customerKey,
+          restaurantId: loyalty.progress?.clubName ? undefined : undefined, // Intentional: we need restaurantId
+          action: "pwa_install",
+        }),
+      });
+      loyalty.refetch();
+    } catch { /* non-critical */ }
+    setClaimingInstall(false);
+  }, [loyalty, claimingInstall]);
+
+  return (
+    <div className="bg-white rounded-2xl p-5 shadow-sm space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Star className="w-4 h-4 text-[#C89B3C] fill-[#C89B3C]" />
+          <h3 className="text-sm font-bold text-[#3D2C1E]">Puanlarım</h3>
+        </div>
+        <span className="text-lg font-bold text-[#C89B3C]">{points.total}</span>
+      </div>
+
+      {/* Install CTA */}
+      {showInstallCTA && (
+        <button
+          type="button"
+          onClick={() => setInstallSheetOpen(true)}
+          className="w-full flex items-center gap-3 px-3 py-3 rounded-xl bg-gradient-to-r from-[#C89B3C]/10 to-amber-50 border border-[#C89B3C]/20 hover:border-[#C89B3C]/40 transition-all active:scale-[0.98]"
+        >
+          <div className="w-9 h-9 rounded-lg bg-[#C89B3C]/15 flex items-center justify-center shrink-0">
+            <Download className="w-4 h-4 text-[#C89B3C]" />
+          </div>
+          <div className="flex-1 text-left">
+            <p className="text-sm font-semibold text-[#3D2C1E]">Uygulamayı İndir</p>
+            <p className="text-xs text-[#6B4226]/50">Ana ekrana ekle</p>
+          </div>
+          <span className="text-sm font-bold text-[#C89B3C]">+50 ⭐</span>
+        </button>
+      )}
+
+      {/* Recent actions */}
+      {points.actions.length > 0 && (
+        <div className="space-y-1.5 pt-1">
+          {points.actions.slice(0, 3).map((a, i) => (
+            <div key={i} className="flex items-center justify-between text-xs">
+              <span className="text-[#6B4226]/60">{getActionLabel(a.action)}</span>
+              <span className="font-semibold text-[#4CAF50]">+{a.points}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <InstallPromptSheet open={installSheetOpen} onClose={() => setInstallSheetOpen(false)} />
+    </div>
+  );
+}
+
+function getActionLabel(action: string): string {
+  switch (action) {
+    case "pwa_install": return "📱 Uygulama yüklendi";
+    case "social_share": return "📲 Sosyal medya paylaşımı";
+    case "review": return "⭐ Yorum bırakıldı";
+    case "referral": return "👥 Arkadaş daveti";
+    default: return action;
+  }
 }
 
 /* ──────────────────────────────────────────────────────────── */

@@ -113,10 +113,11 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
           const { getMessagingToken } = await import("@/lib/firebase-client");
           const token = await getMessagingToken(swReg);
           if (token) {
+            const lang = localStorage.getItem("lezzet-lang") || "tr";
             await fetch("/api/push/token", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ customerKey, restaurantId, token }),
+              body: JSON.stringify({ customerKey, restaurantId, token, language: lang }),
             });
           }
         } else if (Notification.permission === "denied") {
@@ -184,10 +185,11 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
       const token = await getMessagingToken(swRegRef.current || undefined);
 
       if (token) {
+        const lang = localStorage.getItem("lezzet-lang") || "tr";
         await fetch("/api/push/token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ customerKey, restaurantId, token, sendWelcome: true }),
+          body: JSON.stringify({ customerKey, restaurantId, token, sendWelcome: true, language: lang }),
         });
       }
     } catch {

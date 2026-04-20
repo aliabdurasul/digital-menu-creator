@@ -42,6 +42,8 @@ export interface PushEvent {
   restaurantId: string;
   /** Optional direct token (for welcome push before DB lookup is possible) */
   token?: string;
+  /** User language preference (falls back to DB lookup → "tr") */
+  language?: "tr" | "en";
   /** Extra data for intent mapping */
   meta?: Record<string, string | number>;
 }
@@ -64,21 +66,24 @@ interface PushPayload {
 function mapIntent(event: PushEvent): PushPayload {
   const meta = event.meta || {};
   const menuUrl = (meta.menuUrl as string) || "/";
+  const lang = event.language || "tr";
 
   switch (event.type) {
     case "order_ready":
       return {
-        title: "Siparişiniz Hazır! 🎉",
-        body: "Lütfen teslim alın.",
+        title: lang === "en" ? "Your Order is Ready! 🎉" : "Siparişiniz Hazır! 🎉",
+        body: lang === "en" ? "Please pick it up." : "Lütfen teslim alın.",
         tag: "order-ready",
         url: menuUrl,
-        priority: "high", // Always send — user is waiting
+        priority: "high",
       };
 
     case "loyalty_near_completion":
       return {
-        title: "1 Kahve Kaldı! ☕",
-        body: "Bir sonraki kahvende ödülünü kazan!",
+        title: lang === "en" ? "1 Coffee Away! ☕" : "1 Kahve Kaldı! ☕",
+        body: lang === "en"
+          ? "Earn your reward on your next coffee!"
+          : "Bir sonraki kahvende ödülünü kazan!",
         tag: "loyalty-near-completion",
         url: menuUrl,
         priority: "normal",
@@ -88,8 +93,10 @@ function mapIntent(event: PushEvent): PushPayload {
     case "loyalty_reward_earned":
     case "loyalty_reward_unlocked":
       return {
-        title: "🔓 Ödül Kilidi Açıldı!",
-        body: (meta.rewardMessage as string) || "İstediğin zaman kullanabilirsin!",
+        title: lang === "en" ? "🔓 Reward Unlocked!" : "🔓 Ödül Kilidi Açıldı!",
+        body: (meta.rewardMessage as string) || (lang === "en"
+          ? "Use it whenever you like!"
+          : "İstediğin zaman kullanabilirsin!"),
         tag: "loyalty-reward",
         url: menuUrl,
         priority: "normal",
@@ -98,8 +105,10 @@ function mapIntent(event: PushEvent): PushPayload {
 
     case "inactivity_comeback":
       return {
-        title: "Seni Özledik! ☕",
-        body: (meta.bonusText as string) || "Gel, bonus puan kazan!",
+        title: lang === "en" ? "We Miss You! ☕" : "Seni Özledik! ☕",
+        body: (meta.bonusText as string) || (lang === "en"
+          ? "Come back and earn bonus points!"
+          : "Gel, bonus puan kazan!"),
         tag: "loyalty-inactivity",
         url: menuUrl,
         priority: "normal",
@@ -108,8 +117,12 @@ function mapIntent(event: PushEvent): PushPayload {
 
     case "welcome":
       return {
-        title: (meta.title as string) || "Hoş Geldiniz! ☕",
-        body: (meta.body as string) || "Bildirimler açık — siparişiniz hazır olunca haber vereceğiz.",
+        title: (meta.title as string) || (lang === "en"
+          ? "Welcome! ☕"
+          : "Hoş Geldiniz! ☕"),
+        body: (meta.body as string) || (lang === "en"
+          ? "Notifications on — we'll let you know when your order is ready."
+          : "Bildirimler açık — siparişiniz hazır olunca haber vereceğiz."),
         tag: "push-welcome",
         url: menuUrl,
         priority: "normal",
@@ -300,6 +313,21 @@ export async function emitPushEvent(event: PushEvent): Promise<{
   const supabase = getServiceClient();
 
   try {
+    // Resolve language if not explicitly provided
+    if (!event.language) {
+      try {
+        const { data } = await supabase
+          .from("push_tokens")
+          .select("language")
+          .eq("customer_key", event.customerKey)
+          .eq("restaurant_id", event.restaurantId)
+          .single();
+        if (data?.language) {
+          event.language = data.language as "tr" | "en";
+        }
+      } catch { /* fallback to "tr" via mapIntent */ }
+    }
+
     const payload = mapIntent(event);
 
     // Throttle check
