@@ -1,7 +1,5 @@
 "use client";
 
-"use client";
-
 import { useState, useEffect, useRef, useCallback } from "react";
 import { CartProvider, useCart } from "@/components/menu/CartProvider";
 import { CartButton } from "@/components/menu/CartButton";
