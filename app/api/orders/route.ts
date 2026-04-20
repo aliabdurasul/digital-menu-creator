@@ -130,6 +130,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 3b. Validate loyalty reward items — customer must have pending rewards
+    let activeProgram: { id: string; reward_type: string; reward_value: number | null; reward_item_id: string | null; reward_pool: unknown } | null = null;
     if (rewardItems.length > 0) {
       if (!customerKey) {
         return NextResponse.json(
@@ -147,12 +148,13 @@ export async function POST(req: NextRequest) {
       }
 
       // Look up active loyalty program for this restaurant
-      const { data: activeProgram } = await supabase
+      const { data: programData } = await supabase
         .from("loyalty_programs")
         .select("id, reward_type, reward_value, reward_item_id, reward_pool")
         .eq("restaurant_id", restaurantId)
         .eq("enabled", true)
         .single();
+      activeProgram = programData;
 
       // Check pending_rewards (falls back to reward_ready for pre-migration rows)
       const { data: custProgress } = activeProgram
