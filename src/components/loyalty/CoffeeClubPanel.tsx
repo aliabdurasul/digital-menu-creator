@@ -627,7 +627,7 @@ export function CoffeeClubPanel({ onOpenCart }: CoffeeClubPanelProps) {
 interface RewardsTabProps {
   pendingCount: number;
   rewardLabel: string;
-  rewardItem: { menuItemId: string; name: string; image?: string } | null;
+  rewardItem: { menuItemId?: string; name: string; image?: string } | null;
   rewardPool: RewardPoolItem[];
   rewardInCart: boolean;
   rewardAdded: boolean;
