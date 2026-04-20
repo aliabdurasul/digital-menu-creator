@@ -54,6 +54,7 @@ export function AdminLoyalty({ restaurant }: Props) {
   const [clubName, setClubName] = useState("Coffee Club");
   const [rewardItemName, setRewardItemName] = useState("");
   const [rewardItemId, setRewardItemId] = useState<string | null>(null);
+  const [featuredItemId, setFeaturedItemId] = useState<string | null>(null);
   // Engagement Engine
   const [streakBonusEnabled, setStreakBonusEnabled] = useState(false);
   const [streakBonusThreshold, setStreakBonusThreshold] = useState(3);
@@ -109,6 +110,7 @@ export function AdminLoyalty({ restaurant }: Props) {
         setClubName(p.club_name || "Coffee Club");
         setRewardItemName(p.reward_item_name || "");
         setRewardItemId(p.reward_item_id || null);
+        setFeaturedItemId(p.featured_item_id || null);
         // Engagement Engine
         setStreakBonusEnabled(p.streak_bonus_enabled);
         setStreakBonusThreshold(p.streak_bonus_threshold);
@@ -166,6 +168,7 @@ export function AdminLoyalty({ restaurant }: Props) {
       club_name: clubName,
       reward_item_name: rewardItemName || null,
       reward_item_id: rewardItemId || null,
+      featured_item_id: featuredItemId || null,
       // Engagement Engine
       streak_bonus_enabled: streakBonusEnabled,
       streak_bonus_threshold: streakBonusThreshold,
@@ -514,6 +517,23 @@ export function AdminLoyalty({ restaurant }: Props) {
                 className="mt-1 w-64"
               />
               <p className="text-xs text-muted-foreground mt-1">Boş bırakılırsa menüdeki ödül ürün adı kullanılır.</p>
+            </div>
+
+            {/* Featured Item — Günün Ürünü */}
+            <div>
+              <Label>Günün Ürünü (Öne Çıkan)</Label>
+              <Select value={featuredItemId || ""} onValueChange={(v) => setFeaturedItemId(v || null)}>
+                <SelectTrigger className="mt-1 w-80">
+                  <SelectValue placeholder="Otomatik (en çok sipariş edilen)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Otomatik</SelectItem>
+                  {restaurant.products.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">Müşterinin &quot;favori ürünü&quot; olarak gösterilir. Boşsa otomatik algılanır.</p>
             </div>
 
             {/* Reward Pool */}

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+"use client";
+
+import { useState, useEffect, useRef, useCallback } from "react";
 import { CartProvider, useCart } from "@/components/menu/CartProvider";
 import { CartButton } from "@/components/menu/CartButton";
 import { CartDrawer } from "@/components/menu/CartDrawer";
@@ -49,7 +51,7 @@ export function OrderingWrapper({ restaurantId, tableId, moduleType, withLoyalty
         moduleType={moduleType}
       />
       <OrderReadyWatcher moduleType={moduleType} />
-      {withLoyalty && <CoffeeClubPanel />}
+      {withLoyalty && <CoffeeClubPanel onOpenCart={() => setDrawerOpen(true)} />}
       {/* Install prompt only fires on the self-service route (no tableId). */}
       {/* Showing it on a table QR would make the installed PWA open pinned to that table. */}
       {!tableId && <CartPushTrigger onTriggerInstall={() => setInstallSheetOpen(true)} />}
@@ -69,10 +71,24 @@ export function OrderingWrapper({ restaurantId, tableId, moduleType, withLoyalty
   return (
     <InstallPromptProvider>
       <LoyaltyProvider restaurantId={restaurantId}>
+        <CartOpenRegistrar openDrawer={() => setDrawerOpen(true)} />
         {cartTree}
       </LoyaltyProvider>
     </InstallPromptProvider>
   );
+}
+
+/**
+ * Bridges LoyaltyProvider.registerOpenCart ↔ OrderingWrapper.setDrawerOpen.
+ * Must be rendered inside LoyaltyProvider.
+ */
+function CartOpenRegistrar({ openDrawer }: { openDrawer: () => void }) {
+  const loyalty = useLoyalty();
+  const stableOpen = useCallback(() => openDrawer(), [openDrawer]);
+  useEffect(() => {
+    loyalty?.registerOpenCart(stableOpen);
+  }, [loyalty, stableOpen]);
+  return null;
 }
 
 /**

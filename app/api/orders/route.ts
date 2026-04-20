@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
       // Look up active loyalty program for this restaurant
       const { data: activeProgram } = await supabase
         .from("loyalty_programs")
-        .select("id, reward_type, reward_item_id, reward_pool")
+        .select("id, reward_type, reward_value, reward_item_id, reward_pool")
         .eq("restaurant_id", restaurantId)
         .eq("enabled", true)
         .single();
@@ -236,6 +236,15 @@ export async function POST(req: NextRequest) {
         quantity: item.quantity,
         is_loyalty_reward: true,
       });
+    }
+
+    // Apply discount-type loyalty rewards to total
+    if (rewardItems.length > 0 && activeProgram) {
+      if (activeProgram.reward_type === "discount_percent") {
+        total *= 1 - (activeProgram.reward_value ?? 0) / 100;
+      } else if (activeProgram.reward_type === "discount_amount") {
+        total = Math.max(0, total - (activeProgram.reward_value ?? 0));
+      }
     }
 
     // 4b. Find or create customer if phone provided

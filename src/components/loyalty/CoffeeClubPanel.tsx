@@ -18,13 +18,14 @@ import {
   Star,
   Store,
   Check,
+  X,
 } from "lucide-react";
 import { useLoyalty } from "@/components/menu/LoyaltyProvider";
 import { useCart } from "@/components/menu/CartProvider";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import { InstallPromptSheet } from "@/components/loyalty/InstallPromptSheet";
-import { PointStoreSheet } from "@/components/loyalty/PointStoreSheet";
 import { ReferralCard } from "@/components/loyalty/ReferralCard";
+import { useToast } from "@/hooks/use-toast";
 import type { RewardPoolItem } from "@/types";
 
 function useOptionalCart() {
@@ -39,19 +40,32 @@ function useOptionalCart() {
 /*  CoffeeClubPanel — gamified app-like loyalty experience     */
 /* ──────────────────────────────────────────────────────────── */
 
-export function CoffeeClubPanel() {
+interface CoffeeClubPanelProps {
+  onOpenCart?: () => void;
+}
+
+export function CoffeeClubPanel({ onOpenCart }: CoffeeClubPanelProps) {
   const loyalty = useLoyalty();
   const cart = useOptionalCart();
-  const [addedToCart, setAddedToCart] = useState(false);
-  const [activeTab, setActiveTab] = useState<"home" | "store" | "settings">("home");
-  const [storeSheetOpen, setStoreSheetOpen] = useState(false);
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState<"home" | "rewards" | "store" | "settings">("home");
   const [selectedRewardItem, setSelectedRewardItem] = useState<RewardPoolItem | null>(null);
+  const [rewardAdded, setRewardAdded] = useState(false);
+  // Confirmation dialog for point store
+  const [confirmItem, setConfirmItem] = useState<{ id: string; name: string; cost_points: number } | null>(null);
+  const [redeeming, setRedeeming] = useState<string | null>(null);
+  const [redeemed, setRedeemed] = useState<Set<string>>(new Set());
 
   const isOpen = loyalty?.panelOpen ?? false;
   const progress = loyalty?.progress;
 
   useEffect(() => {
-    if (isOpen) { setAddedToCart(false); setActiveTab("home"); setSelectedRewardItem(null); }
+    if (isOpen) {
+      setActiveTab("home");
+      setSelectedRewardItem(null);
+      setRewardAdded(false);
+      setConfirmItem(null);
+    }
   }, [isOpen]);
 
   useEffect(() => {
@@ -71,29 +85,60 @@ export function CoffeeClubPanel() {
 
   const handleClose = useCallback(() => loyalty?.setPanelOpen(false), [loyalty]);
 
+  /** Add a stamp reward item to cart, show toast, close panel, open cart */
   const handleAddReward = useCallback((overrideItem?: RewardPoolItem) => {
+    const rewardPool = loyalty?.rewardPool ?? [];
+    const rewardItem = loyalty?.rewardItem;
+    const rewardType = loyalty?.progress?.reward?.type;
+    const rewardValue = loyalty?.progress?.reward?.value;
+
+    // Discount rewards — no item added to cart, just notify and navigate
+    if (rewardType === "discount_percent" || rewardType === "discount_amount") {
+      setRewardAdded(true);
+      const label = rewardType === "discount_percent" ? `%${rewardValue} indirim` : `₺${rewardValue} indirim`;
+      toast({
+        title: "🎁 İndirim Aktif!",
+        description: `${label} siparişine uygulanacak. Siparişini tamamla!`,
+      });
+      setTimeout(() => {
+        loyalty?.setPanelOpen(false);
+        onOpenCart?.();
+      }, 300);
+      return;
+    }
+
     if (!cart) return;
-    const itemToUse = overrideItem ?? (loyalty?.rewardItem
-      ? { menuItemId: loyalty.rewardItem.menuItemId, name: loyalty.rewardItem.name, image: loyalty.rewardItem.image }
+    const itemToUse = overrideItem ?? (rewardPool.length === 1 ? rewardPool[0] : null) ?? (rewardItem
+      ? { menuItemId: rewardItem.menuItemId, name: rewardItem.name, image: rewardItem.image }
       : null);
     if (!itemToUse) return;
-    // Only allow one loyalty reward line at a time
+
     const existing = cart.items.find((i) => i.type === "loyalty_reward");
-    if (existing) { setAddedToCart(true); return; }
-    const rewardLineId = `loyalty_reward_${Date.now()}`;
-    cart.addItem({
-      lineId: rewardLineId,
-      menuItemId: itemToUse.menuItemId || rewardLineId,
-      name: itemToUse.name,
-      price: 0,
-      image: itemToUse.image || "",
-      type: "loyalty_reward",
+    if (!existing) {
+      const rewardLineId = `loyalty_reward_${Date.now()}`;
+      cart.addItem({
+        lineId: rewardLineId,
+        menuItemId: itemToUse.menuItemId || rewardLineId,
+        name: itemToUse.name,
+        price: 0,
+        image: itemToUse.image || "",
+        type: "loyalty_reward",
+      });
+    }
+
+    setRewardAdded(true);
+    toast({
+      title: "🎁 Ödül Sepete Eklendi!",
+      description: `${itemToUse.name} ücretsiz olarak sepetine eklendi. Siparişini tamamla!`,
     });
-    setAddedToCart(true);
-  }, [cart, loyalty]);
+    // Close panel and open cart
+    setTimeout(() => {
+      loyalty?.setPanelOpen(false);
+      onOpenCart?.();
+    }, 300);
+  }, [cart, loyalty, toast, onOpenCart]);
 
   const handleOrderNow = useCallback(() => {
-    // Add favorite item to cart, then close panel
     if (cart && loyalty?.progress?.favoriteItem) {
       const fav = loyalty.progress.favoriteItem;
       if (fav.menuItemId) {
@@ -104,11 +149,12 @@ export function CoffeeClubPanel() {
           price: fav.price ?? 0,
           image: fav.image || "",
         });
+        toast({ title: "🛒 Sepete Eklendi", description: `${fav.name} sepetine eklendi!` });
       }
     }
     loyalty?.setPanelOpen(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [loyalty, cart]);
+    onOpenCart?.();
+  }, [loyalty, cart, toast, onOpenCart]);
 
   if (!isOpen || !progress) return null;
 
@@ -116,8 +162,10 @@ export function CoffeeClubPanel() {
   const current = progress.progress.current % target;
   const stampsAway = progress.bonuses.stampsAway;
   const rewardReady = progress.reward.ready;
+  const pendingCount = progress.reward.pendingCount ?? (rewardReady ? 1 : 0);
   const clubName = loyalty?.clubName || "Coffee Club";
   const rewardItem = loyalty?.rewardItem;
+  const rewardPool = loyalty?.rewardPool ?? [];
   const rewardInCart = cart?.items.some((i) => i.type === "loyalty_reward") ?? false;
   const streak = progress.streak;
   const inactivityBonus = progress.inactivityBonus;
@@ -129,12 +177,18 @@ export function CoffeeClubPanel() {
   const hasPoints = !!progress.points;
   const rId = loyalty?.restaurantId ?? "";
   const cKey = loyalty?.customerKey ?? "";
-  const rewardPool = loyalty?.rewardPool ?? [];
 
   const activeBoosterCount =
     (progress.bonuses.happyHour ? 1 : 0) +
     (streak.active ? 1 : 0) +
     (inactivityBonus.active ? 1 : 0);
+
+  const rewardLabel =
+    progress.reward.type === "free_item"
+      ? `Ücretsiz ${rewardItem?.name || "Kahve"}`
+      : progress.reward.type === "discount_percent"
+        ? `%${progress.reward.value} İndirim`
+        : `₺${progress.reward.value} İndirim`;
 
   return (
     <div className="fixed inset-0 z-[70] flex flex-col">
@@ -175,40 +229,30 @@ export function CoffeeClubPanel() {
 
         {/* ─── Tab bar ─── */}
         <div className="flex mx-5 mb-4 bg-white/60 rounded-xl p-1 gap-1">
-          <button
-            type="button"
-            onClick={() => setActiveTab("home")}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === "home"
-                ? "bg-white text-[#6B4226] shadow-sm"
-                : "text-[#6B4226]/50 hover:text-[#6B4226]/70"
-            }`}
-          >
+          <button type="button" onClick={() => setActiveTab("home")}
+            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${activeTab === "home" ? "bg-white text-[#6B4226] shadow-sm" : "text-[#6B4226]/50 hover:text-[#6B4226]/70"}`}>
             Kulübüm
           </button>
+          {/* Ödüllerim tab — always visible, badge shows count */}
+          <button type="button" onClick={() => setActiveTab("rewards")}
+            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all relative flex items-center justify-center gap-1 ${activeTab === "rewards" ? "bg-white text-[#6B4226] shadow-sm" : "text-[#6B4226]/50 hover:text-[#6B4226]/70"}`}>
+            <Gift className="w-3.5 h-3.5" />
+            Ödüllerim
+            {pendingCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#C89B3C] text-white text-[9px] font-bold flex items-center justify-center">
+                {pendingCount}
+              </span>
+            )}
+          </button>
           {progress.points && (
-            <button
-              type="button"
-              onClick={() => setActiveTab("store")}
-              className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1 ${
-                activeTab === "store"
-                  ? "bg-white text-[#6B4226] shadow-sm"
-                  : "text-[#6B4226]/50 hover:text-[#6B4226]/70"
-              }`}
-            >
+            <button type="button" onClick={() => setActiveTab("store")}
+              className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1 ${activeTab === "store" ? "bg-white text-[#6B4226] shadow-sm" : "text-[#6B4226]/50 hover:text-[#6B4226]/70"}`}>
               <Store className="w-3.5 h-3.5" />
               Mağaza
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setActiveTab("settings")}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === "settings"
-                ? "bg-white text-[#6B4226] shadow-sm"
-                : "text-[#6B4226]/50 hover:text-[#6B4226]/70"
-            }`}
-          >
+          <button type="button" onClick={() => setActiveTab("settings")}
+            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${activeTab === "settings" ? "bg-white text-[#6B4226] shadow-sm" : "text-[#6B4226]/50 hover:text-[#6B4226]/70"}`}>
             Ayarlar
           </button>
         </div>
@@ -220,12 +264,9 @@ export function CoffeeClubPanel() {
             <>
               {/* ═══ HERO CARD ═══ */}
               <div className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-[#6B4226] via-[#4A2E18] to-[#2C1A0E] p-5 shadow-lg">
-                {/* Decorative glow */}
                 <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-[#C89B3C]/15 blur-2xl" />
                 <div className="absolute -bottom-8 -left-8 w-24 h-24 rounded-full bg-[#C89B3C]/10 blur-xl" />
-
                 <div className="relative space-y-3">
-                  {/* Streak line */}
                   {streak.active && (
                     <div className="flex items-center gap-1.5">
                       <Flame className="w-4 h-4 text-orange-400" />
@@ -233,8 +274,6 @@ export function CoffeeClubPanel() {
                       <span className="ml-auto text-[10px] text-white/40 font-medium">{streak.bonusMultiplier}x puan</span>
                     </div>
                   )}
-
-                  {/* Target line */}
                   <div className="flex items-center gap-2">
                     <span className="text-white/90">🎯</span>
                     <p className="text-sm text-white/90">
@@ -244,13 +283,11 @@ export function CoffeeClubPanel() {
                         <>
                           <span className="font-bold text-white">{stampsAway} sipariş</span>
                           <span className="text-white/60"> kaldı → </span>
-                          <span className="font-bold text-[#C89B3C]">Ücretsiz {rewardItem?.name || "Kahve"}</span>
+                          <span className="font-bold text-[#C89B3C]">{rewardLabel}</span>
                         </>
                       )}
                     </p>
                   </div>
-
-                  {/* Multiplier badges */}
                   {(progress.bonuses.happyHour || inactivityBonus.active) && (
                     <div className="flex items-center gap-2">
                       <span className="text-white/90">⏳</span>
@@ -271,16 +308,38 @@ export function CoffeeClubPanel() {
                 </div>
               </div>
 
+              {/* ═══ REWARD READY CTA BANNER (opens Ödüllerim tab) ═══ */}
+              {pendingCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("rewards")}
+                  className="w-full flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-[#C89B3C] shadow-sm active:scale-[0.98] transition-all"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-[#C89B3C]/20 flex items-center justify-center shrink-0">
+                    <Trophy className="w-5 h-5 text-[#C89B3C]" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="text-sm font-bold text-[#6B4226]">
+                      🔓 {pendingCount} Ödülün Var!
+                    </p>
+                    <p className="text-xs text-[#6B4226]/60">
+                      {rewardInCart ? "Ödül sepetinde" : "Hemen kullan → sepete ekle"}
+                    </p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-[#C89B3C] shrink-0" />
+                </button>
+              )}
+
               {/* ═══ STAMP PROGRESS ═══ */}
               <div className="bg-white rounded-2xl p-5 shadow-sm">
                 <StampTrack current={current} target={target} rewardReady={rewardReady} />
                 <div className="text-center mt-3">
                   {rewardReady ? (
-                    <p className="text-sm font-bold text-[#C89B3C]">🔓 İstediğin zaman kullanabilirsin!</p>
+                    <p className="text-sm font-bold text-[#C89B3C]">🔓 Ödülünü "Ödüllerim" sekmesinden kullanabilirsin!</p>
                   ) : (
                     <p className="text-xs text-[#6B4226]/50">
                       <span className="font-bold text-[#6B4226]">{stampsAway}</span> sipariş sonra →{" "}
-                      <span className="font-bold text-[#6B4226]">{rewardItem?.name || "Ücretsiz Kahve"}</span>
+                      <span className="font-bold text-[#6B4226]">{rewardLabel}</span>
                     </p>
                   )}
                 </div>
@@ -290,7 +349,6 @@ export function CoffeeClubPanel() {
               {activeBoosterCount > 0 && (
                 <div className="space-y-2.5">
                   <h3 className="text-xs font-bold text-[#6B4226]/60 uppercase tracking-wider px-1">Aktif Bonuslar</h3>
-
                   {progress.bonuses.happyHour && (
                     <div className="flex items-center gap-3 bg-amber-50 rounded-2xl p-4 border border-amber-100">
                       <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
@@ -301,12 +359,10 @@ export function CoffeeClubPanel() {
                         <p className="text-xs text-amber-600/70">Happy hour aktif</p>
                       </div>
                       <div className="flex items-center gap-1 text-xs font-medium text-amber-500">
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>Aktif</span>
+                        <Clock className="w-3.5 h-3.5" /><span>Aktif</span>
                       </div>
                     </div>
                   )}
-
                   {streak.active && (
                     <div className="flex items-center gap-3 bg-orange-50 rounded-2xl p-4 border border-orange-100">
                       <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
@@ -318,7 +374,6 @@ export function CoffeeClubPanel() {
                       </div>
                     </div>
                   )}
-
                   {inactivityBonus.active && (
                     <div className="flex items-center gap-3 bg-emerald-50 rounded-2xl p-4 border border-emerald-100">
                       <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
@@ -361,11 +416,8 @@ export function CoffeeClubPanel() {
                         </p>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleOrderNow}
-                      className="shrink-0 px-3.5 py-2 rounded-xl bg-[#6B4226] text-white text-xs font-semibold hover:bg-[#5A3720] active:scale-95 transition-all shadow-sm"
-                    >
+                    <button type="button" onClick={handleOrderNow}
+                      className="shrink-0 px-3.5 py-2 rounded-xl bg-[#6B4226] text-white text-xs font-semibold hover:bg-[#5A3720] active:scale-95 transition-all shadow-sm">
                       Sipariş
                     </button>
                   </div>
@@ -374,32 +426,18 @@ export function CoffeeClubPanel() {
 
               {/* ═══ SECRET REWARD ═══ */}
               {secretReward?.won && (
-                <div className={`rounded-2xl p-4 space-y-2 border ${
-                  secretDaysLeft !== null && secretDaysLeft <= 2
-                    ? "bg-red-50 border-red-200"
-                    : "bg-violet-50 border-violet-200"
-                }`}>
+                <div className={`rounded-2xl p-4 space-y-2 border ${secretDaysLeft !== null && secretDaysLeft <= 2 ? "bg-red-50 border-red-200" : "bg-violet-50 border-violet-200"}`}>
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-white/80 flex items-center justify-center shrink-0">
                       <span className="text-xl">🎁</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-bold ${
-                        secretDaysLeft !== null && secretDaysLeft <= 2 ? "text-red-800" : "text-violet-800"
-                      }`}>Gizli Ödül Kazandın!</p>
-                      <p className={`text-xs ${
-                        secretDaysLeft !== null && secretDaysLeft <= 2 ? "text-red-600" : "text-violet-600"
-                      }`}>%{secretReward.discountPercent} indirim · otomatik uygulanır</p>
+                      <p className={`text-sm font-bold ${secretDaysLeft !== null && secretDaysLeft <= 2 ? "text-red-800" : "text-violet-800"}`}>Gizli Ödül Kazandın!</p>
+                      <p className={`text-xs ${secretDaysLeft !== null && secretDaysLeft <= 2 ? "text-red-600" : "text-violet-600"}`}>%{secretReward.discountPercent} indirim · otomatik uygulanır</p>
                     </div>
                   </div>
                   {secretReward.expiresAt && (
-                    <p className={`text-[10px] font-medium ${
-                      secretDaysLeft !== null && secretDaysLeft <= 1
-                        ? "text-red-600 font-bold"
-                        : secretDaysLeft !== null && secretDaysLeft <= 2
-                          ? "text-red-500"
-                          : "text-violet-400"
-                    }`}>
+                    <p className={`text-[10px] font-medium ${secretDaysLeft !== null && secretDaysLeft <= 1 ? "text-red-600 font-bold" : secretDaysLeft !== null && secretDaysLeft <= 2 ? "text-red-500" : "text-violet-400"}`}>
                       {secretDaysLeft !== null && secretDaysLeft <= 1 ? "⚠️ Son gün! " : secretDaysLeft !== null && secretDaysLeft <= 2 ? "⏰ " : ""}
                       {getExpiryText(secretReward.expiresAt)}
                     </p>
@@ -407,92 +445,8 @@ export function CoffeeClubPanel() {
                 </div>
               )}
 
-              {/* ═══ REWARD SECTION ═══ */}
-              {rewardReady && rewardItem ? (
-                <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 space-y-4 shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <Trophy className="w-5 h-5 text-[#C89B3C]" />
-                    <h3 className="font-bold text-[#6B4226]">🔓 Ödül Kilidi Açıldı!</h3>
-                  </div>
-                  <div className="flex items-center gap-4 bg-white rounded-xl p-3 border border-amber-100 shadow-sm">
-                    {rewardItem.image ? (
-                      <div className="relative w-16 h-16 shrink-0 rounded-xl overflow-hidden bg-[#F8F6F3]">
-                        <Image src={rewardItem.image} alt={rewardItem.name} fill sizes="64px" className="object-cover" />
-                      </div>
-                    ) : (
-                      <div className="w-16 h-16 shrink-0 rounded-xl bg-amber-100 flex items-center justify-center">
-                        <Gift className="w-7 h-7 text-[#C89B3C]" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-[#3D2C1E]">{rewardItem.name}</p>
-                      <p className="text-sm text-[#4CAF50] font-bold">ÜCRETSiZ 🎉</p>
-                    </div>
-                  </div>
-                  {cart && (
-                    <>
-                      {/* Reward pool selection — shown when admin configured multiple items */}
-                      {rewardPool.length > 1 && !rewardInCart && !addedToCart && (
-                        <div className="space-y-2">
-                          <p className="text-xs font-semibold text-[#6B4226]/60 uppercase tracking-wide">Ödül seç:</p>
-                          <div className="grid grid-cols-2 gap-2">
-                            {rewardPool.map((item) => {
-                              const isSelected = selectedRewardItem?.menuItemId === item.menuItemId;
-                              return (
-                                <button
-                                  key={item.menuItemId}
-                                  type="button"
-                                  onClick={() => setSelectedRewardItem(item)}
-                                  className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all ${
-                                    isSelected
-                                      ? "border-[#C89B3C] bg-[#C89B3C]/10"
-                                      : "border-[#E8E4DF] bg-white hover:border-[#C89B3C]/50"
-                                  }`}
-                                >
-                                  {item.image && (
-                                    <div className="relative w-8 h-8 shrink-0 rounded-lg overflow-hidden bg-[#F8F6F3]">
-                                      <Image src={item.image} alt={item.name} fill sizes="32px" className="object-cover" />
-                                    </div>
-                                  )}
-                                  <span className="text-xs font-medium text-[#3D2C1E] line-clamp-2">{item.name}</span>
-                                  {isSelected && <Check className="w-3.5 h-3.5 text-[#C89B3C] shrink-0 ml-auto" />}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => handleAddReward(selectedRewardItem ?? (rewardPool.length === 1 ? rewardPool[0] : undefined))}
-                        disabled={rewardInCart || addedToCart || (rewardPool.length > 1 && !selectedRewardItem)}
-                        className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all duration-200 ${
-                          rewardInCart || addedToCart
-                            ? "bg-[#4CAF50]/10 text-[#4CAF50] border border-[#4CAF50]/20"
-                            : rewardPool.length > 1 && !selectedRewardItem
-                            ? "bg-muted text-muted-foreground cursor-not-allowed"
-                            : "bg-[#C89B3C] text-white hover:bg-[#B8892F] active:scale-[0.98] shadow-md"
-                        }`}
-                      >
-                        {rewardInCart || addedToCart ? (
-                          <>✓ Sepete Eklendi</>
-                        ) : (
-                          <>
-                            <Gift className="w-4 h-4" />
-                            {rewardPool.length > 1 && !selectedRewardItem ? "Ödül Seçin" : "Ödülü Kullan"}
-                          </>
-                        )}
-                      </button>
-                    </>
-                  )}
-                  {progress.reward.expiresAt && (
-                    <p className="text-[10px] text-amber-500 text-center font-medium">
-                      {getExpiryText(progress.reward.expiresAt)}
-                    </p>
-                  )}
-                </div>
-              ) : rewardItem ? (
-                /* Locked reward preview */
+              {/* Locked reward preview (only when no pending rewards) */}
+              {!rewardReady && rewardItem && (
                 <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#E8E4DF]">
                   <div className="flex items-center gap-4">
                     <div className="relative">
@@ -511,12 +465,12 @@ export function CoffeeClubPanel() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-[#6B4226]/40 font-medium">🎁 Sonraki ödül</p>
-                      <p className="text-sm font-bold text-[#3D2C1E]">{rewardItem.name}</p>
+                      <p className="text-sm font-bold text-[#3D2C1E]">{rewardLabel}</p>
                       <p className="text-xs text-[#6B4226]/50 mt-0.5">{stampsAway} sipariş kaldı</p>
                     </div>
                   </div>
                 </div>
-              ) : null}
+              )}
 
               {/* ═══ UPSELL MESSAGE ═══ */}
               {progress.upsell && (
@@ -528,11 +482,34 @@ export function CoffeeClubPanel() {
               {/* ═══ REFERRAL CARD ═══ */}
               {rId && <ReferralCard restaurantId={rId} />}
             </>
+          ) : activeTab === "rewards" ? (
+            /* ═══ ÖDÜLLERIM TAB ═══ */
+            <RewardsTab
+              pendingCount={pendingCount}
+              rewardLabel={rewardLabel}
+              rewardItem={rewardItem}
+              rewardPool={rewardPool}
+              rewardInCart={rewardInCart}
+              rewardAdded={rewardAdded}
+              expiresAt={progress.reward.expiresAt}
+              selectedRewardItem={selectedRewardItem}
+              onSelectItem={setSelectedRewardItem}
+              onAddReward={handleAddReward}
+              rewardType={progress.reward.type}
+              rewardValue={progress.reward.value}
+            />
           ) : activeTab === "store" ? (
-            /* ═══ STORE TAB ═══ */
-            <StoreTab restaurantId={rId} />
+            /* ═══ MAĞAZA TAB ═══ */
+            <StoreTab
+              restaurantId={rId}
+              balance={pointsBalance}
+              history={progress.points?.history ?? []}
+              onRequestRedeem={(item) => setConfirmItem(item)}
+              redeeming={redeeming}
+              redeemed={redeemed}
+            />
           ) : (
-            /* ═══ SETTINGS TAB ═══ */
+            /* ═══ AYARLAR TAB ═══ */
             <SettingsTab />
           )}
         </div>
@@ -554,6 +531,263 @@ export function CoffeeClubPanel() {
           </button>
         </div>
       </div>
+
+      {/* ─── Confirmation Dialog for store items ─── */}
+      {confirmItem && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-5">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setConfirmItem(null)} />
+          <div className="relative z-10 w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 space-y-4 animate-fade-in">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#C89B3C]/10 flex items-center justify-center">
+                  <Gift className="w-5 h-5 text-[#C89B3C]" />
+                </div>
+                <div>
+                  <p className="font-bold text-[#3D2C1E] text-sm">Ödülü Al</p>
+                  <p className="text-xs text-[#6B4226]/60">{confirmItem.name}</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => setConfirmItem(null)} className="w-7 h-7 rounded-full bg-muted flex items-center justify-center">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="bg-[#F8F6F3] rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-[#C89B3C]">{confirmItem.cost_points} puan</p>
+              <p className="text-xs text-[#6B4226]/50 mt-1">bakiyenden düşülecek</p>
+              <p className="text-xs text-[#6B4226]/40 mt-1">Kalan: {pointsBalance - confirmItem.cost_points} puan</p>
+            </div>
+            <p className="text-xs text-[#6B4226]/60 text-center">
+              Ürün sepetine eklenecek ve siparişinle birlikte ücretsiz gelecek.
+            </p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setConfirmItem(null)}
+                className="flex-1 py-3 rounded-xl border border-[#E8E4DF] text-sm font-semibold text-[#6B4226]/60 hover:bg-[#F8F6F3] transition-colors">
+                İptal
+              </button>
+              <button
+                type="button"
+                disabled={redeeming === confirmItem.id}
+                onClick={async () => {
+                  const item = confirmItem;
+                  setRedeeming(item.id);
+                  setConfirmItem(null);
+                  try {
+                    const res = await fetch("/api/loyalty/store/redeem", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ customerKey: cKey, restaurantId: rId, storeItemId: item.id }),
+                    });
+                    const data = await res.json();
+                    if (data.ok) {
+                      setRedeemed((prev) => new Set(prev).add(item.id));
+                      if (cart) {
+                        const lineId = `store_reward_${data.redemption?.id ?? Date.now()}`;
+                        cart.addItem({
+                          lineId,
+                          menuItemId: data.item?.menu_item_id || lineId,
+                          name: data.item?.name || item.name,
+                          price: 0,
+                          image: data.item?.image_url || "",
+                          type: "point_store_reward",
+                          redemptionId: data.redemption?.id,
+                        });
+                      }
+                      loyalty?.refetch();
+                      toast({
+                        title: "🎁 Puan Ödülü Sepete Eklendi!",
+                        description: `${item.name} ücretsiz olarak sepetine eklendi. Siparişini tamamla!`,
+                      });
+                      setTimeout(() => {
+                        loyalty?.setPanelOpen(false);
+                        onOpenCart?.();
+                      }, 300);
+                    } else {
+                      toast({ title: "Hata", description: data.error || "İşlem başarısız", variant: "destructive" });
+                    }
+                  } catch {
+                    toast({ title: "Hata", description: "Bağlantı hatası", variant: "destructive" });
+                  }
+                  setRedeeming(null);
+                }}
+                className="flex-1 py-3 rounded-xl bg-[#C89B3C] text-white text-sm font-bold hover:bg-[#B8892F] active:scale-[0.98] transition-all shadow-sm disabled:opacity-60">
+                {redeeming === confirmItem.id ? "..." : "Onayla"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────── */
+/*  Rewards Tab                                                  */
+/* ──────────────────────────────────────────────────────────── */
+
+interface RewardsTabProps {
+  pendingCount: number;
+  rewardLabel: string;
+  rewardItem: { menuItemId: string; name: string; image?: string } | null;
+  rewardPool: RewardPoolItem[];
+  rewardInCart: boolean;
+  rewardAdded: boolean;
+  expiresAt?: string | null;
+  selectedRewardItem: RewardPoolItem | null;
+  onSelectItem: (item: RewardPoolItem | null) => void;
+  onAddReward: (item?: RewardPoolItem) => void;
+  rewardType?: string;
+  rewardValue?: number;
+}
+
+function RewardsTab({
+  pendingCount,
+  rewardLabel,
+  rewardItem,
+  rewardPool,
+  rewardInCart,
+  rewardAdded,
+  expiresAt,
+  selectedRewardItem,
+  onSelectItem,
+  onAddReward,
+  rewardType,
+}: RewardsTabProps) {
+  const done = rewardInCart || rewardAdded;
+
+  if (pendingCount === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-6 text-center space-y-4">
+        <div className="w-16 h-16 rounded-full bg-[#6B4226]/5 flex items-center justify-center">
+          <Gift className="w-8 h-8 text-[#6B4226]/25" />
+        </div>
+        <p className="text-base font-bold text-[#3D2C1E]">Henüz ödülün yok</p>
+        <p className="text-sm text-[#6B4226]/50">
+          Stamp kartını doldur, ücretsiz ödül kazan!
+        </p>
+      </div>
+    );
+  }
+
+  const isDiscountReward = rewardType === "discount_percent" || rewardType === "discount_amount";
+
+  return (
+    <div className="space-y-4">
+      {/* Count badge */}
+      <div className="flex items-center gap-2 px-1">
+        <Trophy className="w-4 h-4 text-[#C89B3C]" />
+        <p className="text-sm font-bold text-[#6B4226]">
+          {pendingCount} adet kullanılmamış ödülün var
+        </p>
+      </div>
+
+      {/* Expiry notice */}
+      {expiresAt && (
+        <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200">
+          <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+          <p className="text-xs text-amber-700 font-medium">{getExpiryText(expiresAt)}</p>
+        </div>
+      )}
+
+      {/* Reward card */}
+      <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 space-y-4 shadow-sm">
+        <div className="flex items-center gap-2">
+          <Trophy className="w-5 h-5 text-[#C89B3C]" />
+          <h3 className="font-bold text-[#6B4226]">🎁 {rewardLabel}</h3>
+        </div>
+
+        {/* Discount reward — no item to pick, applies to order total */}
+        {isDiscountReward ? (
+          <div className="bg-white rounded-xl p-4 border border-amber-100 text-center">
+            <p className="text-2xl font-bold text-[#C89B3C]">{rewardLabel}</p>
+            <p className="text-xs text-[#6B4226]/50 mt-1">Sepetindeki siparişe uygulanacak</p>
+          </div>
+        ) : rewardItem ? (
+          /* Free item reward */
+          <div className="flex items-center gap-4 bg-white rounded-xl p-3 border border-amber-100 shadow-sm">
+            {rewardItem.image ? (
+              <div className="relative w-16 h-16 shrink-0 rounded-xl overflow-hidden bg-[#F8F6F3]">
+                <Image src={rewardItem.image} alt={rewardItem.name} fill sizes="64px" className="object-cover" />
+              </div>
+            ) : (
+              <div className="w-16 h-16 shrink-0 rounded-xl bg-amber-100 flex items-center justify-center">
+                <Gift className="w-7 h-7 text-[#C89B3C]" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-[#3D2C1E]">{rewardItem.name}</p>
+              <p className="text-sm text-[#4CAF50] font-bold">ÜCRETSİZ 🎉</p>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Pool selection */}
+        {!isDiscountReward && rewardPool.length > 1 && !done && (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-[#6B4226]/60 uppercase tracking-wide">Hangisini istersin?</p>
+            <div className="grid grid-cols-2 gap-2">
+              {rewardPool.map((item) => {
+                const isSelected = selectedRewardItem?.menuItemId === item.menuItemId;
+                return (
+                  <button
+                    key={item.menuItemId}
+                    type="button"
+                    onClick={() => onSelectItem(item)}
+                    className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all ${
+                      isSelected ? "border-[#C89B3C] bg-[#C89B3C]/10" : "border-[#E8E4DF] bg-white hover:border-[#C89B3C]/50"
+                    }`}
+                  >
+                    {item.image && (
+                      <div className="relative w-8 h-8 shrink-0 rounded-lg overflow-hidden bg-[#F8F6F3]">
+                        <Image src={item.image} alt={item.name} fill sizes="32px" className="object-cover" />
+                      </div>
+                    )}
+                    <span className="text-xs font-medium text-[#3D2C1E] line-clamp-2">{item.name}</span>
+                    {isSelected && <Check className="w-3.5 h-3.5 text-[#C89B3C] shrink-0 ml-auto" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Action button */}
+        <button
+          type="button"
+          onClick={() => {
+            if (!isDiscountReward) {
+              onAddReward(selectedRewardItem ?? (rewardPool.length === 1 ? rewardPool[0] : undefined));
+            } else {
+              // For discount rewards, just close panel — discount is applied server-side at order time
+              onAddReward();
+            }
+          }}
+          disabled={done || (!isDiscountReward && rewardPool.length > 1 && !selectedRewardItem)}
+          className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all duration-200 ${
+            done
+              ? "bg-[#4CAF50]/10 text-[#4CAF50] border border-[#4CAF50]/20"
+              : !isDiscountReward && rewardPool.length > 1 && !selectedRewardItem
+                ? "bg-muted text-muted-foreground cursor-not-allowed"
+                : "bg-[#C89B3C] text-white hover:bg-[#B8892F] active:scale-[0.98] shadow-md"
+          }`}
+        >
+          {done ? (
+            <>✓ {isDiscountReward ? "İndirim Aktif" : "Sepete Eklendi"}</>
+          ) : (
+            <>
+              <Gift className="w-4 h-4" />
+              {!isDiscountReward && rewardPool.length > 1 && !selectedRewardItem
+                ? "Ödül Seçin"
+                : isDiscountReward
+                  ? "İndirimi Kullan → Sipariş Ver"
+                  : "Sepete Ekle"}
+            </>
+          )}
+        </button>
+
+        <p className="text-xs text-[#6B4226]/40 text-center">
+          Ödülün sepete eklenir, stamp toplamaya devam edersin ☕
+        </p>
+      </div>
     </div>
   );
 }
@@ -562,15 +796,20 @@ export function CoffeeClubPanel() {
 /*  Store Tab (inline — shows point store items)                */
 /* ──────────────────────────────────────────────────────────── */
 
-function StoreTab({ restaurantId }: { restaurantId: string }) {
-  const loyalty = useLoyalty();
-  const cart = useOptionalCart();
-  const [items, setItems] = useState<Array<{ id: string; name: string; description: string; cost_points: number; stock: number; image_url: string; menu_item_id?: string | null }>>([]);
-  const [loading, setLoading] = useState(true);
-  const [redeeming, setRedeeming] = useState<string | null>(null);
-  const [redeemed, setRedeemed] = useState<Set<string>>(new Set());
+type StoreItem = { id: string; name: string; description: string; cost_points: number; stock: number; image_url: string; menu_item_id?: string | null };
 
-  const balance = loyalty?.progress?.points?.balance ?? 0;
+interface StoreTabProps {
+  restaurantId: string;
+  balance: number;
+  history: Array<{ id: string; action_type: string; points: number }>;
+  onRequestRedeem: (item: StoreItem) => void;
+  redeeming: string | null;
+  redeemed: Set<string>;
+}
+
+function StoreTab({ restaurantId, balance, history, onRequestRedeem, redeeming, redeemed }: StoreTabProps) {
+  const [items, setItems] = useState<StoreItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -580,37 +819,6 @@ function StoreTab({ restaurantId }: { restaurantId: string }) {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [restaurantId]);
-
-  const handleRedeem = async (item: typeof items[0]) => {
-    if (!loyalty?.customerKey || balance < item.cost_points) return;
-    setRedeeming(item.id);
-    try {
-      const res = await fetch("/api/loyalty/store/redeem", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customerKey: loyalty.customerKey, restaurantId, storeItemId: item.id }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setRedeemed((prev) => new Set(prev).add(item.id));
-        loyalty.refetch();
-        // Add redeemed item to cart as a free point-store reward
-        if (cart) {
-          const rewardLineId = `store_reward_${data.redemption?.id ?? Date.now()}`;
-          cart.addItem({
-            lineId: rewardLineId,
-            menuItemId: data.item?.menu_item_id || rewardLineId,
-            name: data.item?.name || item.name,
-            price: 0,
-            image: data.item?.image_url || item.image_url || "",
-            type: "point_store_reward",
-            redemptionId: data.redemption?.id,
-          });
-        }
-      }
-    } catch { /* ignore */ }
-    setRedeeming(null);
-  };
 
   if (loading) {
     return (
@@ -658,8 +866,8 @@ function StoreTab({ restaurantId }: { restaurantId: string }) {
                 </div>
                 <button
                   type="button"
-                  disabled={!canAfford || outOfStock || redeeming === item.id || justRedeemed}
-                  onClick={() => handleRedeem(item)}
+                  disabled={!canAfford || outOfStock || !!redeeming || justRedeemed}
+                  onClick={() => onRequestRedeem(item)}
                   className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                     justRedeemed
                       ? "bg-[#4CAF50]/10 text-[#4CAF50] border border-[#4CAF50]/20"
@@ -677,11 +885,11 @@ function StoreTab({ restaurantId }: { restaurantId: string }) {
       )}
 
       {/* Points history */}
-      {(loyalty?.progress?.points?.history ?? []).length > 0 && (
+      {history.length > 0 && (
         <div className="bg-white rounded-2xl p-4 shadow-sm">
           <h3 className="text-xs font-bold text-[#6B4226]/60 uppercase tracking-wider mb-3">Son İşlemler</h3>
           <div className="space-y-2">
-            {(loyalty?.progress?.points?.history ?? []).slice(0, 5).map((h) => (
+            {history.slice(0, 5).map((h) => (
               <div key={h.id} className="flex items-center justify-between py-1.5 border-b border-[#E8E4DF] last:border-0">
                 <span className="text-xs text-[#6B4226]/70">{actionLabel(h.action_type)}</span>
                 <span className="text-xs font-bold text-[#4CAF50]">+{h.points}</span>

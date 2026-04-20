@@ -391,6 +391,8 @@ export interface DbLoyaltyProgram {
   order_points_per_item: number;
   /** Pool of eligible reward products (v15). Empty array = single-item behaviour. */
   reward_pool: RewardPoolItem[];
+  /** Admin-set "Günün Ürünü" — overrides auto-detected favourite item (v17). */
+  featured_item_id: string | null;
   created_at: string;
 }
 

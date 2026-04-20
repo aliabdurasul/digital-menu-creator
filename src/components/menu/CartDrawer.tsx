@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { X, Plus, Minus, Trash2, CheckCircle2, Loader2, Bell, Gift, Smartphone } from "lucide-react";
+import { X, Plus, Minus, Trash2, CheckCircle2, Loader2, Bell, Gift } from "lucide-react";
 import { useCart } from "@/components/menu/CartProvider";
 import { Button } from "@/components/ui/button";
 import { PhoneCapture, getCapturedPhone, getCapturedName } from "@/components/menu/PhoneCapture";
@@ -10,8 +10,7 @@ import { generateCafeSessionCode } from "@/lib/utils";
 import { getOrCreateCustomerKey } from "@/lib/loyalty-client";
 import { useLoyalty } from "@/components/menu/LoyaltyProvider";
 import type { LoyaltyProgressResponse } from "@/types";
-import { useInstallPrompt } from "@/hooks/useInstallPrompt";
-import { InstallPromptSheet } from "@/components/loyalty/InstallPromptSheet";
+
 
 interface CartDrawerProps {
   open: boolean;
@@ -291,9 +290,7 @@ function OrderSuccessScreen({
   onClose: () => void;
 }) {
   const [sessionCode, setSessionCode] = useState<string | null>(null);
-  const [installOpen, setInstallOpen] = useState(false);
   const loyalty = useLoyalty();
-  const { canInstall } = useInstallPrompt();
   const isCafe = moduleType === "cafe";
   const customerKey = typeof window !== "undefined" ? getOrCreateCustomerKey() : undefined;
 
@@ -371,18 +368,6 @@ function OrderSuccessScreen({
           <Bell className="w-3.5 h-3.5" /> Bildirim açık ✓
         </p>
       )}
-      {/* Install CTA — surface for users who haven't installed the PWA yet */}
-      {isCafe && canInstall && (
-        <button
-          type="button"
-          onClick={() => setInstallOpen(true)}
-          className="flex items-center gap-2 rounded-xl bg-muted border border-border px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted/80 transition-colors"
-        >
-          <Smartphone className="w-4 h-4" />
-          Coffee Club'u Ana Ekrana Ekle
-        </button>
-      )}
-      <InstallPromptSheet open={installOpen} onClose={() => setInstallOpen(false)} customerKey={customerKey} restaurantId={restaurantId} />
 
       {/* Return to menu CTA */}
       <button
@@ -402,12 +387,27 @@ function CartUpsell({ progress }: { progress: LoyaltyProgressResponse | null }) 
 
   const stampsAway = progress.bonuses.stampsAway;
   const rewardItem = progress.rewardItem;
+  const current = progress.progress.current % progress.progress.target;
+  const target = progress.progress.target;
 
+  // Near-completion upsell
   if (stampsAway <= 3 && stampsAway > 1 && !progress.reward.ready) {
     return (
       <div className="mx-5 mb-1 px-4 py-2.5 rounded-xl bg-blue-50 border border-blue-200 text-center">
         <p className="text-xs text-blue-600">
           {stampsAway} sipariş sonra → {rewardItem?.name || "ÜCRETSİZ kahve"} ☕
+        </p>
+      </div>
+    );
+  }
+
+  // Stamp preview: show current progress and what this order earns
+  if (!progress.reward.ready && current < target) {
+    return (
+      <div className="mx-5 mb-1 px-4 py-2.5 rounded-xl bg-primary/5 border border-primary/20 text-center">
+        <p className="text-xs text-primary">
+          ☕ Bu sipariş +1 damga · {current}/{target}
+          {stampsAway === 1 && " · Son sipariş — ödül geliyor!"}
         </p>
       </div>
     );

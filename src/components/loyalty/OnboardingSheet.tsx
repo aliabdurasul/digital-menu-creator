@@ -53,9 +53,9 @@ export function OnboardingSheet({ open, onClose, clubName = "Coffee Club" }: Onb
   };
 
   return (
-    <div className="fixed inset-0 z-[80] flex flex-col justify-end">
+    <div className="fixed inset-0 z-[80] flex flex-col justify-end pointer-events-auto">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} aria-hidden="true" />
 
       {/* Sheet */}
       <div className="relative z-10 w-full max-w-[480px] mx-auto bg-background rounded-t-3xl shadow-2xl animate-slide-up overflow-hidden">

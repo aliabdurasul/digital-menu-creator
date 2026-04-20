@@ -33,6 +33,10 @@ interface LoyaltyContextValue {
   onboardingOpen: boolean;
   /** Mark onboarding as seen and close it */
   dismissOnboarding: () => void;
+  /** Open the cart drawer — registered by OrderingWrapper */
+  openCart: () => void;
+  /** Register the openCart handler (called by OrderingWrapper) */
+  registerOpenCart: (fn: () => void) => void;
 }
 
 const LoyaltyContext = createContext<LoyaltyContextValue | null>(null);
@@ -70,6 +74,9 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
   const [pushSheetReason, setPushSheetReason] = useState<"cart_add" | "near_reward" | "reward_ready" | "manual">("cart_add");
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const swRegRef = useRef<ServiceWorkerRegistration | null>(null);
+  const openCartRef = useRef<(() => void) | null>(null);
+  const openCart = useCallback(() => { openCartRef.current?.(); }, []);
+  const registerOpenCart = useCallback((fn: () => void) => { openCartRef.current = fn; }, []);
 
   // Detect user's preferred push language (tr or en)
   const pushLanguage = typeof navigator !== "undefined"
@@ -230,9 +237,11 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
   const rewardPool = progress?.rewardPool ?? [];
 
   // Show onboarding on first visit once the loyalty program is loaded
+  const onboardingTriggered = useRef(false);
   useEffect(() => {
-    if (!progress) return;
+    if (!progress || onboardingTriggered.current) return;
     if (typeof window !== "undefined" && !localStorage.getItem("loyalty_onboarding_seen")) {
+      onboardingTriggered.current = true;
       const t = setTimeout(() => setOnboardingOpen(true), 1500);
       return () => clearTimeout(t);
     }
@@ -246,7 +255,7 @@ export function LoyaltyProvider({ restaurantId, children }: LoyaltyProviderProps
   }, []);
 
   return (
-    <LoyaltyContext.Provider value={{ progress, isLoading, customerKey, restaurantId, refetch, updateFromResponse, clubName, rewardItem, rewardPool, panelOpen, setPanelOpen, requestPushPermission, pushStatus, pushSheetOpen, pushSheetReason, triggerPushSheet, dismissPushSheet, onboardingOpen, dismissOnboarding }}>
+    <LoyaltyContext.Provider value={{ progress, isLoading, customerKey, restaurantId, refetch, updateFromResponse, clubName, rewardItem, rewardPool, panelOpen, setPanelOpen, requestPushPermission, pushStatus, pushSheetOpen, pushSheetReason, triggerPushSheet, dismissPushSheet, onboardingOpen, dismissOnboarding, openCart, registerOpenCart }}>
       {children}
       <OnboardingSheet open={onboardingOpen} onClose={dismissOnboarding} clubName={clubName} />
     </LoyaltyContext.Provider>

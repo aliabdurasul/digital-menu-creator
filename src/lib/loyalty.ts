@@ -338,6 +338,29 @@ async function getGlobalBestseller(
   return null;
 }
 
+/**
+ * Resolve admin-configured "Günün Ürünü" (featured item) by ID.
+ * Returns null when featured_item_id is not set.
+ */
+async function resolveFeaturedItem(
+  supabase: ReturnType<typeof getServiceClient>,
+  featuredItemId: string | null | undefined
+): Promise<{ name: string; image?: string; menuItemId?: string; price?: number } | null> {
+  if (!featuredItemId) return null;
+  const { data } = await supabase
+    .from("menu_items")
+    .select("id, name, image_url, price")
+    .eq("id", featuredItemId)
+    .single();
+  if (!data) return null;
+  return {
+    name: data.name,
+    image: data.image_url || undefined,
+    menuItemId: data.id,
+    price: data.price ?? undefined,
+  };
+}
+
 /** Build a LoyaltyProgressResponse from program + progress data. */
 async function buildResponse(
   program: DbLoyaltyProgram,
@@ -678,8 +701,10 @@ export async function addPendingProgress(
   // 5d. Engagement: roll secret reward
   const secretReward = await rollSecretReward(supabase, program as DbLoyaltyProgram, customerKey, restaurantId);
 
-  // 5e. Engagement: detect favorite item
-  const favoriteItem = await detectFavoriteItem(supabase, customerKey, restaurantId);
+  // 5e. Engagement: detect favorite item (admin featured override → auto-detect)
+  const favoriteItem =
+    await resolveFeaturedItem(supabase, (program as DbLoyaltyProgram).featured_item_id) ??
+    await detectFavoriteItem(supabase, customerKey, restaurantId);
 
   // 6. Write loyalty state onto order row — triggers Supabase Realtime
   const stampsAway = Math.max(0, target - (effectiveTotal % target));
@@ -978,7 +1003,9 @@ export async function getLoyaltySnapshot(
 
   // Get engagement data
   const secretReward = await getActiveSecretReward(supabase, customerKey, restaurantId);
-  const favoriteItem = await detectFavoriteItem(supabase, customerKey, restaurantId);
+  const favoriteItem =
+    await resolveFeaturedItem(supabase, (program as DbLoyaltyProgram).featured_item_id) ??
+    await detectFavoriteItem(supabase, customerKey, restaurantId);
 
   const upsell = program.upsell_enabled
     ? await getUpsellMessage(program as DbLoyaltyProgram, currentProgress, restaurantId)
