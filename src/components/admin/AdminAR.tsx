@@ -2,7 +2,7 @@
 
 import { useState, useRef, Suspense, lazy } from "react";
 import type { Restaurant, Product } from "@/types";
-import { Box, Eye, Trash2, Upload, Loader2, Plus, Check } from "lucide-react";
+import { Box, Eye, Trash2, Loader2, Plus, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -31,8 +38,12 @@ export function AdminAR({ restaurant, setRestaurant }: Props) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
-  // sizeCm edit per product: productId → string value
   const [sizeCmDraft, setSizeCmDraft] = useState<Record<string, string>>({});
+  // "Assign after upload" dialog
+  const [pendingUrl, setPendingUrl] = useState<string | null>(null);
+  const [pendingFileName, setPendingFileName] = useState("");
+  const [assignProductId, setAssignProductId] = useState("");
+  const [assigning, setAssigning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -68,23 +79,33 @@ export function AdminAR({ restaurant, setRestaurant }: Props) {
       }
       const { url } = (await res.json()) as { url: string };
 
-      // If a product is already selected in the detail panel, assign immediately
+      // If a product is already open in the detail panel, assign immediately
       if (selectedProduct) {
         await assignModel(selectedProduct.id, url, selectedProduct.arModelSizeCm);
       } else {
-        toast({
-          title: "Model yüklendi",
-          description: "Soldaki listeden bir ürüne atayabilirsiniz.",
-        });
-        // Add a temporary "unassigned" slot — store in first unassigned product or show inline
-        // For now just refresh with a phantom entry by adding to the first unassigned product
-        // This is handled via the "Ürüne Ata" flow after upload
+        // Open assignment dialog — don't let the URL go to waste
+        setPendingUrl(url);
+        setPendingFileName(file.name);
+        setAssignProductId(restaurant.products[0]?.id ?? "");
       }
     } catch {
       toast({ title: "Yükleme başarısız", description: "Model yüklenemedi", variant: "destructive" });
     } finally {
       setUploading(false);
     }
+  };
+
+  // ── Confirm assignment from the dialog ──
+  const handleAssignConfirm = async () => {
+    if (!pendingUrl || !assignProductId) return;
+    setAssigning(true);
+    await assignModel(assignProductId, pendingUrl, null);
+    const target = restaurant.products.find((p) => p.id === assignProductId);
+    if (target) setSelectedProduct({ ...target, arModelUrl: pendingUrl, arModelSizeCm: null });
+    setPendingUrl(null);
+    setPendingFileName("");
+    setAssignProductId("");
+    setAssigning(false);
   };
 
   // ── Assign a URL to a product (PATCH) ──
@@ -399,6 +420,67 @@ export function AdminAR({ restaurant, setRestaurant }: Props) {
           )}
         </div>
       </div>
+
+      {/* ── Assign-after-upload dialog ── */}
+      <Dialog
+        open={!!pendingUrl}
+        onOpenChange={(open) => {
+          if (!open) { setPendingUrl(null); setAssignProductId(""); }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Modeli Ürüne Ata</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2.5">
+              <Box className="w-4 h-4 text-primary shrink-0" />
+              <span className="text-sm truncate">{pendingFileName}</span>
+            </div>
+            <div>
+              <Label className="text-xs mb-1.5 block">Hangi ürüne bağlanacak?</Label>
+              <Select value={assignProductId} onValueChange={setAssignProductId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Ürün seç..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {restaurant.products.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      <span className="flex items-center gap-2">
+                        {p.name}
+                        {p.arModelUrl && (
+                          <Badge variant="secondary" className="text-[10px] h-4 px-1">var</Badge>
+                        )}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {assignProductId &&
+                restaurant.products.find((p) => p.id === assignProductId)?.arModelUrl && (
+                  <p className="text-[11px] text-amber-500 mt-1.5">
+                    Bu ürünün mevcut modeli üzerine yazılacak.
+                  </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => { setPendingUrl(null); setAssignProductId(""); }}
+            >
+              İptal
+            </Button>
+            <Button
+              disabled={!assignProductId || assigning}
+              onClick={handleAssignConfirm}
+            >
+              {assigning && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              Ata
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* AR fullscreen preview */}
       {previewOpen && selectedProduct && (
