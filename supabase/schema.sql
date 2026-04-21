@@ -134,26 +134,31 @@ alter table public.profiles    enable row level security;
 -- (defined first because other tables' policies don't reference profiles anymore)
 
 -- Users can read their own profile
+drop policy if exists "Users read own profile" on public.profiles;
 create policy "Users read own profile"
   on public.profiles for select
   using (id = auth.uid());
 
 -- Super admins can read all profiles (uses JWT, no recursion)
+drop policy if exists "Super admins read all profiles" on public.profiles;
 create policy "Super admins read all profiles"
   on public.profiles for select
   using (public.user_role() = 'super_admin');
 
 -- Super admins can update any profile (assign roles, restaurants)
+drop policy if exists "Super admins update profiles" on public.profiles;
 create policy "Super admins update profiles"
   on public.profiles for update
   using (public.user_role() = 'super_admin');
 
 -- Super admins can insert profiles (needed for admin.createUser flow)
+drop policy if exists "Super admins insert profiles" on public.profiles;
 create policy "Super admins insert profiles"
   on public.profiles for insert
   with check (public.user_role() = 'super_admin');
 
 -- Users can update their own profile (non-role fields only — enforce in app)
+drop policy if exists "Users update own profile" on public.profiles;
 create policy "Users update own profile"
   on public.profiles for update
   using (id = auth.uid());
@@ -161,16 +166,19 @@ create policy "Users update own profile"
 -- ─── Restaurants Policies ───────────────────────────────────
 
 -- Anyone can read active restaurants (public menu pages)
+drop policy if exists "Public can read active restaurants" on public.restaurants;
 create policy "Public can read active restaurants"
   on public.restaurants for select
   using (active = true);
 
 -- Super admins can do everything
+drop policy if exists "Super admins full access to restaurants" on public.restaurants;
 create policy "Super admins full access to restaurants"
   on public.restaurants for all
   using (public.user_role() = 'super_admin');
 
 -- Restaurant admins can read their own restaurant
+drop policy if exists "Restaurant admins read own restaurant" on public.restaurants;
 create policy "Restaurant admins read own restaurant"
   on public.restaurants for select
   using (
@@ -182,6 +190,7 @@ create policy "Restaurant admins read own restaurant"
   );
 
 -- Restaurant admins can update their own restaurant
+drop policy if exists "Restaurant admins update own restaurant" on public.restaurants;
 create policy "Restaurant admins update own restaurant"
   on public.restaurants for update
   using (
@@ -195,6 +204,7 @@ create policy "Restaurant admins update own restaurant"
 -- ─── Categories Policies ────────────────────────────────────
 
 -- Public can read categories for active restaurants
+drop policy if exists "Public can read categories" on public.categories;
 create policy "Public can read categories"
   on public.categories for select
   using (
@@ -206,6 +216,7 @@ create policy "Public can read categories"
   );
 
 -- Restaurant admins can manage their own categories
+drop policy if exists "Restaurant admins manage own categories" on public.categories;
 create policy "Restaurant admins manage own categories"
   on public.categories for all
   using (
@@ -217,6 +228,7 @@ create policy "Restaurant admins manage own categories"
   );
 
 -- Super admins full access
+drop policy if exists "Super admins full access to categories" on public.categories;
 create policy "Super admins full access to categories"
   on public.categories for all
   using (public.user_role() = 'super_admin');
@@ -224,6 +236,7 @@ create policy "Super admins full access to categories"
 -- ─── Menu Items Policies ────────────────────────────────────
 
 -- Public can read available items for active restaurants
+drop policy if exists "Public can read menu items" on public.menu_items;
 create policy "Public can read menu items"
   on public.menu_items for select
   using (
@@ -235,6 +248,7 @@ create policy "Public can read menu items"
   );
 
 -- Restaurant admins can manage their own items
+drop policy if exists "Restaurant admins manage own menu items" on public.menu_items;
 create policy "Restaurant admins manage own menu items"
   on public.menu_items for all
   using (
@@ -246,6 +260,7 @@ create policy "Restaurant admins manage own menu items"
   );
 
 -- Super admins full access
+drop policy if exists "Super admins full access to menu items" on public.menu_items;
 create policy "Super admins full access to menu items"
   on public.menu_items for all
   using (public.user_role() = 'super_admin');
@@ -257,14 +272,17 @@ insert into storage.buckets (id, name, public)
 values ('images', 'images', true)
 on conflict do nothing;
 
+drop policy if exists "Public read images" on storage.objects;
 create policy "Public read images"
   on storage.objects for select
   using (bucket_id = 'images');
 
+drop policy if exists "Authenticated users upload images" on storage.objects;
 create policy "Authenticated users upload images"
   on storage.objects for insert
   with check (bucket_id = 'images' and auth.role() = 'authenticated');
 
+drop policy if exists "Authenticated users update own images" on storage.objects;
 create policy "Authenticated users update own images"
   on storage.objects for update
   using (bucket_id = 'images' and auth.role() = 'authenticated');
@@ -279,18 +297,22 @@ values (
 )
 on conflict (id) do nothing;
 
+drop policy if exists "Public read models" on storage.objects;
 create policy "Public read models"
   on storage.objects for select
   using (bucket_id = 'models');
 
+drop policy if exists "Authenticated users upload models" on storage.objects;
 create policy "Authenticated users upload models"
   on storage.objects for insert
   with check (bucket_id = 'models' and auth.role() = 'authenticated');
 
+drop policy if exists "Authenticated users update models" on storage.objects;
 create policy "Authenticated users update models"
   on storage.objects for update
   using (bucket_id = 'models' and auth.role() = 'authenticated');
 
+drop policy if exists "Authenticated users delete models" on storage.objects;
 create policy "Authenticated users delete models"
   on storage.objects for delete
   using (bucket_id = 'models' and auth.role() = 'authenticated');
