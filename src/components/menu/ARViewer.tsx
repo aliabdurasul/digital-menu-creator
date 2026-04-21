@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { X, Box } from "lucide-react";
+import { isModelReady } from "@/lib/arPreloader";
 
 declare global {
   namespace JSX {
@@ -16,6 +17,7 @@ declare global {
           "camera-controls"?: boolean;
           "auto-rotate"?: boolean;
           "shadow-intensity"?: string;
+          "shadow-softness"?: string;
           loading?: string;
           poster?: string;
           style?: React.CSSProperties;
@@ -26,8 +28,6 @@ declare global {
   }
 }
 
-const MAX_MODEL_SIZE = 50 * 1024 * 1024; // 50 MB
-
 interface ARViewerProps {
   src: string;
   name: string;
@@ -37,67 +37,23 @@ interface ARViewerProps {
 }
 
 export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) {
-  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  // If the preloader already has this model warm, start as "ready" immediately
+  const [status, setStatus] = useState<"loading" | "ready" | "error">(
+    () => (isModelReady(src) ? "ready" : "loading")
+  );
   const [arSupported, setArSupported] = useState(true);
-  const [errorMsg, setErrorMsg] = useState("");
   const viewerRef = useRef<HTMLElement>(null);
 
-  // Real-world scale: sizeCm / 100 metres. Default 15 cm when not set.
-  const scaleMetre = ((sizeCm ?? 15) / 100).toFixed(3);
-
-  // HEAD check — raise size limit to 50 MB; allow CDN URLs without .glb extension
-  useEffect(() => {
-    let cancelled = false;
-
-    // Validate it is an http(s) URL
-    try {
-      const u = new URL(src);
-      if (u.protocol !== "https:" && u.protocol !== "http:") {
-        setStatus("error");
-        setErrorMsg("Geçersiz model URL'si");
-        return;
-      }
-    } catch {
-      setStatus("error");
-      setErrorMsg("Geçersiz model URL'si");
-      return;
-    }
-
-    (async () => {
-      try {
-        const res = await fetch(src, { method: "HEAD" });
-        if (cancelled) return;
-        if (!res.ok) {
-          setStatus("error");
-          setErrorMsg("Model dosyası bulunamadı");
-          return;
-        }
-        const size = parseInt(res.headers.get("content-length") || "0", 10);
-        if (size > MAX_MODEL_SIZE) {
-          setStatus("error");
-          setErrorMsg("Model dosyası çok büyük (maks 50 MB)");
-          return;
-        }
-        if (!cancelled) setStatus("loading");
-      } catch {
-        // HEAD may fail due to CORS — proceed and let model-viewer handle errors
-        if (!cancelled) setStatus("loading");
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [src]);
+  const scaleMetre = ((sizeCm ?? 20) / 100).toFixed(3);
 
   // model-viewer load / error events
   useEffect(() => {
+    if (status === "ready") return; // already warm — skip listeners
     const el = viewerRef.current;
-    if (!el || status !== "loading") return;
+    if (!el) return;
 
     const onLoad = () => setStatus("ready");
-    const onError = () => {
-      setStatus("error");
-      setErrorMsg("Model yüklenemedi");
-    };
+    const onError = () => setStatus("error");
 
     el.addEventListener("load", onLoad);
     el.addEventListener("error", onError);
@@ -114,13 +70,12 @@ export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) 
     const check = () => {
       if (el.canActivateAR !== undefined) setArSupported(!!el.canActivateAR);
     };
-    el.addEventListener("load", check);
+    el.addEventListener("load", check, { once: true });
     return () => el.removeEventListener("load", check);
   }, []);
 
   const handleClose = useCallback(() => onClose(), [onClose]);
 
-  // Escape key
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === "Escape") handleClose(); };
     window.addEventListener("keydown", h);
@@ -129,20 +84,19 @@ export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) 
 
   return (
     <>
-      {/* Premium scale-in animation */}
       <style>{`
         @keyframes arScaleIn {
-          from { opacity: 0; transform: scale(0.92) translateY(8px); }
-          to   { opacity: 1; transform: scale(1)    translateY(0);   }
+          from { opacity: 0; transform: scale(0.93) translateY(10px); }
+          to   { opacity: 1; transform: scale(1)    translateY(0);    }
         }
         .ar-panel {
-          animation: arScaleIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+          animation: arScaleIn 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) both;
         }
         @keyframes shimmer {
           0%   { background-position: -200% 0; }
           100% { background-position:  200% 0; }
         }
-        .shimmer {
+        .ar-shimmer {
           background: linear-gradient(90deg,
             hsl(var(--muted)) 25%,
             hsl(var(--muted-foreground) / 0.12) 50%,
@@ -178,22 +132,30 @@ export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) 
             </button>
           </div>
 
-          {/* Viewer */}
+          {/* Viewer area */}
           <div className="relative aspect-square bg-muted">
-            {/* Shimmer skeleton shown while loading */}
+
+            {/* Poster image — shown immediately, fades out when model is ready */}
+            {poster && status !== "ready" && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={poster}
+                alt={name}
+                className="absolute inset-0 w-full h-full object-cover z-10"
+                style={{ transition: "opacity 0.4s ease" }}
+              />
+            )}
+
+            {/* Shimmer overlay on top of poster while loading */}
             {status === "loading" && (
-              <div className="absolute inset-0 shimmer z-10" />
+              <div className="absolute inset-0 ar-shimmer z-20 opacity-60" />
             )}
 
             {status === "error" && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center z-10 gap-2 px-6 text-center">
+              <div className="absolute inset-0 flex flex-col items-center justify-center z-20 gap-2 px-6 text-center bg-muted">
                 <Box className="w-8 h-8 text-muted-foreground" />
-                <p className="text-sm text-destructive font-medium">{errorMsg}</p>
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="text-xs text-muted-foreground underline"
-                >
+                <p className="text-sm text-destructive font-medium">Model yüklenemedi</p>
+                <button type="button" onClick={handleClose} className="text-xs text-muted-foreground underline">
                   Kapat
                 </button>
               </div>
@@ -209,15 +171,15 @@ export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) 
                 ar-scale="fixed"
                 camera-controls
                 auto-rotate
-                shadow-intensity="1"
+                shadow-intensity="1.2"
+                shadow-softness="0.8"
                 loading="eager"
                 poster={poster}
                 style={{
                   width: "100%",
                   height: "100%",
                   opacity: status === "ready" ? 1 : 0,
-                  transition: "opacity 0.4s ease",
-                  // Pass scale hint via CSS custom property for model-viewer
+                  transition: "opacity 0.5s ease",
                   ["--model-scale" as string]: scaleMetre,
                 }}
               />
@@ -246,3 +208,27 @@ export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) 
     </>
   );
 }
+
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      "model-viewer": React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement> & {
+          src?: string;
+          alt?: string;
+          ar?: boolean;
+          "ar-modes"?: string;
+          "ar-scale"?: string;
+          "camera-controls"?: boolean;
+          "auto-rotate"?: boolean;
+          "shadow-intensity"?: string;
+          loading?: string;
+          poster?: string;
+          style?: React.CSSProperties;
+        },
+        HTMLElement
+      >;
+    }
+  }
+}
+

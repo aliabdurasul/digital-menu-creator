@@ -6,6 +6,7 @@ import { LanguageProvider } from "@/components/menu/LanguageProvider";
 import { MenuHeroBranding } from "@/components/menu/MenuHeroBranding";
 import { LanguageToggle } from "@/components/menu/LanguageToggle";
 import { CoffeeClubButton } from "@/components/loyalty/CoffeeClubButton";
+import { ARWarmup } from "@/components/menu/ARWarmup";
 
 interface MenuShellProps {
   restaurant: Restaurant;
@@ -19,8 +20,14 @@ interface MenuShellProps {
  * Wraps client islands in <LanguageProvider> for reactive language switching.
  */
 export function MenuShell({ restaurant, restaurantEn = null, tableId }: MenuShellProps) {
+  const arModelUrls = restaurant.products
+    .filter((p) => p.arModelUrl)
+    .map((p) => p.arModelUrl);
+
   return (
     <LanguageProvider restaurantTr={restaurant} restaurantEn={restaurantEn}>
+      {/* Silently warm WebGL + preload above-fold AR models */}
+      <ARWarmup arModelUrls={arModelUrls} />
       <div className="max-w-[480px] mx-auto min-h-screen bg-background shadow-sm">
         {/* Hero Cover */}
         <div className="relative w-full h-44 sm:h-56 overflow-hidden">

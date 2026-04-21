@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo, lazy, Suspense } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import type { Product } from "@/types";
 import { OptimizedImage } from "@/components/OptimizedImage";
 import { X, Plus, View } from "lucide-react";
 import { useLanguage, UI_LABELS } from "@/components/menu/LanguageProvider";
 import { useCart } from "@/components/menu/CartProvider";
+import { preloadModel, isModelReady } from "@/lib/arPreloader";
 
 const ARViewer = lazy(() =>
   import("@/components/menu/ARViewer").then((m) => ({ default: m.ARViewer }))
@@ -81,71 +82,13 @@ export function ProductList({ tableId }: { tableId?: string }) {
 
             <div className="space-y-2">
               {cat.products.map((product) => (
-                <button
+                <ProductRow
                   key={product.id}
-                  type="button"
-                  onClick={() => product.available && setSelected(product)}
-                  disabled={!product.available}
-                  className={`w-full flex items-start gap-3 p-2.5 rounded-xl bg-card border border-border text-left transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-primary outline-none ${
-                    !product.available ? "opacity-40 cursor-not-allowed" : ""
-                  }`}
-                >
-                  {/* Square thumbnail */}
-                  {hasImage(product) ? (
-                    <div className="relative w-20 h-20 shrink-0 rounded-lg overflow-hidden bg-muted">
-                      <OptimizedImage
-                        src={product.image}
-                        alt={product.name}
-                        variant="thumbnail"
-                        fill
-                        sizes="80px"
-                        className="object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-20 h-20 shrink-0 rounded-lg bg-muted" />
-                  )}
-
-                  {/* Text content */}
-                  <div className="flex-1 min-w-0 flex flex-col justify-between self-stretch py-0.5">
-                    <div>
-                      <h3 className="font-semibold text-foreground text-sm leading-snug line-clamp-1">
-                        {product.name}
-                      </h3>
-                      {product.description && (
-                        <p className="text-muted-foreground text-xs leading-relaxed mt-0.5 line-clamp-2">
-                          {product.description}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center justify-between mt-1">
-                      <p className="text-primary font-bold text-sm">
-                        ₺{product.price.toFixed(2)}
-                      </p>
-                      {cart && product.available && (
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              cart.addItem({
-                                lineId: product.id,
-                                menuItemId: product.id,
-                                name: product.name,
-                                price: product.price,
-                                image: product.image,
-                              });
-                            }}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
-                          >
-                            <Plus className="w-3 h-3" />
-                            Ekle
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </button>
+                  product={product}
+                  hasImage={hasImage(product)}
+                  cart={cart}
+                  onSelect={() => product.available && setSelected(product)}
+                />
               ))}
             </div>
           </section>
@@ -225,17 +168,10 @@ export function ProductList({ tableId }: { tableId?: string }) {
               )}
 
               {activeSelected.arModelUrl && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    close();
-                    setArProduct(activeSelected);
-                  }}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
-                >
-                  <View className="w-4 h-4" />
-                  Masanda Gör
-                </button>
+                <ARButton
+                  modelUrl={activeSelected.arModelUrl}
+                  onClick={() => { close(); setArProduct(activeSelected); }}
+                />
               )}
             </div>
           </div>
@@ -254,6 +190,134 @@ export function ProductList({ tableId }: { tableId?: string }) {
           />
         </Suspense>
       )}
+    </>
+  );
+}
+
+// ── ProductRow ──────────────────────────────────────────────────────────────
+// Handles per-product IntersectionObserver preloading (200px rootMargin).
+interface ProductRowProps {
+  product: Product;
+  hasImage: boolean;
+  cart: ReturnType<typeof useOptionalCart>;
+  onSelect: () => void;
+}
+
+function ProductRow({ product, hasImage, cart, onSelect }: ProductRowProps) {
+  const rowRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!product.arModelUrl) return;
+    const el = rowRef.current;
+    if (!el) return;
+
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          preloadModel(product.arModelUrl);
+          obs.disconnect();
+        }
+      },
+      { rootMargin: "200px" }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [product.arModelUrl]);
+
+  return (
+    <button
+      ref={rowRef}
+      type="button"
+      onClick={onSelect}
+      disabled={!product.available}
+      // Also trigger preload on hover/touch (last-resort for slow connections)
+      onMouseEnter={() => product.arModelUrl && preloadModel(product.arModelUrl)}
+      onTouchStart={() => product.arModelUrl && preloadModel(product.arModelUrl)}
+      className={`w-full flex items-start gap-3 p-2.5 rounded-xl bg-card border border-border text-left transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-primary outline-none ${
+        !product.available ? "opacity-40 cursor-not-allowed" : ""
+      }`}
+    >
+      {hasImage ? (
+        <div className="relative w-20 h-20 shrink-0 rounded-lg overflow-hidden bg-muted">
+          <OptimizedImage
+            src={product.image}
+            alt={product.name}
+            variant="thumbnail"
+            fill
+            sizes="80px"
+            className="object-cover"
+          />
+        </div>
+      ) : (
+        <div className="w-20 h-20 shrink-0 rounded-lg bg-muted" />
+      )}
+
+      <div className="flex-1 min-w-0 flex flex-col justify-between self-stretch py-0.5">
+        <div>
+          <h3 className="font-semibold text-foreground text-sm leading-snug line-clamp-1">
+            {product.name}
+          </h3>
+          {product.description && (
+            <p className="text-muted-foreground text-xs leading-relaxed mt-0.5 line-clamp-2">
+              {product.description}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center justify-between mt-1">
+          <p className="text-primary font-bold text-sm">₺{product.price.toFixed(2)}</p>
+          {cart && product.available && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                cart.addItem({
+                  lineId: product.id,
+                  menuItemId: product.id,
+                  name: product.name,
+                  price: product.price,
+                  image: product.image,
+                });
+              }}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="w-3 h-3" />
+              Ekle
+            </button>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+// ── ARButton ─────────────────────────────────────────────────────────────────
+// Shows a pulse badge when model is preloaded. Tap feedback (scale + label).
+function ARButton({ modelUrl, onClick }: { modelUrl: string; onClick: () => void }) {
+  const [tapped, setTapped] = useState(false);
+  const ready = isModelReady(modelUrl);
+
+  return (
+    <>
+      <style>{`
+        @keyframes ar-pulse {
+          0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4); }
+          50%       { box-shadow: 0 0 0 6px hsl(var(--primary) / 0); }
+        }
+        .ar-pulse { animation: ar-pulse 2.4s ease-in-out infinite; }
+      `}</style>
+      <button
+        type="button"
+        onPointerDown={() => setTapped(true)}
+        onPointerUp={() => setTapped(false)}
+        onPointerLeave={() => setTapped(false)}
+        onClick={onClick}
+        className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium transition-all duration-150 ${
+          tapped ? "scale-95 opacity-90" : "scale-100"
+        } ${ready ? "ar-pulse" : ""}`}
+      >
+        <View className="w-4 h-4" />
+        {tapped ? "Açılıyor..." : "Masanda Gör"}
+      </button>
     </>
   );
 }
