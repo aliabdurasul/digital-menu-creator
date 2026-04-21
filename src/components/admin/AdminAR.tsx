@@ -450,7 +450,7 @@ function ARModelPreview({
           <p className="text-xs text-destructive">Model yüklenemedi</p>
         </div>
       )}
-      {/* @ts-expect-error model-viewer is a custom element */}
+      {/* @ts-ignore model-viewer is a custom element */}
       <model-viewer
         src={src}
         alt={`${name} 3D model`}
