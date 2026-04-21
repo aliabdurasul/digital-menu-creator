@@ -184,7 +184,9 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
                         </p>
                       </div>
                       {isReward ? (
-                        <span className="text-xs font-semibold text-green-600">FREE — LOYALTY REWARD</span>
+                        <span className="text-xs font-semibold text-green-600">
+                          {item.menuItemId?.startsWith("loyalty_discount_") ? "🏷 İNDİRİM ÖDÜLÜ" : "🎁 ÜCRETSİZ ÖDÜL"}
+                        </span>
                       ) : (
                         <p className="text-primary font-semibold text-sm">
                           ₺{(item.price * item.quantity).toFixed(2)}
@@ -252,7 +254,17 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
                   {submitting ? (
                     <Loader2 className="w-5 h-5 animate-spin mr-2" />
                   ) : null}
-                  Sipariş Ver — ₺{totalPrice.toFixed(2)}
+                  {(() => {
+                    const hasDiscount = items.some((i) => i.type === "loyalty_reward" && i.menuItemId?.startsWith("loyalty_discount_"));
+                    const rType = loyalty?.progress?.reward?.type;
+                    const rVal = loyalty?.progress?.reward?.value ?? 0;
+                    const discounted = hasDiscount
+                      ? rType === "discount_percent" ? totalPrice * (1 - rVal / 100) : Math.max(0, totalPrice - rVal)
+                      : totalPrice;
+                    return hasDiscount && discounted < totalPrice
+                      ? <>Sipariş Ver — <s className="opacity-50 mr-1">₺{totalPrice.toFixed(2)}</s>₺{discounted.toFixed(2)}</>
+                      : <>Sipariş Ver — ₺{totalPrice.toFixed(2)}</>;
+                  })()}
                 </Button>
               </div>
             )}

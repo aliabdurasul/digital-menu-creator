@@ -92,13 +92,27 @@ export function CoffeeClubPanel({ onOpenCart }: CoffeeClubPanelProps) {
     const rewardType = loyalty?.progress?.reward?.type;
     const rewardValue = loyalty?.progress?.reward?.value;
 
-    // Discount rewards — no item added to cart, just notify and navigate
+    // Discount rewards — add sentinel cart item so order API applies discount
     if (rewardType === "discount_percent" || rewardType === "discount_amount") {
+      if (cart) {
+        const existing = cart.items.find((i) => i.type === "loyalty_reward");
+        if (!existing) {
+          const lineId = `loyalty_discount_${Date.now()}`;
+          cart.addItem({
+            lineId,
+            menuItemId: lineId,
+            name: rewardType === "discount_percent" ? `%${rewardValue} İndirim Ödülü` : `₺${rewardValue} İndirim Ödülü`,
+            price: 0,
+            image: "",
+            type: "loyalty_reward",
+          });
+        }
+      }
       setRewardAdded(true);
       const label = rewardType === "discount_percent" ? `%${rewardValue} indirim` : `₺${rewardValue} indirim`;
       toast({
-        title: "🎁 İndirim Aktif!",
-        description: `${label} siparişine uygulanacak. Siparişini tamamla!`,
+        title: "🎁 İndirim Sepete Eklendi!",
+        description: `${label} siparişine otomatik uygulanacak.`,
       });
       setTimeout(() => {
         loyalty?.setPanelOpen(false);

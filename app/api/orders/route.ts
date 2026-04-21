@@ -41,8 +41,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate quantities
-    if (items.some((i) => !i.menuItemId || !i.quantity || i.quantity < 1)) {
+    // Validate quantities (reward placeholder IDs don't need to be real UUIDs)
+    if (items.some((i) => !i.quantity || i.quantity < 1 || (!i.type && !i.menuItemId))) {
       return NextResponse.json(
         { error: "Geçersiz ürün veya miktar" },
         { status: 400 }
@@ -218,10 +218,11 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     // Add loyalty reward items (price: 0)
     for (const item of rewardItems) {
       orderItems.push({
-        menu_item_id: item.menuItemId || null,
+        menu_item_id: UUID_RE.test(item.menuItemId ?? "") ? item.menuItemId : null,
         name_snapshot: item.name || "Sadakat Ödülü",
         price_snapshot: 0,
         quantity: item.quantity,
