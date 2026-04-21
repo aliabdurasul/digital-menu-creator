@@ -209,26 +209,3 @@ export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) 
   );
 }
 
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      "model-viewer": React.DetailedHTMLProps<
-        React.HTMLAttributes<HTMLElement> & {
-          src?: string;
-          alt?: string;
-          ar?: boolean;
-          "ar-modes"?: string;
-          "ar-scale"?: string;
-          "camera-controls"?: boolean;
-          "auto-rotate"?: boolean;
-          "shadow-intensity"?: string;
-          loading?: string;
-          poster?: string;
-          style?: React.CSSProperties;
-        },
-        HTMLElement
-      >;
-    }
-  }
-}
-
