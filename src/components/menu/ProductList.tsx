@@ -55,7 +55,7 @@ export function ProductList({ tableId }: { tableId?: string }) {
     [sortedCategories, products]
   );
 
-  const hasImage = (p: Product) => p.image && p.image !== "/placeholder.svg";
+  const hasImage = (p: Product) => !!(p.image && p.image !== "/placeholder.svg");
   const close = useCallback(() => setSelected(null), []);
 
   useEffect(() => {
