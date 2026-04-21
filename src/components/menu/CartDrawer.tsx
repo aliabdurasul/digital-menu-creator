@@ -187,7 +187,9 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
                         <span className="text-xs font-semibold text-green-600">
                           {item.menuItemId?.startsWith("loyalty_discount_")
                             ? "🏷 İNDİRİM ÖDÜLÜ"
-                            : "FREE — LOYALTY REWARD"}
+                            : item.menuItemId?.startsWith("secret_reward_")
+                              ? "🎁 GİZLİ İNDİRİM ÖDÜLÜ"
+                              : "FREE — LOYALTY REWARD"}
                         </span>
                       ) : (
                         <p className="text-primary font-semibold text-sm">
@@ -257,15 +259,22 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
                     <Loader2 className="w-5 h-5 animate-spin mr-2" />
                   ) : null}
                   {(() => {
-                    const hasDiscount = items.some((i) => i.menuItemId?.startsWith("loyalty_discount_"));
-                    const rType = loyalty?.progress?.reward?.type;
-                    const rVal = loyalty?.progress?.reward?.value ?? 0;
+                    const hasStampDiscount = items.some((i) => i.menuItemId?.startsWith("loyalty_discount_"));
+                    const hasSecretDiscount = items.some((i) => i.menuItemId?.startsWith("secret_reward_"));
+                    const hasDiscount = hasStampDiscount || hasSecretDiscount;
                     const paid = items.filter((i) => !i.type).reduce((s, i) => s + i.price * i.quantity, 0);
-                    const discounted = hasDiscount
-                      ? rType === "discount_percent"
-                        ? paid * (1 - rVal / 100)
-                        : Math.max(0, paid - rVal)
-                      : totalPrice;
+                    let discounted = paid;
+                    if (hasStampDiscount) {
+                      const rType = loyalty?.progress?.reward?.type;
+                      const rVal = loyalty?.progress?.reward?.value ?? 0;
+                      discounted = rType === "discount_percent"
+                        ? discounted * (1 - rVal / 100)
+                        : Math.max(0, discounted - rVal);
+                    }
+                    if (hasSecretDiscount) {
+                      const pct = loyalty?.progress?.secretReward?.discountPercent ?? 0;
+                      discounted = Math.max(0, discounted * (1 - pct / 100));
+                    }
                     if (hasDiscount && discounted < totalPrice) {
                       return (
                         <>

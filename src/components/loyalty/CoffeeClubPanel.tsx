@@ -124,24 +124,40 @@ export function CoffeeClubPanel({ onOpenCart }: CoffeeClubPanelProps) {
       return;
     }
 
-    if (!cart) return;
+    if (!cart) {
+      // No cart context — just redirect to ordering
+      toast({ title: "🛒 Sipariş Ver", description: "Sepetine ekle ve ödülünü kullan!" });
+      setTimeout(() => { loyalty?.setPanelOpen(false); onOpenCart?.(); }, 300);
+      return;
+    }
     const itemToUse = overrideItem ?? (rewardPool.length === 1 ? rewardPool[0] : null) ?? (rewardItem
       ? { menuItemId: rewardItem.menuItemId, name: rewardItem.name, image: rewardItem.image }
       : null);
-    if (!itemToUse) return;
+
+    if (!itemToUse) {
+      // No item configured — open cart anyway so user can complete order
+      toast({ title: "⚠️ Ödül ürünü ayarlanmamış", description: "Siparişini ver, işletme ödülünü uygular." });
+      setTimeout(() => { loyalty?.setPanelOpen(false); onOpenCart?.(); }, 300);
+      return;
+    }
 
     const existing = cart.items.find((i) => i.type === "loyalty_reward");
-    if (!existing) {
-      const rewardLineId = `loyalty_reward_${Date.now()}`;
-      cart.addItem({
-        lineId: rewardLineId,
-        menuItemId: itemToUse.menuItemId || rewardLineId,
-        name: itemToUse.name,
-        price: 0,
-        image: itemToUse.image || "",
-        type: "loyalty_reward",
-      });
+    if (existing) {
+      // Already in cart — just navigate to cart
+      setRewardAdded(true);
+      setTimeout(() => { loyalty?.setPanelOpen(false); onOpenCart?.(); }, 150);
+      return;
     }
+
+    const rewardLineId = `loyalty_reward_${Date.now()}`;
+    cart.addItem({
+      lineId: rewardLineId,
+      menuItemId: itemToUse.menuItemId || rewardLineId,
+      name: itemToUse.name,
+      price: 0,
+      image: itemToUse.image || "",
+      type: "loyalty_reward",
+    });
 
     setRewardAdded(true);
     toast({
@@ -172,6 +188,32 @@ export function CoffeeClubPanel({ onOpenCart }: CoffeeClubPanelProps) {
     loyalty?.setPanelOpen(false);
     onOpenCart?.();
   }, [loyalty, cart, toast, onOpenCart]);
+
+  const handleUseSecretReward = useCallback(() => {
+    const sr = loyalty?.progress?.secretReward;
+    if (!sr?.won) return;
+    if (cart) {
+      const existing = cart.items.find((i) => i.menuItemId?.startsWith("secret_reward_"));
+      if (!existing) {
+        // sr.id may not be in the LoyaltyProgressResponse type yet — use a timestamp fallback
+        const secretId = (sr as { won: boolean; discountPercent: number; expiresAt: string | null; id?: string }).id ?? String(Date.now());
+        const lineId = `secret_reward_${secretId}`;
+        cart.addItem({
+          lineId,
+          menuItemId: lineId,
+          name: `%${sr.discountPercent} Gizli İndirim`,
+          price: 0,
+          image: "",
+          type: "loyalty_reward",
+        });
+      }
+    }
+    toast({
+      title: "🎁 Gizli İndirim Aktif!",
+      description: `%${sr.discountPercent} indirim siparişine uygulanacak.`,
+    });
+    setTimeout(() => { loyalty?.setPanelOpen(false); onOpenCart?.(); }, 300);
+  }, [cart, loyalty, toast, onOpenCart]);
 
   if (!isOpen || !progress) return null;
 
@@ -450,7 +492,7 @@ export function CoffeeClubPanel({ onOpenCart }: CoffeeClubPanelProps) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-bold ${secretDaysLeft !== null && secretDaysLeft <= 2 ? "text-red-800" : "text-violet-800"}`}>Gizli Ödül Kazandın!</p>
-                      <p className={`text-xs ${secretDaysLeft !== null && secretDaysLeft <= 2 ? "text-red-600" : "text-violet-600"}`}>%{secretReward.discountPercent} indirim · otomatik uygulanır</p>
+                      <p className={`text-xs ${secretDaysLeft !== null && secretDaysLeft <= 2 ? "text-red-600" : "text-violet-600"}`}>%{secretReward.discountPercent} indirim</p>
                     </div>
                   </div>
                   {secretReward.expiresAt && (
@@ -459,6 +501,18 @@ export function CoffeeClubPanel({ onOpenCart }: CoffeeClubPanelProps) {
                       {getExpiryText(secretReward.expiresAt)}
                     </p>
                   )}
+                  <button
+                    type="button"
+                    onClick={handleUseSecretReward}
+                    className={`w-full mt-2 flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-bold active:scale-[0.98] transition-all ${
+                      secretDaysLeft !== null && secretDaysLeft <= 2
+                        ? "bg-red-600 hover:bg-red-700"
+                        : "bg-violet-600 hover:bg-violet-700"
+                    }`}
+                  >
+                    <Gift className="w-4 h-4" />
+                    Kullan → Sipariş Ver
+                  </button>
                 </div>
               )}
 
@@ -774,21 +828,23 @@ function RewardsTab({
             if (!isDiscountReward) {
               onAddReward(selectedRewardItem ?? (rewardPool.length === 1 ? rewardPool[0] : undefined));
             } else {
-              // For discount rewards, just close panel — discount is applied server-side at order time
               onAddReward();
             }
           }}
-          disabled={done || (!isDiscountReward && rewardPool.length > 1 && !selectedRewardItem)}
+          disabled={!isDiscountReward && rewardPool.length > 1 && !selectedRewardItem}
           className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all duration-200 ${
             done
-              ? "bg-[#4CAF50]/10 text-[#4CAF50] border border-[#4CAF50]/20"
+              ? "bg-[#4CAF50] text-white hover:bg-[#43A047] active:scale-[0.98] shadow-md"
               : !isDiscountReward && rewardPool.length > 1 && !selectedRewardItem
                 ? "bg-muted text-muted-foreground cursor-not-allowed"
                 : "bg-[#C89B3C] text-white hover:bg-[#B8892F] active:scale-[0.98] shadow-md"
           }`}
         >
           {done ? (
-            <>✓ {isDiscountReward ? "İndirim Aktif" : "Sepete Eklendi"}</>
+            <>
+              <ShoppingBag className="w-4 h-4" />
+              {isDiscountReward ? "✓ İndirim Aktif — Sepete Git →" : "✓ Ödül Sepette — Sepete Git →"}
+            </>
           ) : (
             <>
               <Gift className="w-4 h-4" />

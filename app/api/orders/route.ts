@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import { ensureCustomerAlias, addPendingProgress, consumeReward } from "@/lib/loyalty";
 import type { LoyaltyProgressResponse } from "@/types";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Service-role client — bypasses RLS so anonymous users can place orders.
  * All validation (active restaurant, active table, available items) is done
@@ -86,7 +88,10 @@ export async function POST(req: NextRequest) {
 
     // Separate regular items from loyalty reward and point store items
     const regularItems = items.filter((i) => !i.type);
-    const rewardItems = items.filter((i) => i.type === "loyalty_reward");
+    // Secret reward sentinels carry menuItemId starting with "secret_reward_"
+    const allLoyaltyItems = items.filter((i) => i.type === "loyalty_reward");
+    const secretRewardItems = allLoyaltyItems.filter((i) => i.menuItemId?.startsWith("secret_reward_"));
+    const rewardItems = allLoyaltyItems.filter((i) => !i.menuItemId?.startsWith("secret_reward_"));
     const storeRewardItems = items.filter((i) => i.type === "point_store_reward");
 
     // 3. Fetch menu items to snapshot current prices (regular items only)
@@ -195,6 +200,25 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 3c. Validate secret reward items
+    let validatedSecretReward: { id: string; discount_percent: number } | null = null;
+    if (secretRewardItems.length > 0 && customerKey) {
+      const rawSecretId = secretRewardItems[0].menuItemId?.replace("secret_reward_", "") ?? "";
+      if (UUID_RE.test(rawSecretId)) {
+        const { data: sr } = await supabase
+          .from("secret_reward_history")
+          .select("id, discount_percent, used, expires_at")
+          .eq("id", rawSecretId)
+          .eq("customer_key", customerKey)
+          .eq("restaurant_id", restaurantId)
+          .single();
+        if (sr && !sr.used && new Date(sr.expires_at) > new Date()) {
+          validatedSecretReward = { id: sr.id, discount_percent: sr.discount_percent };
+        }
+        // If invalid/expired/used → continue silently (non-fatal, discount just won't apply)
+      }
+    }
+
     // 4. Calculate total from snapshot prices
     let total = 0;
     const orderItems: {
@@ -220,7 +244,6 @@ export async function POST(req: NextRequest) {
 
     // Add loyalty reward items (price: 0)
     // Placeholder IDs (e.g. "loyalty_discount_...") are not real UUIDs — store null.
-    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     for (const item of rewardItems) {
       orderItems.push({
         menu_item_id: UUID_RE.test(item.menuItemId ?? "") ? item.menuItemId : null,
@@ -231,10 +254,21 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Add secret reward items (placeholder IDs — store null for menu_item_id FK)
+    for (const item of secretRewardItems) {
+      orderItems.push({
+        menu_item_id: null,
+        name_snapshot: item.name || "Gizli İndirim Ödülü",
+        price_snapshot: 0,
+        quantity: item.quantity,
+        is_loyalty_reward: true,
+      });
+    }
+
     // Add point store reward items (price: 0)
     for (const item of storeRewardItems) {
       orderItems.push({
-        menu_item_id: item.menuItemId || null,
+        menu_item_id: UUID_RE.test(item.menuItemId ?? "") ? item.menuItemId : null,
         name_snapshot: item.name || "Puan Ödülü",
         price_snapshot: 0,
         quantity: item.quantity,
@@ -249,6 +283,11 @@ export async function POST(req: NextRequest) {
       } else if (activeProgram.reward_type === "discount_amount") {
         total = Math.max(0, total - (activeProgram.reward_value ?? 0));
       }
+    }
+
+    // Apply secret reward discount (stacks on top of any stamp discount)
+    if (validatedSecretReward) {
+      total = Math.max(0, total * (1 - validatedSecretReward.discount_percent / 100));
     }
 
     // 4b. Find or create customer if phone provided
@@ -339,6 +378,18 @@ export async function POST(req: NextRequest) {
         await consumeReward(restaurantId, customerKey);
       } catch {
         // Non-critical — reward may already be consumed
+      }
+    }
+
+    // 7c. Mark secret reward as used
+    if (validatedSecretReward) {
+      try {
+        await supabase
+          .from("secret_reward_history")
+          .update({ used: true })
+          .eq("id", validatedSecretReward.id);
+      } catch {
+        // Non-critical
       }
     }
 
