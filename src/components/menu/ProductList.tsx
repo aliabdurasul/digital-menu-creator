@@ -248,6 +248,7 @@ export function ProductList({ tableId }: { tableId?: string }) {
           <ARViewer
             src={arProduct.arModelUrl}
             name={arProduct.name}
+            sizeCm={arProduct.arModelSizeCm}
             poster={arProduct.image !== "/placeholder.svg" ? arProduct.image : undefined}
             onClose={() => setArProduct(null)}
           />

@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderOpen, Package, Settings, ChevronLeft, ChevronRight, QrCode, LogOut, Languages, LayoutGrid, Receipt, Award } from "lucide-react";
+import { LayoutDashboard, FolderOpen, Package, Settings, ChevronLeft, ChevronRight, QrCode, LogOut, Languages, LayoutGrid, Receipt, Award, Box } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -6,7 +6,7 @@ import { canUseFeature } from "@/lib/features/engine";
 import { ProBadge } from "@/lib/features/hooks";
 import type { PlanType, ModuleType } from "@/lib/features/flags";
 
-export type AdminTab = "dashboard" | "categories" | "products" | "settings" | "qr" | "translations" | "tables" | "orders" | "loyalty";
+export type AdminTab = "dashboard" | "categories" | "products" | "settings" | "qr" | "translations" | "tables" | "orders" | "loyalty" | "ar";
 
 interface AdminSidebarProps {
   activeTab: AdminTab;
@@ -22,6 +22,7 @@ const navItems: { id: AdminTab; label: string; cafeLabel?: string; icon: React.E
   { id: "tables", label: "Masalar", icon: LayoutGrid, proOnly: true, feature: "table_ordering" },
   { id: "orders", label: "Siparişler", cafeLabel: "Bar Paneli", icon: Receipt, proOnly: true, feature: "table_ordering" },
   { id: "loyalty", label: "Sadakat", icon: Award, feature: "loyalty" },
+  { id: "ar", label: "AR Modeller", icon: Box, proOnly: true, feature: "ar_menu" },
   { id: "qr", label: "QR Kod", icon: QrCode },
   { id: "translations", label: "Çeviriler", icon: Languages, proOnly: true, feature: "translations" },
   { id: "settings", label: "Ayarlar", cafeLabel: "Kafe Ayarları", icon: Settings },

@@ -11,6 +11,7 @@ import { AdminTranslations } from "@/components/admin/AdminTranslations";
 import { AdminTables } from "@/components/admin/AdminTables";
 import { AdminOrders } from "@/components/admin/AdminOrders";
 import { AdminLoyalty } from "@/components/admin/AdminLoyalty";
+import { AdminAR } from "@/components/admin/AdminAR";
 import type { Restaurant } from "@/types";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, AlertTriangle, LogOut } from "lucide-react";
@@ -107,6 +108,7 @@ export default function RestaurantAdminPage() {
               portion_info: string;
               allergen_info: string;
               ar_model_url?: string;
+              ar_model_size_cm?: number | null;
             }) => ({
               id: i.id,
               name: i.name,
@@ -119,8 +121,7 @@ export default function RestaurantAdminPage() {
               ingredients: i.ingredients || "",
               portionInfo: i.portion_info || "",
               allergenInfo: i.allergen_info || "",
-              arModelUrl: i.ar_model_url || "",
-            })
+              arModelUrl: i.ar_model_url || "",              arModelSizeCm: i.ar_model_size_cm ?? null,            })
           ),
           plan: dbRestaurant.plan || "basic",
           active: dbRestaurant.active ?? true,
@@ -223,6 +224,8 @@ export default function RestaurantAdminPage() {
         return <AdminOrders restaurant={restaurant} moduleType={restaurant.moduleType} />;
       case "loyalty":
         return <AdminLoyalty restaurant={restaurant} />;
+      case "ar":
+        return <AdminAR restaurant={restaurant} setRestaurant={setRestaurant} />;
       case "translations":
         return (
           <AdminTranslations
