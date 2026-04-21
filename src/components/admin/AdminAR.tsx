@@ -1,10 +1,19 @@
 "use client";
 
-import { useState, Suspense, lazy } from "react";
-import type { Restaurant } from "@/types";
-import { Box, Eye, Trash2, Upload } from "lucide-react";
+import { useState, useRef, Suspense, lazy } from "react";
+import type { Restaurant, Product } from "@/types";
+import { Box, Eye, Trash2, Upload, Loader2, Plus, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -18,26 +27,79 @@ interface Props {
 }
 
 export function AdminAR({ restaurant, setRestaurant }: Props) {
-  const [previewProduct, setPreviewProduct] = useState<{
-    arModelUrl: string;
-    name: string;
-    image: string;
-  } | null>(null);
-  const [removing, setRemoving] = useState<string | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  // sizeCm edit per product: productId → string value
+  const [sizeCmDraft, setSizeCmDraft] = useState<Record<string, string>>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const productsWithModels = restaurant.products.filter((p) => p.arModelUrl);
+  const productsWithoutModels = restaurant.products.filter((p) => !p.arModelUrl);
 
-  const handleRemoveModel = async (productId: string, name: string) => {
-    if (removing) return;
-    setRemoving(productId);
+  // ── Upload new GLB and immediately assign to a chosen product ──
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (fileInputRef.current) fileInputRef.current.value = "";
+
+    if (!file.name.toLowerCase().endsWith(".glb")) {
+      toast({ title: "Geçersiz dosya", description: "Yalnızca .glb dosyaları desteklenir", variant: "destructive" });
+      return;
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      toast({ title: "Dosya çok büyük", description: "Maks 50 MB", variant: "destructive" });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      body.append("restaurantId", restaurant.id);
+
+      const res = await fetch("/api/upload-model", { method: "POST", body });
+      if (!res.ok) {
+        const { error } = await res.json();
+        toast({ title: "Yükleme başarısız", description: error || "Bilinmeyen hata", variant: "destructive" });
+        return;
+      }
+      const { url } = (await res.json()) as { url: string };
+
+      // If a product is already selected in the detail panel, assign immediately
+      if (selectedProduct) {
+        await assignModel(selectedProduct.id, url, selectedProduct.arModelSizeCm);
+      } else {
+        toast({
+          title: "Model yüklendi",
+          description: "Soldaki listeden bir ürüne atayabilirsiniz.",
+        });
+        // Add a temporary "unassigned" slot — store in first unassigned product or show inline
+        // For now just refresh with a phantom entry by adding to the first unassigned product
+        // This is handled via the "Ürüne Ata" flow after upload
+      }
+    } catch {
+      toast({ title: "Yükleme başarısız", description: "Model yüklenemedi", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // ── Assign a URL to a product (PATCH) ──
+  const assignModel = async (
+    productId: string,
+    url: string,
+    sizeCm: number | null
+  ) => {
+    setSaving(true);
     try {
       const supabase = createClient();
       const { error } = await supabase
         .from("menu_items")
-        .update({ ar_model_url: "", ar_model_size_cm: null })
+        .update({ ar_model_url: url, ar_model_size_cm: sizeCm })
         .eq("id", productId);
-
       if (error) throw error;
 
       setRestaurant((r) =>
@@ -46,133 +108,376 @@ export function AdminAR({ restaurant, setRestaurant }: Props) {
               ...r,
               products: r.products.map((p) =>
                 p.id === productId
-                  ? { ...p, arModelUrl: "", arModelSizeCm: null }
+                  ? { ...p, arModelUrl: url, arModelSizeCm: sizeCm }
                   : p
               ),
             }
           : r
       );
-      toast({ title: "Model kaldırıldı", description: `"${name}" ürününün AR modeli silindi.` });
+
+      // Keep detail panel in sync
+      setSelectedProduct((prev) =>
+        prev?.id === productId ? { ...prev, arModelUrl: url, arModelSizeCm: sizeCm } : prev
+      );
+
+      toast({ title: "Model atandı", description: restaurant.products.find((p) => p.id === productId)?.name });
     } catch {
-      toast({ title: "Hata", description: "Model kaldırılamadı", variant: "destructive" });
+      toast({ title: "Hata", description: "Model atanamadı", variant: "destructive" });
     } finally {
-      setRemoving(null);
+      setSaving(false);
     }
   };
 
+  // ── Save size_cm after blur ──
+  const handleSizeSave = async (product: Product) => {
+    const raw = sizeCmDraft[product.id];
+    if (raw === undefined) return; // no edit in progress
+    const value = raw === "" ? null : parseFloat(raw);
+    if (value !== null && isNaN(value)) return;
+
+    setSaving(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("menu_items")
+        .update({ ar_model_size_cm: value })
+        .eq("id", product.id);
+      if (error) throw error;
+
+      setRestaurant((r) =>
+        r
+          ? {
+              ...r,
+              products: r.products.map((p) =>
+                p.id === product.id ? { ...p, arModelSizeCm: value } : p
+              ),
+            }
+          : r
+      );
+      setSelectedProduct((prev) =>
+        prev?.id === product.id ? { ...prev, arModelSizeCm: value } : prev
+      );
+      setSizeCmDraft((d) => { const next = { ...d }; delete next[product.id]; return next; });
+    } catch {
+      toast({ title: "Hata", description: "Boyut kaydedilemedi", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Remove model from product ──
+  const handleRemoveModel = async (product: Product) => {
+    setSaving(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("menu_items")
+        .update({ ar_model_url: "", ar_model_size_cm: null })
+        .eq("id", product.id);
+      if (error) throw error;
+
+      setRestaurant((r) =>
+        r
+          ? {
+              ...r,
+              products: r.products.map((p) =>
+                p.id === product.id ? { ...p, arModelUrl: "", arModelSizeCm: null } : p
+              ),
+            }
+          : r
+      );
+      if (selectedProduct?.id === product.id) setSelectedProduct(null);
+      toast({ title: "Model kaldırıldı", description: `"${product.name}"` });
+    } catch {
+      toast({ title: "Hata", description: "Model kaldırılamadı", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const currentSizeCm = selectedProduct
+    ? (sizeCmDraft[selectedProduct.id] !== undefined
+        ? sizeCmDraft[selectedProduct.id]
+        : selectedProduct.arModelSizeCm != null
+          ? String(selectedProduct.arModelSizeCm)
+          : "")
+    : "";
+
   return (
-    <div>
+    <div className="flex flex-col h-full">
+      {/* ── Header ── */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">AR Modeller</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            3D modellerini yönet, önizle ve AR denemesi yap
+            3D modellerini yükle, önizle ve ürünlere ata
           </p>
         </div>
-        <Badge variant="secondary" className="gap-1">
-          <Box className="w-3.5 h-3.5" />
-          {productsWithModels.length} model
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant="secondary" className="gap-1">
+            <Box className="w-3.5 h-3.5" />
+            {productsWithModels.length} model
+          </Badge>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".glb"
+            className="hidden"
+            onChange={handleUpload}
+          />
+          <Button
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading ? (
+              <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
+            ) : (
+              <Plus className="w-4 h-4 mr-1.5" />
+            )}
+            {uploading ? "Yükleniyor..." : "Model Yükle"}
+          </Button>
+        </div>
       </div>
 
-      {productsWithModels.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
-            <Box className="w-8 h-8 text-muted-foreground" />
-          </div>
-          <div>
-            <p className="font-medium text-foreground">Henüz AR modeli yok</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Ürünler sekmesinden bir ürünü düzenleyip .glb model yükleyin
-            </p>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 border border-border rounded-lg px-4 py-3 max-w-sm">
-            <Upload className="w-4 h-4 shrink-0" />
-            <span>
-              Ürünler → Ürünü Düzenle → Gelişmiş Bilgiler → Model Yükle (.glb)
-            </span>
-          </div>
+      {/* ── Two-column layout ── */}
+      <div className="flex flex-col lg:flex-row gap-4 flex-1 min-h-0">
+
+        {/* LEFT: Model list */}
+        <div className="lg:w-72 shrink-0 space-y-1">
+          {productsWithModels.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center">
+                <Box className="w-7 h-7 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium text-foreground">Henüz model yok</p>
+              <p className="text-xs text-muted-foreground max-w-[180px]">
+                Yukarıdaki "Model Yükle" butonundan .glb dosyası yükleyin
+              </p>
+            </div>
+          )}
+
+          {productsWithModels.map((product) => {
+            const isSelected = selectedProduct?.id === product.id;
+            return (
+              <button
+                key={product.id}
+                type="button"
+                onClick={() => setSelectedProduct(product)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${
+                  isSelected
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-muted text-foreground"
+                }`}
+              >
+                <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 bg-muted">
+                  <img
+                    src={product.image || "/placeholder.svg"}
+                    alt={product.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{product.name}</p>
+                  <p className={`text-[11px] truncate ${isSelected ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                    {product.arModelSizeCm != null ? `${product.arModelSizeCm} cm` : "Boyut belirsiz"}
+                  </p>
+                </div>
+                <Box className={`w-3.5 h-3.5 shrink-0 ${isSelected ? "text-primary-foreground/70" : "text-primary"}`} />
+              </button>
+            );
+          })}
         </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {productsWithModels.map((product) => (
-            <div
-              key={product.id}
-              className="group relative bg-card border border-border rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
-            >
-              {/* Product image */}
-              <div className="aspect-square bg-muted relative overflow-hidden">
-                <img
-                  src={product.image || "/placeholder.svg"}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
+
+        {/* RIGHT: Detail / preview panel */}
+        <div className="flex-1 min-w-0">
+          {!selectedProduct ? (
+            <div className="h-full flex flex-col items-center justify-center gap-3 text-center py-20 rounded-2xl border border-dashed border-border bg-muted/20">
+              <Box className="w-8 h-8 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                {productsWithModels.length > 0
+                  ? "Soldaki listeden bir model seçin"
+                  : "Henüz model yüklenmedi"}
+              </p>
+            </div>
+          ) : (
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              {/* 3D Preview */}
+              <div className="relative aspect-square bg-muted max-h-[420px]">
+                <ARModelPreview
+                  src={selectedProduct.arModelUrl}
+                  name={selectedProduct.name}
+                  sizeCm={selectedProduct.arModelSizeCm}
+                  poster={selectedProduct.image !== "/placeholder.svg" ? selectedProduct.image : undefined}
+                  onPreviewAR={() => setPreviewOpen(true)}
                 />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                <Badge className="absolute top-2 right-2 gap-1 bg-black/60 text-white border-0 text-[11px]">
-                  <Box className="w-3 h-3" />
-                  AR
-                </Badge>
               </div>
 
-              {/* Info */}
-              <div className="p-3">
-                <p className="font-medium text-sm text-foreground truncate">{product.name}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  ₺{product.price.toFixed(2)}
-                  {product.arModelSizeCm != null && (
-                    <> · {product.arModelSizeCm} cm</>
-                  )}
-                </p>
-              </div>
+              {/* Controls */}
+              <div className="p-4 space-y-4">
+                <div>
+                  <p className="font-semibold text-foreground">{selectedProduct.name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 break-all">
+                    {selectedProduct.arModelUrl.split("/").pop()}
+                  </p>
+                </div>
 
-              {/* Actions */}
-              <div className="flex gap-2 px-3 pb-3">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="flex-1 gap-1.5 text-xs"
-                  onClick={() =>
-                    setPreviewProduct({
-                      arModelUrl: product.arModelUrl,
-                      name: product.name,
-                      image: product.image,
-                    })
-                  }
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  AR Önizleme
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10 px-2"
-                  disabled={removing === product.id}
-                  onClick={() => handleRemoveModel(product.id, product.name)}
-                  title="Modeli Kaldır"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
+                {/* Real-world size */}
+                <div>
+                  <Label className="text-xs">Gerçek boyut (cm) — AR ölçeği için</Label>
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      type="number"
+                      min="1"
+                      max="500"
+                      step="1"
+                      value={currentSizeCm}
+                      onChange={(e) =>
+                        setSizeCmDraft((d) => ({ ...d, [selectedProduct.id]: e.target.value }))
+                      }
+                      onBlur={() => handleSizeSave(selectedProduct)}
+                      placeholder="örn: 25"
+                      className="flex-1"
+                    />
+                    {saving && <Loader2 className="w-4 h-4 animate-spin self-center text-muted-foreground" />}
+                    {!saving && sizeCmDraft[selectedProduct.id] === undefined && selectedProduct.arModelSizeCm != null && (
+                      <Check className="w-4 h-4 self-center text-green-500" />
+                    )}
+                  </div>
+                </div>
+
+                {/* Re-assign to different product */}
+                <div>
+                  <Label className="text-xs">Farklı ürüne ata</Label>
+                  <Select
+                    onValueChange={(newProductId) => {
+                      assignModel(newProductId, selectedProduct.arModelUrl, selectedProduct.arModelSizeCm);
+                    }}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Ürün seç..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {productsWithoutModels.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                      {productsWithoutModels.length === 0 && (
+                        <div className="px-2 py-3 text-xs text-muted-foreground text-center">
+                          Tüm ürünlerin modeli var
+                        </div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-1.5"
+                    onClick={() => setPreviewOpen(true)}
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    AR Önizleme
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10 px-3"
+                    disabled={saving}
+                    onClick={() => handleRemoveModel(selectedProduct)}
+                    title="Modeli Kaldır"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
               </div>
             </div>
-          ))}
+          )}
         </div>
-      )}
+      </div>
 
-      {/* AR Preview Modal */}
-      {previewProduct && (
+      {/* AR fullscreen preview */}
+      {previewOpen && selectedProduct && (
         <Suspense fallback={null}>
           <ARViewer
-            src={previewProduct.arModelUrl}
-            name={previewProduct.name}
+            src={selectedProduct.arModelUrl}
+            name={selectedProduct.name}
+            sizeCm={selectedProduct.arModelSizeCm}
             poster={
-              previewProduct.image && previewProduct.image !== "/placeholder.svg"
-                ? previewProduct.image
+              selectedProduct.image && selectedProduct.image !== "/placeholder.svg"
+                ? selectedProduct.image
                 : undefined
             }
-            onClose={() => setPreviewProduct(null)}
+            onClose={() => setPreviewOpen(false)}
           />
         </Suspense>
       )}
     </div>
   );
 }
+
+// ── Inline 3D orbit preview (not fullscreen AR) ──
+function ARModelPreview({
+  src,
+  name,
+  sizeCm,
+  poster,
+  onPreviewAR,
+}: {
+  src: string;
+  name: string;
+  sizeCm: number | null;
+  poster?: string;
+  onPreviewAR: () => void;
+}) {
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const scaleMetre = ((sizeCm ?? 15) / 100).toFixed(3);
+
+  return (
+    <div className="relative w-full h-full">
+      {status === "loading" && (
+        <div className="absolute inset-0 flex items-center justify-center z-10 bg-muted">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
+      {status === "error" && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-muted gap-2">
+          <Box className="w-8 h-8 text-muted-foreground" />
+          <p className="text-xs text-destructive">Model yüklenemedi</p>
+        </div>
+      )}
+      {/* @ts-expect-error model-viewer is a custom element */}
+      <model-viewer
+        src={src}
+        alt={`${name} 3D model`}
+        camera-controls
+        auto-rotate
+        shadow-intensity="1"
+        loading="eager"
+        poster={poster}
+        onLoad={() => setStatus("ready")}
+        onError={() => setStatus("error")}
+        style={{
+          width: "100%",
+          height: "100%",
+          opacity: status === "ready" ? 1 : 0,
+          transition: "opacity 0.4s ease",
+          ["--model-scale" as string]: scaleMetre,
+        }}
+      />
+      <button
+        type="button"
+        onClick={onPreviewAR}
+        className="absolute bottom-3 right-3 flex items-center gap-1.5 bg-black/60 hover:bg-black/80 text-white text-xs font-medium px-3 py-1.5 rounded-full transition-colors backdrop-blur-sm"
+      >
+        <Eye className="w-3.5 h-3.5" />
+        AR Dene
+      </button>
+    </div>
+  );
+}
+

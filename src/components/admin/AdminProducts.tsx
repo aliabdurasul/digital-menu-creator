@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import type { Restaurant, Product, ModuleType } from "@/types";
-import { Plus, Trash2, Loader2, Pencil, ChevronDown, Box, X } from "lucide-react";
+import { Plus, Trash2, Loader2, Pencil, ChevronDown, Box, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -62,21 +62,17 @@ const emptyForm = {
   ingredients: "",
   portionInfo: "",
   allergenInfo: "",
-  arModelUrl: "",
-  arModelSizeCm: "",
 };
 
 type FormErrors = Record<string, string>;
 
-export function AdminProducts({ restaurant, setRestaurant, moduleType = "restaurant" }: Props) {
+export function AdminProducts({ restaurant, setRestaurant, moduleType = "restaurant", onNavigateAR }: Props & { onNavigateAR?: () => void }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [arModelUploading, setArModelUploading] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
-  const modelFileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const sorted = [...restaurant.products].sort((a, b) => a.order - b.order);
@@ -134,45 +130,6 @@ export function AdminProducts({ restaurant, setRestaurant, moduleType = "restaur
 
   const isFormValid = form.name.trim() && form.categoryId && form.price && !isNaN(parseFloat(form.price)) && parseFloat(form.price) >= 0;
 
-  // ── GLB Model Upload ──
-  const handleModelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.name.toLowerCase().endsWith(".glb")) {
-      toast({ title: "Geçersiz dosya", description: "Yalnızca .glb dosyaları desteklenir", variant: "destructive" });
-      return;
-    }
-    if (file.size > 50 * 1024 * 1024) {
-      toast({ title: "Dosya çok büyük", description: "Maks 50 MB desteklenir", variant: "destructive" });
-      return;
-    }
-
-    setArModelUploading(true);
-    try {
-      const body = new FormData();
-      body.append("file", file);
-      body.append("restaurantId", restaurant.id);
-
-      const res = await fetch("/api/upload-model", { method: "POST", body });
-      if (!res.ok) {
-        const { error } = await res.json();
-        toast({ title: "Yükleme başarısız", description: error || "Bilinmeyen hata", variant: "destructive" });
-        return;
-      }
-
-      const { url } = (await res.json()) as { url: string };
-      setForm((f) => ({ ...f, arModelUrl: url }));
-      toast({ title: "Model yüklendi", description: file.name });
-    } catch {
-      toast({ title: "Yükleme başarısız", description: "Model yüklenemedi", variant: "destructive" });
-    } finally {
-      setArModelUploading(false);
-      // Reset file input so the same file can be re-selected
-      if (modelFileInputRef.current) modelFileInputRef.current.value = "";
-    }
-  };
-
   // ── Image Upload (optimized pipeline) ──
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -221,8 +178,6 @@ export function AdminProducts({ restaurant, setRestaurant, moduleType = "restaur
       ingredients: product.ingredients || "",
       portionInfo: product.portionInfo || "",
       allergenInfo: product.allergenInfo || "",
-      arModelUrl: product.arModelUrl || "",
-      arModelSizeCm: product.arModelSizeCm != null ? String(product.arModelSizeCm) : "",
     });
     setErrors({});
     setOpen(true);
@@ -266,8 +221,6 @@ export function AdminProducts({ restaurant, setRestaurant, moduleType = "restaur
       ingredients: form.ingredients.trim(),
       portion_info: form.portionInfo.trim(),
       allergen_info: form.allergenInfo.trim(),
-      ar_model_url: form.arModelUrl.trim(),
-      ar_model_size_cm: form.arModelSizeCm !== "" ? parseFloat(form.arModelSizeCm) : null,
     };
 
     const _ingredients = form.ingredients.trim();
@@ -302,8 +255,8 @@ export function AdminProducts({ restaurant, setRestaurant, moduleType = "restaur
           ingredients: _ingredients || editingProduct.ingredients,
           portionInfo: _portionInfo || editingProduct.portionInfo,
           allergenInfo: _allergenInfo || editingProduct.allergenInfo,
-          arModelUrl: form.arModelUrl.trim(),
-          arModelSizeCm: form.arModelSizeCm !== "" ? parseFloat(form.arModelSizeCm) : null,
+          arModelUrl: editingProduct.arModelUrl,
+          arModelSizeCm: editingProduct.arModelSizeCm,
         };
 
         setRestaurant((r) =>
@@ -335,8 +288,8 @@ export function AdminProducts({ restaurant, setRestaurant, moduleType = "restaur
           ingredients: _ingredients,
           portionInfo: _portionInfo,
           allergenInfo: _allergenInfo,
-          arModelUrl: form.arModelUrl.trim(),
-          arModelSizeCm: form.arModelSizeCm !== "" ? parseFloat(form.arModelSizeCm) : null,
+          arModelUrl: "",
+          arModelSizeCm: null,
         };
 
         setRestaurant((r) => r ? { ...r, products: [...r.products, product] } : r);
@@ -468,68 +421,30 @@ export function AdminProducts({ restaurant, setRestaurant, moduleType = "restaur
                   />
                 </div>
               </div>
-              <div>
-                <Label className="text-xs">3D Model (AR)</Label>
-                <div className="space-y-2">
-                  {form.arModelUrl ? (
-                    <div className="flex items-center gap-2 p-2 rounded-lg bg-muted border border-border">
-                      <Box className="w-4 h-4 text-primary shrink-0" />
-                      <span className="text-xs text-foreground truncate flex-1">
-                        {form.arModelUrl.split("/").pop()}
+              {isEditing && editingProduct && (
+                <div className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Box className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    {editingProduct.arModelUrl ? (
+                      <span className="text-xs text-foreground truncate">
+                        {editingProduct.arModelUrl.split("/").pop()}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => setForm((f) => ({ ...f, arModelUrl: "" }))}
-                        className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                        title="Modeli Kaldır"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <input
-                        ref={modelFileInputRef}
-                        type="file"
-                        accept=".glb"
-                        className="hidden"
-                        onChange={handleModelUpload}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        disabled={arModelUploading}
-                        onClick={() => modelFileInputRef.current?.click()}
-                      >
-                        {arModelUploading ? (
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                        ) : (
-                          <Box className="w-4 h-4 mr-2" />
-                        )}
-                        {arModelUploading ? "Yükleniyor..." : "Model Yükle (.glb)"}
-                      </Button>
-                    </>
-                  )}
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Gerçek boyut (cm) — AR ölçeği için</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      max="300"
-                      step="1"
-                      value={form.arModelSizeCm}
-                      onChange={(e) => setForm((f) => ({ ...f, arModelSizeCm: e.target.value }))}
-                      placeholder="örn: 25"
-                      className="mt-1"
-                    />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">3D model yok</span>
+                    )}
                   </div>
+                  {onNavigateAR && (
+                    <button
+                      type="button"
+                      onClick={() => { setOpen(false); onNavigateAR(); }}
+                      className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 transition-colors shrink-0 ml-3"
+                    >
+                      AR Modeller
+                      <ExternalLink className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  GLB formatı, maks 50 MB. Boş bırakılırsa AR butonu görünmez.
-                </p>
-              </div>
+              )}
                 </CollapsibleContent>
               </Collapsible>
               <div className="grid grid-cols-2 gap-3">
@@ -598,7 +513,7 @@ export function AdminProducts({ restaurant, setRestaurant, moduleType = "restaur
               <Button
                 onClick={saveProduct}
                 className="w-full"
-                disabled={saving || uploading || arModelUploading || !isFormValid}
+                disabled={saving || uploading || !isFormValid}
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 {isEditing ? "Değişiklikleri Kaydet" : "Ürün Ekle"}

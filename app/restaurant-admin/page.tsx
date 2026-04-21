@@ -206,6 +206,7 @@ export default function RestaurantAdminPage() {
             restaurant={restaurant}
             setRestaurant={setRestaurant}
             moduleType={restaurant.moduleType}
+            onNavigateAR={() => setActiveTab("ar")}
           />
         );
       case "settings":
