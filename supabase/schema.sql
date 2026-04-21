@@ -251,7 +251,7 @@ create policy "Super admins full access to menu items"
   using (public.user_role() = 'super_admin');
 
 -- ============================================================
--- Storage Bucket
+-- Storage Buckets
 -- ============================================================
 insert into storage.buckets (id, name, public)
 values ('images', 'images', true)
@@ -268,6 +268,32 @@ create policy "Authenticated users upload images"
 create policy "Authenticated users update own images"
   on storage.objects for update
   using (bucket_id = 'images' and auth.role() = 'authenticated');
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'models',
+  'models',
+  true,
+  52428800,
+  array['model/gltf-binary', 'application/octet-stream']
+)
+on conflict (id) do nothing;
+
+create policy "Public read models"
+  on storage.objects for select
+  using (bucket_id = 'models');
+
+create policy "Authenticated users upload models"
+  on storage.objects for insert
+  with check (bucket_id = 'models' and auth.role() = 'authenticated');
+
+create policy "Authenticated users update models"
+  on storage.objects for update
+  using (bucket_id = 'models' and auth.role() = 'authenticated');
+
+create policy "Authenticated users delete models"
+  on storage.objects for delete
+  using (bucket_id = 'models' and auth.role() = 'authenticated');
 
 -- ============================================================
 -- RPC: Increment restaurant views (atomic, race-condition safe)
