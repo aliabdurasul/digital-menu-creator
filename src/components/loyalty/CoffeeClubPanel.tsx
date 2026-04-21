@@ -92,16 +92,19 @@ export function CoffeeClubPanel({ onOpenCart }: CoffeeClubPanelProps) {
     const rewardType = loyalty?.progress?.reward?.type;
     const rewardValue = loyalty?.progress?.reward?.value;
 
-    // Discount rewards — add sentinel cart item so order API applies discount
+    // Discount rewards — add a sentinel cart item so the order API applies the discount
     if (rewardType === "discount_percent" || rewardType === "discount_amount") {
       if (cart) {
         const existing = cart.items.find((i) => i.type === "loyalty_reward");
         if (!existing) {
           const lineId = `loyalty_discount_${Date.now()}`;
+          const discountLabel = rewardType === "discount_percent"
+            ? `%${rewardValue} İndirim Ödülü`
+            : `₺${rewardValue} İndirim Ödülü`;
           cart.addItem({
             lineId,
-            menuItemId: lineId,
-            name: rewardType === "discount_percent" ? `%${rewardValue} İndirim Ödülü` : `₺${rewardValue} İndirim Ödülü`,
+            menuItemId: lineId, // placeholder — not a real menu-item UUID
+            name: discountLabel,
             price: 0,
             image: "",
             type: "loyalty_reward",

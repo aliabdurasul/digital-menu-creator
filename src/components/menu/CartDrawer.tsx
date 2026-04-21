@@ -185,7 +185,9 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
                       </div>
                       {isReward ? (
                         <span className="text-xs font-semibold text-green-600">
-                          {item.menuItemId?.startsWith("loyalty_discount_") ? "🏷 İNDİRİM ÖDÜLÜ" : "🎁 ÜCRETSİZ ÖDÜL"}
+                          {item.menuItemId?.startsWith("loyalty_discount_")
+                            ? "🏷 İNDİRİM ÖDÜLÜ"
+                            : "FREE — LOYALTY REWARD"}
                         </span>
                       ) : (
                         <p className="text-primary font-semibold text-sm">
@@ -255,16 +257,27 @@ export function CartDrawer({ open, onClose, restaurantId, tableId, moduleType = 
                     <Loader2 className="w-5 h-5 animate-spin mr-2" />
                   ) : null}
                   {(() => {
-                    const hasDiscount = items.some((i) => i.type === "loyalty_reward" && i.menuItemId?.startsWith("loyalty_discount_"));
+                    const hasDiscount = items.some((i) => i.menuItemId?.startsWith("loyalty_discount_"));
                     const rType = loyalty?.progress?.reward?.type;
                     const rVal = loyalty?.progress?.reward?.value ?? 0;
+                    const paid = items.filter((i) => !i.type).reduce((s, i) => s + i.price * i.quantity, 0);
                     const discounted = hasDiscount
-                      ? rType === "discount_percent" ? totalPrice * (1 - rVal / 100) : Math.max(0, totalPrice - rVal)
+                      ? rType === "discount_percent"
+                        ? paid * (1 - rVal / 100)
+                        : Math.max(0, paid - rVal)
                       : totalPrice;
-                    return hasDiscount && discounted < totalPrice
-                      ? <>Sipariş Ver — <s className="opacity-50 mr-1">₺{totalPrice.toFixed(2)}</s>₺{discounted.toFixed(2)}</>
-                      : <>Sipariş Ver — ₺{totalPrice.toFixed(2)}</>;
-                  })()}
+                    if (hasDiscount && discounted < totalPrice) {
+                      return (
+                        <>
+                          Sipariş Ver —{" "}
+                          <s className="opacity-50 text-sm mx-1">₺{totalPrice.toFixed(2)}</s>
+                          ₺{discounted.toFixed(2)}
+                        </>
+                      );
+                    }
+                    return `Sipariş Ver — ₺${totalPrice.toFixed(2)}`;
+                  })()
+                  }
                 </Button>
               </div>
             )}
