@@ -14,8 +14,8 @@ export function RestaurantIntro() {
   const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setDismissed(true), 2200);
-    const t2 = setTimeout(() => setHidden(true), 3000); // remove from DOM after fade
+    const t1 = setTimeout(() => setDismissed(true), 3000);
+    const t2 = setTimeout(() => setHidden(true), 4200); // remove from DOM after fade
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
 
@@ -27,7 +27,7 @@ export function RestaurantIntro() {
       style={{
         position: "fixed",
         inset: 0,
-        background: "#0a0806",
+        background: "#000000",
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
@@ -35,7 +35,7 @@ export function RestaurantIntro() {
         opacity: dismissed ? 0 : 1,
         visibility: dismissed ? "hidden" : "visible",
         pointerEvents: dismissed ? "none" : "auto",
-        transition: "opacity 0.8s cubic-bezier(0.4,0,0.2,1), visibility 0.8s",
+        transition: "opacity 1.2s ease, visibility 1.2s",
       }}
     >
       <div style={{ textAlign: "center" }}>

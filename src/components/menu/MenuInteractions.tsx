@@ -83,8 +83,8 @@ export function MenuInteractions() {
         top: 56,
         backdropFilter: "blur(14px)",
         WebkitBackdropFilter: "blur(14px)",
-        background: "rgba(10,8,6,0.9)",
-        borderBottom: "1px solid rgba(196,154,60,0.25)",
+        background: "rgba(20,18,14,0.92)",
+        borderBottom: "1px solid #2e2820",
       }}
     >
       <div className="flex items-center gap-1 px-3 py-2.5">
@@ -96,7 +96,7 @@ export function MenuInteractions() {
               onClick={() => handleTabClick(cat.id)}
               style={
                 activeCat !== cat.id
-                  ? { border: "1px solid rgba(196,154,60,0.25)", background: "transparent" }
+                  ? { border: "1px solid #2e2820", background: "transparent" }
                   : undefined
               }
               className={cn(

@@ -246,9 +246,9 @@ function ProductRow({ product, hasImage, cart, isRestaurant, onSelect, onAR }: P
           display: "flex",
           gap: 14,
           padding: 12,
-          border: "1px solid rgba(196,154,60,0.25)",
+          border: "1px solid #2e2820",
           borderRadius: 18,
-          background: "rgba(255,255,255,0.04)",
+          background: "#1f1b15",
           width: "100%",
           textAlign: "left",
           cursor: product.available ? "pointer" : "not-allowed",
@@ -268,7 +268,7 @@ function ProductRow({ product, hasImage, cart, isRestaurant, onSelect, onAR }: P
             />
           </div>
         ) : (
-          <div style={{ width: 100, height: 100, flexShrink: 0, borderRadius: 14, background: "rgba(255,255,255,0.06)" }} />
+          <div style={{ width: 100, height: 100, flexShrink: 0, borderRadius: 14, background: "#2e2820" }} />
         )}
 
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -300,7 +300,7 @@ function ProductRow({ product, hasImage, cart, isRestaurant, onSelect, onAR }: P
               {product.description}
             </p>
           )}
-          <div style={{ fontWeight: 600, color: "#c49a3c", fontSize: 16, marginBottom: 10 }}>
+          <div style={{ fontWeight: 600, color: "#d27b3b", fontSize: 16, marginBottom: 10 }}>
             ₺{product.price.toFixed(2)}
           </div>
 
@@ -314,12 +314,12 @@ function ProductRow({ product, hasImage, cart, isRestaurant, onSelect, onAR }: P
                   fontSize: 10,
                   padding: "5px 10px",
                   borderRadius: 8,
-                  border: "1px solid rgba(196,154,60,0.35)",
+                  border: "1px solid #2e2820",
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 5,
                   color: "#a89b8c",
-                  background: "transparent",
+                  background: "#4a4133",
                   cursor: "pointer",
                 }}
               >
@@ -348,8 +348,8 @@ function ProductRow({ product, hasImage, cart, isRestaurant, onSelect, onAR }: P
                   fontSize: 12,
                   fontWeight: 600,
                   cursor: "pointer",
-                  background: "#c49a3c",
-                  color: "#0a0806",
+                  background: "#d27b3b",
+                  color: "#14120e",
                   border: "none",
                   transition: "opacity 0.2s",
                 }}

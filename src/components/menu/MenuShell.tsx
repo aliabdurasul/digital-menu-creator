@@ -36,7 +36,7 @@ export function MenuShell({ restaurant, restaurantEn = null, tableId }: MenuShel
 
         <div
           className="restaurant-theme max-w-[480px] mx-auto min-h-screen shadow-sm"
-          style={{ background: "#0a0806" }}
+          style={{ background: "#14120e" }}
         >
           {/* Intro animation overlay */}
           <RestaurantIntro />
@@ -53,8 +53,8 @@ export function MenuShell({ restaurant, restaurantEn = null, tableId }: MenuShel
               alignItems: "center",
               backdropFilter: "blur(14px)",
               WebkitBackdropFilter: "blur(14px)",
-              background: "rgba(10,8,6,0.85)",
-              borderBottom: "1px solid rgba(196,154,60,0.25)",
+              background: "rgba(20,18,14,0.9)",
+              borderBottom: "1px solid #2e2820",
             }}
           >
             <span
@@ -72,7 +72,7 @@ export function MenuShell({ restaurant, restaurantEn = null, tableId }: MenuShel
           </div>
 
           {/* Hero */}
-          <div style={{ height: 280, position: "relative", overflow: "hidden" }}>
+          <div style={{ height: 350, position: "relative", overflow: "hidden", background: "#000" }}>
             {restaurant.coverImage ? (
               <Image
                 src={restaurant.coverImage}
@@ -81,29 +81,43 @@ export function MenuShell({ restaurant, restaurantEn = null, tableId }: MenuShel
                 sizes="480px"
                 priority
                 className="object-cover r-hero-zoom"
-                style={{ filter: "brightness(0.6)" }}
+                style={{ filter: "brightness(0.7) contrast(1.2)" }}
               />
             ) : (
-              <div style={{ width: "100%", height: "100%", background: "#1a1410" }} />
+              <div style={{ width: "100%", height: "100%", background: "#14120e" }} />
             )}
+            {/* Bottom gradient overlay */}
             <div
               style={{
                 position: "absolute",
-                bottom: 30,
+                bottom: 0,
+                left: 0,
+                width: "100%",
+                height: "70%",
+                background: "linear-gradient(to top, #14120e 10%, rgba(13,11,9,0) 100%)",
+                zIndex: 1,
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                bottom: 40,
                 left: 0,
                 width: "100%",
                 textAlign: "center",
+                padding: "0 20px",
+                zIndex: 2,
               }}
             >
               <h1
                 style={{
                   fontFamily: "'Cormorant Garamond', serif",
-                  fontSize: 36,
+                  fontSize: 24,
                   fontStyle: "italic",
                   fontWeight: 500,
+                  letterSpacing: "1px",
                   color: "#f5f1e8",
-                  textShadow: "0 2px 12px rgba(0,0,0,0.7)",
-                  padding: "0 16px",
+                  textShadow: "0 2px 10px rgba(0,0,0,0.5)",
                 }}
               >
                 {restaurant.description || restaurant.name}
