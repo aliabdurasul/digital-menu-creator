@@ -103,3 +103,23 @@
     display: none;
   }
 }
+
+/* ── Luxury menu theme ─────────────────────────────────────────────────────── */
+/* Applied via data-theme="luxury" on the customer menu wrapper.               */
+[data-theme="luxury"] {
+  --background: 28 20% 4%;
+  --foreground: 39 43% 93%;
+  --card: 28 18% 8%;
+  --card-foreground: 39 43% 93%;
+  --muted: 28 15% 12%;
+  --muted-foreground: 35 20% 58%;
+  --border: 38 35% 22%;
+  --primary: 38 55% 50%;
+  --primary-foreground: 28 20% 4%;
+  --secondary: 28 15% 12%;
+  --secondary-foreground: 39 43% 93%;
+  --popover: 28 18% 8%;
+  --popover-foreground: 39 43% 93%;
+  --ring: 38 55% 50%;
+  --input: 38 20% 16%;
+}

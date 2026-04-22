@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
-import { cn } from "@/lib/utils";
 import { useLanguage } from "@/components/menu/LanguageProvider";
 
 
@@ -75,7 +74,13 @@ export function MenuInteractions() {
   }
 
   return (
-    <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b">
+    <div
+      className="sticky top-0 z-30 backdrop-blur"
+      style={{
+        background: "rgba(10,8,6,0.88)",
+        borderBottom: "1px solid rgba(196,154,60,0.15)",
+      }}
+    >
       <div className="flex items-center gap-1 px-3 py-2.5">
         <div
           ref={tabsRef}
@@ -86,12 +91,24 @@ export function MenuInteractions() {
               key={cat.id}
               data-tab={cat.id}
               onClick={() => handleTabClick(cat.id)}
-              className={cn(
-                "min-h-[40px] whitespace-nowrap px-4 py-2 rounded-full text-[13px] font-medium transition-all duration-200",
-                activeCat === cat.id
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              )}
+              className="min-h-[36px] whitespace-nowrap px-4 py-1.5 rounded-full transition-all duration-200"
+              style={{
+                fontFamily: "var(--font-outfit, sans-serif)",
+                fontSize: 12,
+                fontWeight: 500,
+                letterSpacing: "0.06em",
+                ...(activeCat === cat.id
+                  ? {
+                      background: "rgba(196,154,60,0.14)",
+                      border: "1px solid rgba(196,154,60,0.55)",
+                      color: "#c49a3c",
+                    }
+                  : {
+                      background: "transparent",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      color: "rgba(168,155,140,0.75)",
+                    }),
+              }}
             >
               {cat.name}
             </button>
