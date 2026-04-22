@@ -260,7 +260,7 @@ function ProductRow({ product, hasImage, cart, onSelect }: ProductRowProps) {
       // Also trigger preload on hover/touch (last-resort for slow connections)
       onMouseEnter={() => product.arModelUrl && preloadModel(product.arModelUrl)}
       onTouchStart={() => product.arModelUrl && preloadModel(product.arModelUrl)}
-      className={`w-full flex items-start gap-3 p-3 rounded-2xl text-left transition-all duration-200 outline-none focus-visible:ring-1 ${`
+      className={`w-full flex items-start gap-3 p-3 rounded-2xl text-left transition-all duration-200 outline-none focus-visible:ring-1 ${
         !product.available ? "opacity-40 cursor-not-allowed" : ""
       }`}
       style={{
