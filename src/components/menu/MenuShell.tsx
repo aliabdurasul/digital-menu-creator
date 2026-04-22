@@ -81,7 +81,6 @@ export function MenuShell({ restaurant, restaurantEn = null, tableId }: MenuShel
                 sizes="480px"
                 priority
                 className="object-cover r-hero-zoom"
-                style={{ filter: "brightness(0.7) contrast(1.2)" }}
               />
             ) : (
               <div style={{ width: "100%", height: "100%", background: "#14120e" }} />

@@ -107,78 +107,82 @@
 
 /* ─── Restaurant Theme ──────────────────────────────────────────────── */
 .restaurant-theme {
-  /* Raw custom props for inline styles */
-  --r-bg:     #14120e;
-  --r-card:   #1f1b15;
-  --r-border: #2e2820;
-  --r-accent: #d27b3b;
-  --r-text:   #f5f1e8;
-  --r-muted:  #a89b8c;
-  --r-btn:    #4a4133;
+  /* Premium palette */
+  --bg:         #14120e;
+  --card:       #1f1b15;
+  --border:     #2e2820;
+  --r-accent:   #d27b3b;  /* kept for legacy inline styles */
+  --text:       #f5f1e8;
+  --muted:      #a89b8c;
+  --btn-active: #4a4133;
   /* Tailwind/shadcn var overrides */
   --background: 30 18% 8%;
   --foreground: 42 39% 94%;
-  --card: 30 18% 12%;
-  --card-foreground: 42 39% 94%;
   --primary: 25 62% 52%;
   --primary-foreground: 30 18% 6%;
   --secondary: 30 18% 14%;
   --secondary-foreground: 42 39% 94%;
-  --muted: 30 18% 14%;
   --muted-foreground: 32 14% 60%;
-  --border: 30 14% 18%;
   --input: 30 18% 14%;
   --ring: 25 62% 52%;
   font-family: 'Outfit', sans-serif;
-  color: #f5f1e8;
-  background: #14120e;
+  color: var(--text);
+  background: var(--bg);
 }
 
 /* Intro overlay ─── */
-@keyframes r-fade-in-up {
+@keyframes fadeInUpIntro {
   to { opacity: 1; transform: translateY(0); }
 }
-@keyframes r-grow-line {
+@keyframes growLineIntro {
   to { width: 150px; }
 }
-@keyframes r-fade-in {
+@keyframes fadeInIntro {
   to { opacity: 1; }
 }
 
-.r-intro-logo {
+.intro-logo {
   font-family: 'Cormorant Garamond', serif;
   font-size: 48px;
   font-weight: 600;
+  letter-spacing: 2px;
   color: #f5f1e8;
   opacity: 0;
   transform: translateY(30px);
-  animation: r-fade-in-up 1.5s forwards 0.5s;
+  animation: fadeInUpIntro 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards 0.5s;
 }
 
-.r-intro-line {
+.intro-line {
   width: 0;
   height: 2px;
   background: #d27b3b;
-  margin: 20px auto;
-  animation: r-grow-line 1.8s forwards 1s;
+  margin: 22px auto;
+  animation: growLineIntro 1.8s ease-out forwards 1s;
 }
 
-.r-intro-subtitle {
-  font-size: 12px;
-  letter-spacing: 3px;
+.intro-subtitle {
+  font-family: 'Outfit', sans-serif;
+  font-size: 11px;
+  letter-spacing: 4px;
   color: #a89b8c;
   text-transform: uppercase;
   opacity: 0;
-  animation: r-fade-in 1.2s forwards 2s;
+  animation: fadeInIntro 1.2s ease forwards 2.2s;
 }
 
-/* Hero zoom ─── */
+/* Hero: Ken Burns + Soft Pulse ─── */
 @keyframes r-live-scene {
   0%   { transform: scale(1)    translateX(0); }
   100% { transform: scale(1.15) translateX(2%); }
 }
+@keyframes r-soft-pulse {
+  0%, 100% { filter: brightness(0.70) contrast(1.20); }
+  50%       { filter: brightness(0.80) contrast(1.10); }
+}
 .r-hero-zoom {
-  animation: r-live-scene 20s infinite alternate ease-in-out;
+  animation:
+    r-live-scene 20s infinite alternate ease-in-out,
+    r-soft-pulse  5s ease-in-out infinite;
 }
 
 /* AR glow pulse ─── */

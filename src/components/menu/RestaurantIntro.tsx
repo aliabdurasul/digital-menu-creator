@@ -39,10 +39,10 @@ export function RestaurantIntro() {
       }}
     >
       <div style={{ textAlign: "center" }}>
-        <div className="r-intro-logo">{restaurant.name}</div>
-        <div className="r-intro-line" />
+        <div className="intro-logo">{restaurant.name}</div>
+        <div className="intro-line" />
         {restaurant.description && (
-          <div className="r-intro-subtitle">{restaurant.description}</div>
+          <div className="intro-subtitle">{restaurant.description}</div>
         )}
       </div>
     </div>
