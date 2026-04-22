@@ -3,41 +3,20 @@
 import { useLanguage } from "./LanguageProvider";
 
 /**
- * Centered hero branding — restaurant name in Cormorant italic + gold tagline.
+ * Client component for the hero branding text (name + description).
  * Reads from LanguageProvider so text updates reactively on toggle.
+ * Kept minimal — only the text that needs language switching.
  */
 export function MenuHeroBranding() {
   const { restaurant } = useLanguage();
 
   return (
-    <div style={{ textAlign: "center" }}>
-      <h1
-        style={{
-          fontFamily: "var(--font-cormorant, 'Georgia', serif)",
-          fontStyle: "italic",
-          fontWeight: 500,
-          fontSize: "clamp(28px, 8vw, 42px)",
-          color: "#f5f1e8",
-          textShadow: "0 2px 24px rgba(0,0,0,0.65)",
-          lineHeight: 1.1,
-          margin: 0,
-          letterSpacing: "0.01em",
-        }}
-      >
+    <div>
+      <h1 className="text-xl font-bold text-primary-foreground drop-shadow-md">
         {restaurant.name}
       </h1>
       {restaurant.description && (
-        <p
-          style={{
-            fontFamily: "var(--font-outfit, sans-serif)",
-            fontWeight: 300,
-            fontSize: 11,
-            letterSpacing: "0.24em",
-            color: "rgba(196,154,60,0.8)",
-            textTransform: "uppercase",
-            marginTop: 8,
-          }}
-        >
+        <p className="text-primary-foreground/80 text-xs mt-0.5">
           {restaurant.description}
         </p>
       )}

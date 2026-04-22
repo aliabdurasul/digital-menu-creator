@@ -115,25 +115,13 @@ export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) 
 
         <div
           onClick={(e) => e.stopPropagation()}
-          className="ar-panel relative z-10 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden"
-          style={{ background: "#0f0d0a", border: "1px solid rgba(196,154,60,0.25)" }}
+          className="ar-panel relative z-10 w-full sm:max-w-md bg-card rounded-t-2xl sm:rounded-2xl shadow-2xl border border-border overflow-hidden"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid rgba(196,154,60,0.15)" }}>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2 min-w-0">
-              <Box className="w-4 h-4 shrink-0" style={{ color: "#c49a3c" }} />
-              <h3
-                className="truncate"
-                style={{
-                  fontFamily: "var(--font-cormorant, 'Georgia', serif)",
-                  fontStyle: "italic",
-                  fontWeight: 500,
-                  fontSize: "1.05rem",
-                  color: "#f5f1e8",
-                }}
-              >
-                {name}
-              </h3>
+              <Box className="w-4 h-4 text-primary shrink-0" />
+              <h3 className="font-semibold text-foreground text-sm truncate">{name}</h3>
             </div>
             <button
               type="button"

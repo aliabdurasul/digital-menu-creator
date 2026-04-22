@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
+import { cn } from "@/lib/utils";
 import { useLanguage } from "@/components/menu/LanguageProvider";
 
 
@@ -73,42 +74,59 @@ export function MenuInteractions() {
     }
   }
 
-  return (
+  const isRestaurant = restaurant.moduleType === "restaurant";
+
+  return isRestaurant ? (
     <div
-      className="sticky top-0 z-30 backdrop-blur"
+      className="sticky z-30"
       style={{
-        background: "rgba(10,8,6,0.88)",
-        borderBottom: "1px solid rgba(196,154,60,0.15)",
+        top: 56,
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
+        background: "rgba(10,8,6,0.9)",
+        borderBottom: "1px solid rgba(196,154,60,0.25)",
       }}
     >
       <div className="flex items-center gap-1 px-3 py-2.5">
-        <div
-          ref={tabsRef}
-          className="flex gap-2 overflow-x-auto flex-1 scrollbar-hide"
-        >
+        <div ref={tabsRef} className="flex gap-2 overflow-x-auto flex-1 scrollbar-hide">
           {categories.map((cat) => (
             <button
               key={cat.id}
               data-tab={cat.id}
               onClick={() => handleTabClick(cat.id)}
-              className="min-h-[36px] whitespace-nowrap px-4 py-1.5 rounded-full transition-all duration-200"
-              style={{
-                fontFamily: "var(--font-outfit, sans-serif)",
-                fontSize: 12,
-                fontWeight: 500,
-                letterSpacing: "0.06em",
-                ...(activeCat === cat.id
-                  ? {
-                      background: "rgba(196,154,60,0.14)",
-                      border: "1px solid rgba(196,154,60,0.55)",
-                      color: "#c49a3c",
-                    }
-                  : {
-                      background: "transparent",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      color: "rgba(168,155,140,0.75)",
-                    }),
-              }}
+              style={
+                activeCat !== cat.id
+                  ? { border: "1px solid rgba(196,154,60,0.25)", background: "transparent" }
+                  : undefined
+              }
+              className={cn(
+                "min-h-[40px] whitespace-nowrap px-4 py-2 rounded-full text-[13px] font-medium transition-all duration-200",
+                activeCat === cat.id
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-white/5"
+              )}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  ) : (
+    <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b">
+      <div className="flex items-center gap-1 px-3 py-2.5">
+        <div ref={tabsRef} className="flex gap-2 overflow-x-auto flex-1 scrollbar-hide">
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              data-tab={cat.id}
+              onClick={() => handleTabClick(cat.id)}
+              className={cn(
+                "min-h-[40px] whitespace-nowrap px-4 py-2 rounded-full text-[13px] font-medium transition-all duration-200",
+                activeCat === cat.id
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              )}
             >
               {cat.name}
             </button>
