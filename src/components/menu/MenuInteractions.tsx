@@ -74,15 +74,22 @@ export function MenuInteractions() {
     }
   }
 
+  const isRestaurant = restaurant.moduleType === "restaurant";
+
   return (
     <div
-      className="sticky z-30"
+      className={cn(
+        "sticky z-30",
+        !isRestaurant && "bg-background/90 border-b border-border backdrop-blur-md"
+      )}
       style={{
-        top: 56,
-        backdropFilter: "blur(14px)",
-        WebkitBackdropFilter: "blur(14px)",
-        background: "rgba(20,18,14,0.92)",
-        borderBottom: "1px solid #2e2820",
+        top: isRestaurant ? 56 : 0,
+        ...(isRestaurant && {
+          backdropFilter: "blur(14px)",
+          WebkitBackdropFilter: "blur(14px)",
+          background: "rgba(20,18,14,0.92)",
+          borderBottom: "1px solid #2e2820",
+        }),
       }}
     >
       <div className="flex items-center gap-1 px-3 py-2.5">
@@ -93,7 +100,7 @@ export function MenuInteractions() {
               data-tab={cat.id}
               onClick={() => handleTabClick(cat.id)}
               style={
-                activeCat !== cat.id
+                isRestaurant && activeCat !== cat.id
                   ? { border: "1px solid #2e2820", background: "transparent" }
                   : undefined
               }
@@ -101,7 +108,9 @@ export function MenuInteractions() {
                 "min-h-[40px] whitespace-nowrap px-4 py-2 rounded-full text-[13px] font-medium transition-all duration-200",
                 activeCat === cat.id
                   ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-white/5"
+                  : isRestaurant
+                  ? "text-muted-foreground hover:bg-white/5"
+                  : "text-muted-foreground hover:bg-muted"
               )}
             >
               {cat.name}

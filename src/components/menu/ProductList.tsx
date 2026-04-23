@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef, useMemo, lazy, Suspense } fro
 import type { Product } from "@/types";
 import { OptimizedImage } from "@/components/OptimizedImage";
 import { X, Plus, View } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useLanguage, UI_LABELS } from "@/components/menu/LanguageProvider";
 import { useCart } from "@/components/menu/CartProvider";
 import { preloadModel, isModelReady } from "@/lib/arPreloader";
@@ -229,6 +230,8 @@ interface ProductRowProps {
 }
 
 function ProductRow({ product, cart, onSelect, onAR }: ProductRowProps) {
+  const { restaurant } = useLanguage();
+  const isRestaurant = restaurant.moduleType === "restaurant";
   const rowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -260,6 +263,66 @@ function ProductRow({ product, cart, onSelect, onAR }: ProductRowProps) {
       image: product.image,
     });
   } : undefined;
+
+  if (!isRestaurant) {
+    const hasImg = !!(product.image && product.image !== "/placeholder.svg");
+    return (
+      <div ref={rowRef}>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={product.available ? onSelect : undefined}
+          onKeyDown={(e) => e.key === "Enter" && product.available && onSelect()}
+          className={cn(
+            "flex items-center gap-3 p-3 bg-card border border-border rounded-2xl transition-all active:scale-[0.98]",
+            product.available
+              ? "cursor-pointer hover:border-primary/20"
+              : "opacity-40 cursor-not-allowed"
+          )}
+        >
+          {hasImg ? (
+            <div className="w-16 h-16 shrink-0 rounded-xl overflow-hidden relative bg-muted">
+              <OptimizedImage
+                src={product.image}
+                alt={product.name}
+                variant="thumbnail"
+                fill
+                sizes="64px"
+                className="object-cover"
+              />
+            </div>
+          ) : (
+            <div className="w-16 h-16 shrink-0 rounded-xl bg-muted" />
+          )}
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-foreground text-[15px] leading-snug truncate">
+              {product.name}
+            </h3>
+            {product.description && (
+              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                {product.description}
+              </p>
+            )}
+            <div className="flex items-center justify-between mt-2">
+              <span className="font-bold text-primary text-[14px]">
+                ₺{product.price.toFixed(2)}
+              </span>
+              {handleAdd && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); handleAdd(); }}
+                  className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-base font-bold leading-none hover:opacity-90 active:scale-90 transition-all"
+                  aria-label={`${product.name} ekle`}
+                >
+                  +
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div ref={rowRef}>
