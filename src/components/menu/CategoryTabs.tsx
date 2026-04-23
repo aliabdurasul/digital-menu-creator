@@ -1,5 +1,6 @@
 import type { Category } from "@/types";
 import { useRef, useEffect } from "react";
+import { CategoryChip } from "@/components/ui/CategoryChip";
 
 interface CategoryTabsProps {
   categories: Category[];
@@ -30,18 +31,14 @@ export function CategoryTabs({ categories, activeId, onSelect }: CategoryTabsPro
         .map((cat) => {
           const isActive = cat.id === activeId;
           return (
-            <button
+            <CategoryChip
               key={cat.id}
               ref={isActive ? activeRef : undefined}
               onClick={() => onSelect(cat.id)}
-              className={`whitespace-nowrap px-4 py-2.5 min-h-[44px] rounded-full text-sm font-semibold transition-all duration-200 shrink-0 touch-manipulation ${
-                isActive
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-              }`}
+              isActive={isActive}
             >
               {cat.name}
-            </button>
+            </CategoryChip>
           );
         })}
     </div>
