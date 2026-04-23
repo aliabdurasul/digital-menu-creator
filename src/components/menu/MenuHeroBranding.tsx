@@ -12,11 +12,17 @@ export function MenuHeroBranding() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-primary-foreground drop-shadow-md">
+      <h1
+        className="font-serif font-medium text-primary-foreground drop-shadow-md"
+        style={{ fontSize: "28px", letterSpacing: "1px", lineHeight: 1.15 }}
+      >
         {restaurant.name}
       </h1>
       {restaurant.description && (
-        <p className="text-primary-foreground/80 text-xs mt-0.5">
+        <p
+          className="text-primary-foreground/70 mt-1"
+          style={{ fontSize: "12px", lineHeight: 1.4 }}
+        >
           {restaurant.description}
         </p>
       )}

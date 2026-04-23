@@ -98,7 +98,7 @@ export function MenuInteractions() {
                   : undefined
               }
               className={cn(
-                "min-h-[40px] whitespace-nowrap px-4 py-2 rounded-full text-[13px] font-medium transition-all duration-200",
+                "min-h-[36px] whitespace-nowrap px-[14px] py-[8px] rounded-full text-[12px] font-medium transition-all duration-200",
                 activeCat === cat.id
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:bg-white/5"

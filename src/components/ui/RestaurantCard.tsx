@@ -39,18 +39,18 @@ export function RestaurantCard({ product, onSelect, onAR, onAdd, isARReady }: Re
 
       <div className="flex-1 flex flex-col justify-between min-w-0">
         <div>
-          <h3 className="font-serif text-[20px] font-medium text-foreground leading-[1.2] mb-1">
+          <h3 className="font-serif text-[18px] font-medium text-foreground leading-[1.2] mb-1">
             {product.name}
           </h3>
           {product.description && (
-            <p className="text-[12px] text-muted-foreground leading-snug mb-2 line-clamp-2">
+            <p className="text-[12px] text-muted-foreground leading-[1.5] mb-2 line-clamp-2">
               {product.description}
             </p>
           )}
         </div>
 
         <div className="flex items-end justify-between mt-auto">
-          <div className="font-semibold text-primary text-[16px]">
+          <div className="font-semibold text-primary text-[15px]">
             ₺{product.price.toFixed(2)}
           </div>
 
