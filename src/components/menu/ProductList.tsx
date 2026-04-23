@@ -26,7 +26,6 @@ function useOptionalCart() {
 export function ProductList({ tableId }: { tableId?: string }) {
   const { restaurant, language } = useLanguage();
   const { products } = restaurant;
-  const isRestaurant = restaurant.moduleType === "restaurant";
   const cartContext = useOptionalCart();
   // Show add-to-cart whenever a CartProvider is mounted above us,
   // regardless of whether a tableId was passed (supports self-service route).
@@ -86,7 +85,6 @@ export function ProductList({ tableId }: { tableId?: string }) {
                   key={product.id}
                   product={product}
                   cart={cart}
-                  isRestaurant={isRestaurant}
                   onSelect={() => product.available && setSelected(product)}
                   onAR={() => setArProduct(product)}
                 />
@@ -182,41 +180,22 @@ export function ProductList({ tableId }: { tableId?: string }) {
 
               {cart && activeSelected.available && (
                 <div className="pt-2">
-                  {isRestaurant ? (
-                    <PrimaryButton
-                      className="w-full justify-center py-6"
-                      onClick={() => {
-                        cart.addItem({
-                          lineId: activeSelected.id,
-                          menuItemId: activeSelected.id,
-                          name: activeSelected.name,
-                          price: activeSelected.price,
-                          image: activeSelected.image,
-                        });
-                        close();
-                      }}
-                    >
-                      <Plus className="w-5 h-5 mr-1" />
-                      Sepete Ekle
-                    </PrimaryButton>
-                  ) : (
-                    <button
-                      className="w-full bg-primary text-primary-foreground py-3 px-4 rounded-md font-medium flex items-center justify-center transition-opacity hover:opacity-90 active:scale-[0.98]"
-                      onClick={() => {
-                        cart.addItem({
-                          lineId: activeSelected.id,
-                          menuItemId: activeSelected.id,
-                          name: activeSelected.name,
-                          price: activeSelected.price,
-                          image: activeSelected.image,
-                        });
-                        close();
-                      }}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Sepete Ekle
-                    </button>
-                  )}
+                  <PrimaryButton
+                    className="w-full justify-center py-6"
+                    onClick={() => {
+                      cart.addItem({
+                        lineId: activeSelected.id,
+                        menuItemId: activeSelected.id,
+                        name: activeSelected.name,
+                        price: activeSelected.price,
+                        image: activeSelected.image,
+                      });
+                      close();
+                    }}
+                  >
+                    <Plus className="w-5 h-5 mr-1" />
+                    Sepete Ekle
+                  </PrimaryButton>
                 </div>
               )}
             </div>
@@ -245,12 +224,11 @@ export function ProductList({ tableId }: { tableId?: string }) {
 interface ProductRowProps {
   product: Product;
   cart: ReturnType<typeof useOptionalCart>;
-  isRestaurant: boolean;
   onSelect: () => void;
   onAR?: () => void;
 }
 
-function ProductRow({ product, cart, isRestaurant, onSelect, onAR }: ProductRowProps) {
+function ProductRow({ product, cart, onSelect, onAR }: ProductRowProps) {
   const rowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -285,81 +263,14 @@ function ProductRow({ product, cart, isRestaurant, onSelect, onAR }: ProductRowP
 
   return (
     <div ref={rowRef}>
-      {isRestaurant ? (
-        <RestaurantCard
-          product={product}
-          onSelect={onSelect}
-          onAR={onAR}
-          onAdd={handleAdd}
-          isARReady={arReady}
-        />
-      ) : (
-        <CafeProductItem
-          product={product}
-          onSelect={onSelect}
-          onAdd={handleAdd}
-        />
-      )}
+      <RestaurantCard
+        product={product}
+        onSelect={onSelect}
+        onAR={onAR}
+        onAdd={handleAdd}
+        isARReady={arReady}
+      />
     </div>
-  );
-}
-
-// ── CafeProductItem ────────────────────────────────────────────────────────
-// A standard, simpler list item designed for Cafe tiers instead of the premium RestaurantCard
-interface CafeProductItemProps {
-  product: Product;
-  onSelect: () => void;
-  onAdd?: () => void;
-}
-
-function CafeProductItem({ product, onSelect, onAdd }: CafeProductItemProps) {
-  const hasImage = !!(product.image && product.image !== "/placeholder.svg");
-
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      disabled={!product.available}
-      className={`relative flex gap-4 py-4 w-full text-left transition-all border-b border-border last:border-b-0
-        ${product.available ? "opacity-100" : "opacity-40 cursor-not-allowed"}
-      `}
-    >
-      <div className="flex-1 flex flex-col justify-center min-w-0">
-        <h3 className="font-medium text-foreground text-base mb-1 truncate">{product.name}</h3>
-        {product.description && (
-          <p className="text-sm text-muted-foreground line-clamp-2 mb-2 leading-snug">{product.description}</p>
-        )}
-        <div className="flex items-center gap-3 mt-auto">
-          <div className="font-semibold text-primary text-sm">
-            ₺{product.price.toFixed(2)}
-          </div>
-          {onAdd && product.available && (
-            <div
-              onClick={(e) => {
-                e.stopPropagation();
-                onAdd();
-              }}
-              className="flex items-center justify-center w-7 h-7 rounded-sm bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {hasImage && (
-        <div className="w-[88px] h-[88px] shrink-0 rounded-lg bg-secondary relative overflow-hidden flex items-center justify-center shadow-sm">
-          <OptimizedImage
-            src={product.image}
-            alt={product.name}
-            variant="thumbnail"
-            fill
-            sizes="88px"
-            className="object-cover"
-          />
-        </div>
-      )}
-    </button>
   );
 }
 
