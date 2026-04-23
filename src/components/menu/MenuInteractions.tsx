@@ -74,9 +74,7 @@ export function MenuInteractions() {
     }
   }
 
-  const isRestaurant = restaurant.moduleType === "restaurant";
-
-  return isRestaurant ? (
+  return (
     <div
       className="sticky z-30"
       style={{
@@ -104,28 +102,6 @@ export function MenuInteractions() {
                 activeCat === cat.id
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:bg-white/5"
-              )}
-            >
-              {cat.name}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  ) : (
-    <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b">
-      <div className="flex items-center gap-1 px-3 py-2.5">
-        <div ref={tabsRef} className="flex gap-2 overflow-x-auto flex-1 scrollbar-hide">
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              data-tab={cat.id}
-              onClick={() => handleTabClick(cat.id)}
-              className={cn(
-                "min-h-[40px] whitespace-nowrap px-4 py-2 rounded-full text-[13px] font-medium transition-all duration-200",
-                activeCat === cat.id
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
               )}
             >
               {cat.name}

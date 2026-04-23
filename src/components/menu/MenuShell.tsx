@@ -7,7 +7,6 @@ import { MenuHeroBranding } from "@/components/menu/MenuHeroBranding";
 import { LanguageToggle } from "@/components/menu/LanguageToggle";
 import { CoffeeClubButton } from "@/components/loyalty/CoffeeClubButton";
 import { ARWarmup } from "@/components/menu/ARWarmup";
-import { RestaurantIntro } from "@/components/menu/RestaurantIntro";
 
 interface MenuShellProps {
   restaurant: Restaurant;
@@ -26,130 +25,21 @@ export function MenuShell({ restaurant, restaurantEn = null, tableId }: MenuShel
     .filter((p) => p.arModelUrl)
     .map((p) => p.arModelUrl);
 
-  const isRestaurant = restaurant.moduleType === "restaurant";
-
-  // ── RESTAURANT PREMIUM DARK LAYOUT ──────────────────────────────────────
-  if (isRestaurant) {
-    return (
-      <LanguageProvider restaurantTr={restaurant} restaurantEn={restaurantEn}>
-        <ARWarmup arModelUrls={arModelUrls} />
-
-        <div
-          className="restaurant-theme max-w-[480px] mx-auto min-h-screen shadow-sm"
-          style={{ background: "#14120e" }}
-        >
-          {/* Intro animation overlay */}
-          <RestaurantIntro />
-
-          {/* Sticky topbar */}
-          <div
-            style={{
-              position: "sticky",
-              top: 0,
-              zIndex: 100,
-              padding: "18px 16px",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              backdropFilter: "blur(14px)",
-              WebkitBackdropFilter: "blur(14px)",
-              background: "rgba(20,18,14,0.9)",
-              borderBottom: "1px solid #2e2820",
-            }}
-          >
-            <span
-              style={{
-                fontFamily: "'Outfit', sans-serif",
-                fontWeight: 600,
-                letterSpacing: "2px",
-                textTransform: "uppercase",
-                fontSize: "18px",
-                color: "#f5f1e8",
-              }}
-            >
-              {restaurant.name}
-            </span>
-          </div>
-
-          {/* Hero */}
-          <div style={{ height: 350, position: "relative", overflow: "hidden", background: "#000" }}>
-            {restaurant.coverImage ? (
-              <Image
-                src={restaurant.coverImage}
-                alt={restaurant.name}
-                fill
-                sizes="480px"
-                priority
-                className="object-cover r-hero-zoom"
-                style={{ filter: "brightness(0.7) contrast(1.2)" }}
-              />
-            ) : (
-              <div style={{ width: "100%", height: "100%", background: "#14120e" }} />
-            )}
-            {/* Bottom gradient overlay */}
-            <div
-              style={{
-                position: "absolute",
-                bottom: 0,
-                left: 0,
-                width: "100%",
-                height: "70%",
-                background: "linear-gradient(to top, #14120e 10%, rgba(13,11,9,0) 100%)",
-                zIndex: 1,
-              }}
-            />
-            <div
-              style={{
-                position: "absolute",
-                bottom: 40,
-                left: 0,
-                width: "100%",
-                textAlign: "center",
-                padding: "0 20px",
-                zIndex: 2,
-              }}
-            >
-              <h1
-                style={{
-                  fontFamily: "'Cormorant Garamond', serif",
-                  fontSize: 24,
-                  fontStyle: "italic",
-                  fontWeight: 500,
-                  letterSpacing: "1px",
-                  color: "#f5f1e8",
-                  textShadow: "0 2px 10px rgba(0,0,0,0.5)",
-                }}
-              >
-                {restaurant.description || restaurant.name}
-              </h1>
-            </div>
-          </div>
-
-          {/* Sticky category tabs + scroll-spy */}
-          <MenuInteractions />
-
-          {/* Product list */}
-          <ProductList tableId={tableId} />
-
-          {/* Subtle footer */}
-          <div style={{ textAlign: "center", paddingTop: 64, paddingBottom: 40 }}>
-            <span style={{ fontSize: 10, color: "rgba(168,155,140,0.15)" }}>
-              Powered by Prestige Yazilim
-            </span>
-          </div>
-        </div>
-      </LanguageProvider>
-    );
-  }
-
-  // ── CAFE LAYOUT (unchanged) ──────────────────────────────────────────────
   return (
     <LanguageProvider restaurantTr={restaurant} restaurantEn={restaurantEn}>
       {/* Silently warm WebGL + preload above-fold AR models */}
       <ARWarmup arModelUrls={arModelUrls} />
-      <div className="max-w-[480px] mx-auto min-h-screen bg-background shadow-sm">
-        {/* Hero Cover */}
-        <div className="relative w-full h-44 sm:h-56 overflow-hidden">
+
+      <div className="max-w-[480px] mx-auto min-h-screen bg-background text-foreground shadow-sm">
+        {/* Sticky topbar */}
+        <div className="sticky top-0 z-[100] py-[18px] px-4 flex justify-center items-center backdrop-blur-md bg-background/90 border-b border-border">
+          <span className="font-outfit font-semibold tracking-widest uppercase text-lg text-foreground">
+            {restaurant.name}
+          </span>
+        </div>
+
+        {/* Hero */}
+        <div className="relative h-[350px] overflow-hidden bg-background">
           {restaurant.coverImage ? (
             <Image
               src={restaurant.coverImage}
@@ -157,12 +47,13 @@ export function MenuShell({ restaurant, restaurantEn = null, tableId }: MenuShel
               fill
               sizes="480px"
               priority
-              className="object-cover"
+              className="object-cover r-hero-zoom"
             />
           ) : (
             <div className="w-full h-full bg-muted" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
+          {/* Bottom gradient overlay */}
+          <div className="absolute inset-x-0 bottom-0 h-[70%] bg-gradient-to-t from-background via-background/60 to-transparent z-[1]" />
 
           {/* Top-left Coffee Club button */}
           <div className="absolute top-3 left-4 z-10">
@@ -174,9 +65,9 @@ export function MenuShell({ restaurant, restaurantEn = null, tableId }: MenuShel
             <LanguageToggle />
           </div>
 
-          {/* Left-aligned branding */}
-          <div className="absolute bottom-4 left-4 flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-background flex items-center justify-center shadow-lg overflow-hidden relative">
+          {/* Left-aligned branding merged from cafe */}
+          <div className="absolute bottom-6 left-4 flex items-center gap-3 z-10">
+            <div className="w-12 h-12 rounded-xl bg-background border border-border flex items-center justify-center shadow-lg overflow-hidden relative shrink-0">
               {restaurant.logo ? (
                 <Image
                   src={restaurant.logo}
@@ -196,15 +87,17 @@ export function MenuShell({ restaurant, restaurantEn = null, tableId }: MenuShel
           </div>
         </div>
 
-        {/* Client island: sticky tabs + scroll spy */}
+        {/* Client island: sticky category tabs + scroll-spy */}
         <MenuInteractions />
 
         {/* Product list */}
         <ProductList tableId={tableId} />
 
-        {/* Footer */}
+        {/* Subtle footer */}
         <div className="text-center pt-16 pb-10">
-          <span className="text-xs text-muted-foreground">© 2026 Powered by Prestige Yazilim</span>
+          <span className="text-xs text-muted-foreground/60">
+            Powered by Prestige Yazılım
+          </span>
         </div>
       </div>
     </LanguageProvider>
