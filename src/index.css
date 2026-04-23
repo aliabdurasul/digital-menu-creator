@@ -66,7 +66,7 @@
     --secondary: 220 14% 12%;
     --secondary-foreground: 220 14% 96%;
     --muted: 220 14% 12%;
-    --muted-foreground: 220 10% 46%;
+    --muted-foreground: 220 10% 55%;
     --accent: 220 14% 12%;
     --accent-foreground: 220 14% 96%;
     --destructive: 0 62% 30%;
@@ -105,43 +105,80 @@
   }
 }
 
-/* ── Restaurant Module Theme (isolated — only inside .restaurant-theme wrapper) ── */
+/* ─── Restaurant Theme ──────────────────────────────────────────────── */
 .restaurant-theme {
+  /* Raw custom props for inline styles */
+  --r-bg:     #14120e;
+  --r-card:   #1f1b15;
+  --r-border: #2e2820;
+  --r-accent: #d27b3b;
+  --r-text:   #f5f1e8;
+  --r-muted:  #a89b8c;
+  --r-btn:    #4a4133;
+  /* Tailwind/shadcn var overrides */
   --background: 30 18% 8%;
   --foreground: 42 39% 94%;
   --card: 30 18% 12%;
   --card-foreground: 42 39% 94%;
-  --popover: 30 18% 12%;
-  --popover-foreground: 42 39% 94%;
   --primary: 25 62% 52%;
   --primary-foreground: 30 18% 6%;
   --secondary: 30 18% 14%;
   --secondary-foreground: 42 39% 94%;
   --muted: 30 18% 14%;
   --muted-foreground: 32 14% 60%;
-  --accent: 25 62% 52%;
-  --accent-foreground: 30 18% 6%;
   --border: 30 14% 18%;
   --input: 30 18% 14%;
   --ring: 25 62% 52%;
   font-family: 'Outfit', sans-serif;
-  color: hsl(42 39% 94%);
-  background: hsl(30 18% 8%);
+  color: #f5f1e8;
+  background: #14120e;
 }
 
-/* Hero: Ken Burns + Soft Pulse ─── */
+/* Intro overlay ─── */
+@keyframes r-fade-in-up {
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes r-grow-line {
+  to { width: 150px; }
+}
+@keyframes r-fade-in {
+  to { opacity: 1; }
+}
+
+.r-intro-logo {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 48px;
+  font-weight: 600;
+  color: #f5f1e8;
+  opacity: 0;
+  transform: translateY(30px);
+  animation: r-fade-in-up 1.5s forwards 0.5s;
+}
+
+.r-intro-line {
+  width: 0;
+  height: 2px;
+  background: #d27b3b;
+  margin: 20px auto;
+  animation: r-grow-line 1.8s forwards 1s;
+}
+
+.r-intro-subtitle {
+  font-size: 12px;
+  letter-spacing: 3px;
+  color: #a89b8c;
+  text-transform: uppercase;
+  opacity: 0;
+  animation: r-fade-in 1.2s forwards 2s;
+}
+
+/* Hero zoom ─── */
 @keyframes r-live-scene {
   0%   { transform: scale(1)    translateX(0); }
   100% { transform: scale(1.15) translateX(2%); }
 }
-@keyframes r-soft-pulse {
-  0%, 100% { filter: brightness(0.70) contrast(1.20); }
-  50%       { filter: brightness(0.80) contrast(1.10); }
-}
 .r-hero-zoom {
-  animation:
-    r-live-scene 20s infinite alternate ease-in-out,
-    r-soft-pulse  5s ease-in-out infinite;
+  animation: r-live-scene 20s infinite alternate ease-in-out;
 }
 
 /* AR glow pulse ─── */
@@ -151,87 +188,4 @@
 }
 .r-ar-glow {
   animation: r-ar-glow 2.4s ease-in-out infinite;
-}
-
-/* ── Restaurant Intro Overlay ───────────────────────────────────────── */
-@keyframes fadeInUpIntro {
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes growLineIntro {
-  to { transform: scaleX(1); }
-}
-@keyframes fadeInIntro {
-  to { opacity: 1; }
-}
-
-.intro-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  background: #000000;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  transition: opacity 1.2s ease, visibility 1.2s;
-}
-.intro-overlay[data-fading] {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-}
-.intro-content {
-  text-align: center;
-  padding: 0 24px;
-}
-.intro-skip {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  font-family: 'Outfit', sans-serif;
-  font-size: 10px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: rgba(168, 155, 140, 0.5);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 8px 12px;
-  transition: color 0.2s ease;
-  -webkit-tap-highlight-color: transparent;
-}
-.intro-skip:hover,
-.intro-skip:focus-visible {
-  color: #f5f1e8;
-  outline: none;
-}
-.intro-logo {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 48px;
-  font-weight: 600;
-  letter-spacing: 2px;
-  color: #f5f1e8;
-  opacity: 0;
-  transform: translateY(30px);
-  animation: fadeInUpIntro 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards 0.5s;
-}
-.intro-line {
-  width: 150px;
-  height: 2px;
-  background: #d27b3b;
-  margin: 22px auto;
-  transform: scaleX(0);
-  transform-origin: center;
-  animation: growLineIntro 1.8s cubic-bezier(0.16, 1, 0.3, 1) forwards 1s;
-}
-.intro-subtitle {
-  font-family: 'Outfit', sans-serif;
-  font-size: 11px;
-  letter-spacing: 4px;
-  color: #a89b8c;
-  text-transform: uppercase;
-  opacity: 0;
-  animation: fadeInIntro 1.2s ease forwards 2.2s;
-}
-@media (prefers-reduced-motion: reduce) {
-  .intro-overlay { display: none !important; }
 }

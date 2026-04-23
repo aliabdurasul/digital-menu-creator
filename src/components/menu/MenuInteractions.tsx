@@ -76,20 +76,15 @@ export function MenuInteractions() {
 
   const isRestaurant = restaurant.moduleType === "restaurant";
 
-  return (
+  return isRestaurant ? (
     <div
-      className={cn(
-        "sticky z-30",
-        !isRestaurant && "bg-background/90 border-b border-border backdrop-blur-md"
-      )}
+      className="sticky z-30"
       style={{
-        top: isRestaurant ? 56 : 0,
-        ...(isRestaurant && {
-          backdropFilter: "blur(14px)",
-          WebkitBackdropFilter: "blur(14px)",
-          background: "rgba(20,18,14,0.92)",
-          borderBottom: "1px solid #2e2820",
-        }),
+        top: 56,
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
+        background: "rgba(20,18,14,0.92)",
+        borderBottom: "1px solid #2e2820",
       }}
     >
       <div className="flex items-center gap-1 px-3 py-2.5">
@@ -100,7 +95,7 @@ export function MenuInteractions() {
               data-tab={cat.id}
               onClick={() => handleTabClick(cat.id)}
               style={
-                isRestaurant && activeCat !== cat.id
+                activeCat !== cat.id
                   ? { border: "1px solid #2e2820", background: "transparent" }
                   : undefined
               }
@@ -108,9 +103,29 @@ export function MenuInteractions() {
                 "min-h-[40px] whitespace-nowrap px-4 py-2 rounded-full text-[13px] font-medium transition-all duration-200",
                 activeCat === cat.id
                   ? "bg-primary text-primary-foreground shadow-sm"
-                  : isRestaurant
-                  ? "text-muted-foreground hover:bg-white/5"
-                  : "text-muted-foreground hover:bg-muted"
+                  : "text-muted-foreground hover:bg-white/5"
+              )}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  ) : (
+    <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b">
+      <div className="flex items-center gap-1 px-3 py-2.5">
+        <div ref={tabsRef} className="flex gap-2 overflow-x-auto flex-1 scrollbar-hide">
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              data-tab={cat.id}
+              onClick={() => handleTabClick(cat.id)}
+              className={cn(
+                "min-h-[40px] whitespace-nowrap px-4 py-2 rounded-full text-[13px] font-medium transition-all duration-200",
+                activeCat === cat.id
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
               )}
             >
               {cat.name}
