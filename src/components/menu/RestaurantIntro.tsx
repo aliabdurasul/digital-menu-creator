@@ -1,44 +1,76 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useReducer, useCallback } from "react";
 import { useLanguage } from "@/components/menu/LanguageProvider";
+
+type IntroState = "idle" | "playing" | "fading" | "done";
+
+type IntroAction =
+  | { type: "play" }
+  | { type: "fade" }
+  | { type: "done" };
+
+function reducer(_: IntroState, action: IntroAction): IntroState {
+  switch (action.type) {
+    case "play": return "playing";
+    case "fade": return "fading";
+    case "done": return "done";
+    default: return "idle";
+  }
+}
 
 /**
  * Full-screen intro overlay for the restaurant module.
- * Auto-dismisses 2.2 s after mount with a fade-out transition.
- * Fades restaurant.name + a gold divider line + restaurant.description (if present).
+ *
+ * Behaviour:
+ * - Shows only once per browser session (sessionStorage-keyed by restaurant.id).
+ * - Respects prefers-reduced-motion: skipped entirely.
+ * - Auto-dismisses after 3 s; user can skip early.
+ * - Transitions: logo fades up, line expands from center, subtitle fades in.
  */
 export function RestaurantIntro() {
   const { restaurant } = useLanguage();
-  const [dismissed, setDismissed] = useState(false);
-  const [hidden, setHidden] = useState(false);
+  const [state, dispatch] = useReducer(reducer, "idle");
 
   useEffect(() => {
-    const t1 = setTimeout(() => setDismissed(true), 3000);
-    const t2 = setTimeout(() => setHidden(true), 4200); // remove from DOM after fade
+    // Accessibility: skip intro for users who prefer reduced motion
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    // Session guard: show only once per browser session per restaurant
+    const key = `intro:${restaurant.id}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, "1");
+
+    dispatch({ type: "play" });
+
+    const t1 = setTimeout(() => dispatch({ type: "fade" }), 3000);
+    const t2 = setTimeout(() => dispatch({ type: "done" }), 4200);
     return () => { clearTimeout(t1); clearTimeout(t2); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restaurant.id]);
+
+  const skip = useCallback(() => {
+    dispatch({ type: "fade" });
+    setTimeout(() => dispatch({ type: "done" }), 1200);
   }, []);
 
-  if (hidden) return null;
+  if (state === "idle" || state === "done") return null;
 
   return (
     <div
       aria-hidden="true"
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "#000000",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        zIndex: 9999,
-        opacity: dismissed ? 0 : 1,
-        visibility: dismissed ? "hidden" : "visible",
-        pointerEvents: dismissed ? "none" : "auto",
-        transition: "opacity 1.2s ease, visibility 1.2s",
-      }}
+      className="intro-overlay"
+      data-fading={state === "fading" ? "true" : undefined}
     >
-      <div style={{ textAlign: "center" }}>
+      <button
+        type="button"
+        className="intro-skip"
+        onClick={skip}
+        aria-label="Introyu geç"
+      >
+        Geç
+      </button>
+      <div className="intro-content">
         <div className="intro-logo">{restaurant.name}</div>
         <div className="intro-line" />
         {restaurant.description && (

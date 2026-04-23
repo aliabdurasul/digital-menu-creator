@@ -135,12 +135,60 @@
   to { opacity: 1; transform: translateY(0); }
 }
 @keyframes growLineIntro {
-  to { width: 150px; }
+  /* center-expand: GPU-composited scaleX, no layout thrash */
+  to { transform: scaleX(1); }
 }
 @keyframes fadeInIntro {
   to { opacity: 1; }
 }
 
+/* Overlay shell */
+.intro-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #000000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: opacity 1.2s ease, visibility 1.2s;
+}
+.intro-overlay[data-fading] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Content wrapper */
+.intro-content {
+  text-align: center;
+  padding: 0 24px;
+}
+
+/* Skip button — top-right, minimal */
+.intro-skip {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(168, 155, 140, 0.5);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 8px 12px;
+  transition: color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.intro-skip:hover,
+.intro-skip:focus-visible {
+  color: #f5f1e8;
+  outline: none;
+}
+
+/* Logo */
 .intro-logo {
   font-family: 'Cormorant Garamond', serif;
   font-size: 48px;
@@ -152,14 +200,18 @@
   animation: fadeInUpIntro 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards 0.5s;
 }
 
+/* Divider line — expands from center */
 .intro-line {
-  width: 0;
+  width: 150px;
   height: 2px;
   background: #d27b3b;
   margin: 22px auto;
-  animation: growLineIntro 1.8s ease-out forwards 1s;
+  transform: scaleX(0);
+  transform-origin: center;
+  animation: growLineIntro 1.8s cubic-bezier(0.16, 1, 0.3, 1) forwards 1s;
 }
 
+/* Subtitle */
 .intro-subtitle {
   font-family: 'Outfit', sans-serif;
   font-size: 11px;
@@ -168,6 +220,11 @@
   text-transform: uppercase;
   opacity: 0;
   animation: fadeInIntro 1.2s ease forwards 2.2s;
+}
+
+/* Respect user accessibility preference */
+@media (prefers-reduced-motion: reduce) {
+  .intro-overlay { display: none !important; }
 }
 
 /* Hero: Ken Burns + Soft Pulse ─── */
