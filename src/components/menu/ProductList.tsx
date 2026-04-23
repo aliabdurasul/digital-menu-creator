@@ -306,7 +306,13 @@ function ProductRow({ product, cart, isRestaurant, onSelect, onAR }: ProductRowP
 
 // ── CafeProductItem ────────────────────────────────────────────────────────
 // A standard, simpler list item designed for Cafe tiers instead of the premium RestaurantCard
-function CafeProductItem({ product, onSelect, onAdd }: Omit<ProductRowProps, "cart" | "isRestaurant" | "onAR">) {
+interface CafeProductItemProps {
+  product: Product;
+  onSelect: () => void;
+  onAdd?: () => void;
+}
+
+function CafeProductItem({ product, onSelect, onAdd }: CafeProductItemProps) {
   const hasImage = !!(product.image && product.image !== "/placeholder.svg");
 
   return (
