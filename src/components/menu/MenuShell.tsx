@@ -109,6 +109,11 @@ export function MenuShell({ restaurant, restaurantEn = null, tableId }: MenuShel
                 {restaurant.description || restaurant.name}
               </h1>
             </div>
+
+            {/* Language Toggle */}
+            <div style={{ position: "absolute", top: 12, right: 16, zIndex: 10 }}>
+              <LanguageToggle />
+            </div>
           </div>
 
           {/* Sticky category tabs + scroll-spy */}
