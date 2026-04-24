@@ -9,7 +9,6 @@ import { PublicInstallTrigger } from "@/components/loyalty/PublicInstallTrigger"
 import { canUseFeature } from "@/lib/features/engine";
 import { AlertTriangle } from "lucide-react";
 import type { Metadata, } from "next";
-import type { Restaurant } from "@/types";
 
 /** ISR: regenerate every 60 seconds */
 export const revalidate = 60;
@@ -46,24 +45,6 @@ export async function generateMetadata({
   };
 }
 
-/**
- * Detect whether the EN restaurant data has any meaningful translations
- * compared to the base TR data (at least one name or description differs).
- */
-function hasEnglishContent(tr: Restaurant, en: Restaurant): boolean {
-  if (tr.name !== en.name) return true;
-  if (tr.description !== en.description) return true;
-  for (let i = 0; i < tr.categories.length; i++) {
-    if (tr.categories[i]?.name !== en.categories[i]?.name) return true;
-  }
-  for (let i = 0; i < tr.products.length; i++) {
-    const tp = tr.products[i];
-    const ep = en.products[i];
-    if (tp?.name !== ep?.name || tp?.description !== ep?.description) return true;
-  }
-  return false;
-}
-
 /** Server Component — renders full HTML on server, minimal JS shipped */
 export default async function MenuPage({ params }: MenuPageProps) {
   // Dual-fetch: TR (base) + EN (translated) in parallel
@@ -90,11 +71,9 @@ export default async function MenuPage({ params }: MenuPageProps) {
     );
   }
 
-  // Only pass EN data if meaningful translations exist
-  const enData =
-    restaurantEn && hasEnglishContent(restaurantTr, restaurantEn)
-      ? restaurantEn
-      : null;
+  // Pass EN data whenever the fetch succeeded — toggle visibility
+  // is controlled by whether restaurantEn exists, not by content diff.
+  const enData = restaurantEn ?? null;
 
   // Cafe tenants on the pro plan get self-service ordering on the general route.
   // LoyaltyProvider is the parent so we pass withLoyalty={false} to avoid nesting.
