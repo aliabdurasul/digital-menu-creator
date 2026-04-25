@@ -82,8 +82,18 @@ export async function POST(req: NextRequest) {
       mode:      "direct",
     });
   } catch (err: unknown) {
-    console.error("[/api/upload-session] Unexpected error:", err);
-    const message = err instanceof Error ? err.message : "Upload session creation failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[/api/upload-session] FULL ERROR:", JSON.stringify(err, Object.getOwnPropertyNames(err instanceof Error ? err : {})), err);
+    let message: string;
+    if (err instanceof Error) {
+      message = err.message;
+    } else if (typeof err === "object" && err !== null && "message" in err) {
+      message = String((err as { message: unknown }).message);
+    } else {
+      message = JSON.stringify(err) || "Upload session creation failed (unknown)";
+    }
+    return NextResponse.json(
+      { error: message, step: "upload-session" },
+      { status: 500 }
+    );
   }
 }

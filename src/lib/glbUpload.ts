@@ -70,16 +70,35 @@ async function uploadLegacy(file: File, restaurantId: string): Promise<string> {
   body.append("file", file);
   body.append("restaurantId", restaurantId);
 
-  const res = await fetch("/api/upload-model", { method: "POST", body });
+  let res: Response;
+  try {
+    res = await fetch("/api/upload-model", { method: "POST", body });
+  } catch (fetchErr) {
+    // Network-level failure (offline, DNS, CORS preflight blocked, etc.)
+    console.error("[glbUpload] Legacy fetch failed (network):", fetchErr);
+    throw new Error(
+      `Ağ hatası: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`
+    );
+  }
+
+  console.log("[glbUpload] Legacy upload response:", res.status, res.statusText);
 
   if (!res.ok) {
-    let errMsg = "Bilinmeyen hata";
+    // Try to read the actual error from the response body
+    let errMsg: string;
     try {
       const json = await res.json();
-      errMsg = json.error || errMsg;
+      errMsg = json.error || JSON.stringify(json);
     } catch {
-      // ignore JSON parse errors
+      // Response was not JSON (e.g. Vercel timeout HTML page)
+      try {
+        const text = await res.text();
+        errMsg = text.slice(0, 200) || `HTTP ${res.status} ${res.statusText}`;
+      } catch {
+        errMsg = `HTTP ${res.status} ${res.statusText}`;
+      }
     }
+    console.error("[glbUpload] Legacy upload error:", errMsg);
     throw new Error(errMsg);
   }
 
@@ -102,8 +121,9 @@ async function getUploadSession(
   const controller = new AbortController();
   const timeout    = setTimeout(() => controller.abort(), 15_000); // 15 s
 
+  let res: Response;
   try {
-    const res = await fetch("/api/upload-session", {
+    res = await fetch("/api/upload-session", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({
@@ -113,16 +133,39 @@ async function getUploadSession(
       }),
       signal: controller.signal,
     });
-
-    if (!res.ok) {
-      const json = await res.json().catch(() => ({}));
-      throw new Error((json as { error?: string }).error || `HTTP ${res.status}`);
-    }
-
-    return (await res.json()) as UploadSession;
+  } catch (fetchErr) {
+    clearTimeout(timeout);
+    const isAbort = fetchErr instanceof DOMException && fetchErr.name === "AbortError";
+    console.error("[glbUpload] Upload session fetch failed:", fetchErr);
+    throw new Error(
+      isAbort
+        ? "Oturum isteği zaman aşımına uğradı (15s)"
+        : `Ağ hatası: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`
+    );
   } finally {
     clearTimeout(timeout);
   }
+
+  console.log("[glbUpload] Upload session response:", res.status, res.statusText);
+
+  if (!res.ok) {
+    let errMsg: string;
+    try {
+      const json = await res.json();
+      errMsg = (json as { error?: string }).error || JSON.stringify(json);
+    } catch {
+      try {
+        const text = await res.text();
+        errMsg = text.slice(0, 200) || `HTTP ${res.status} ${res.statusText}`;
+      } catch {
+        errMsg = `HTTP ${res.status} ${res.statusText}`;
+      }
+    }
+    console.error("[glbUpload] Upload session error:", errMsg);
+    throw new Error(errMsg);
+  }
+
+  return (await res.json()) as UploadSession;
 }
 
 /** Step 2: Upload the file directly to Supabase via TUS protocol. */
@@ -158,8 +201,13 @@ function uploadViaTus(
       onSuccess() {
         resolve();
       },
-      onError(err) {
-        reject(err);
+      onError(err: Error & { originalResponse?: { getBody?: () => string }; causingError?: Error }) {
+        // TUS errors can be DetailedError with originalResponse and causingError
+        const tusBody = err.originalResponse?.getBody?.() ?? "";
+        const cause   = err.causingError?.message ?? "";
+        const detail  = [err.message, cause, tusBody].filter(Boolean).join(" | ");
+        console.error("[glbUpload] TUS upload error:", detail, err);
+        reject(new Error(`TUS yükleme hatası: ${detail}`));
       },
     });
 
@@ -176,24 +224,48 @@ async function confirmUpload(path: string): Promise<string> {
   const controller = new AbortController();
   const timeout    = setTimeout(() => controller.abort(), 10_000); // 10 s
 
+  let res: Response;
   try {
-    const res = await fetch("/api/confirm-upload", {
+    res = await fetch("/api/confirm-upload", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ path }),
       signal:  controller.signal,
     });
-
-    if (!res.ok) {
-      const json = await res.json().catch(() => ({}));
-      throw new Error((json as { error?: string }).error || `HTTP ${res.status}`);
-    }
-
-    const { url } = (await res.json()) as { url: string };
-    return url;
+  } catch (fetchErr) {
+    clearTimeout(timeout);
+    const isAbort = fetchErr instanceof DOMException && fetchErr.name === "AbortError";
+    console.error("[glbUpload] Confirm fetch failed:", fetchErr);
+    throw new Error(
+      isAbort
+        ? "Onay isteği zaman aşımına uğradı (10s)"
+        : `Ağ hatası: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`
+    );
   } finally {
     clearTimeout(timeout);
   }
+
+  console.log("[glbUpload] Confirm response:", res.status, res.statusText);
+
+  if (!res.ok) {
+    let errMsg: string;
+    try {
+      const json = await res.json();
+      errMsg = (json as { error?: string }).error || JSON.stringify(json);
+    } catch {
+      try {
+        const text = await res.text();
+        errMsg = text.slice(0, 200) || `HTTP ${res.status} ${res.statusText}`;
+      } catch {
+        errMsg = `HTTP ${res.status} ${res.statusText}`;
+      }
+    }
+    console.error("[glbUpload] Confirm upload error:", errMsg);
+    throw new Error(errMsg);
+  }
+
+  const { url } = (await res.json()) as { url: string };
+  return url;
 }
 
 /** Full direct upload pipeline: session → TUS upload → confirm. */
@@ -204,16 +276,31 @@ async function uploadDirect(
 ): Promise<string> {
   console.log("[glbUpload] Starting direct upload for", file.name, `(${(file.size / 1024 / 1024).toFixed(1)} MB)`);
 
-  const session = await getUploadSession(file, restaurantId);
-  console.log("[glbUpload] Got upload session, path:", session.path);
+  let session: UploadSession;
+  try {
+    session = await getUploadSession(file, restaurantId);
+    console.log("[glbUpload] Got upload session, path:", session.path);
+  } catch (err) {
+    console.error("[glbUpload] STEP 1 FAILED (get session):", err);
+    throw err;
+  }
 
-  await uploadViaTus(file, session, onProgress);
-  console.log("[glbUpload] TUS upload complete, confirming...");
+  try {
+    await uploadViaTus(file, session, onProgress);
+    console.log("[glbUpload] TUS upload complete, confirming...");
+  } catch (err) {
+    console.error("[glbUpload] STEP 2 FAILED (TUS upload):", err);
+    throw err;
+  }
 
-  const url = await confirmUpload(session.path);
-  console.log("[glbUpload] Upload confirmed. Public URL:", url);
-
-  return url;
+  try {
+    const url = await confirmUpload(session.path);
+    console.log("[glbUpload] Upload confirmed. Public URL:", url);
+    return url;
+  } catch (err) {
+    console.error("[glbUpload] STEP 3 FAILED (confirm):", err);
+    throw err;
+  }
 }
 
 // ── Master Entry Point ────────────────────────────────────────────────────────

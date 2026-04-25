@@ -95,9 +95,18 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: data.publicUrl });
   } catch (err: unknown) {
-    console.error("[/api/upload-model]", err);
-    const message =
-      err instanceof Error ? err.message : "Model upload failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[/api/upload-model] FULL ERROR:", JSON.stringify(err, Object.getOwnPropertyNames(err instanceof Error ? err : {})), err);
+    let message: string;
+    if (err instanceof Error) {
+      message = err.message;
+    } else if (typeof err === "object" && err !== null && "message" in err) {
+      message = String((err as { message: unknown }).message);
+    } else {
+      message = JSON.stringify(err) || "Model upload failed (unknown)";
+    }
+    return NextResponse.json(
+      { error: message, step: "upload-model" },
+      { status: 500 }
+    );
   }
 }
