@@ -13,9 +13,9 @@ import * as tus from "tus-js-client";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const DIRECT_THRESHOLD_BYTES = 10 * 1024 * 1024; // 10 MB
-const MAX_FILE_SIZE_BYTES    = 100 * 1024 * 1024; // 100 MB
-const TUS_CHUNK_SIZE         = 6 * 1024 * 1024;   // 6 MB (Supabase minimum is 5 MB)
+const DIRECT_THRESHOLD_BYTES = 4 * 1024 * 1024;   // 4 MB (Vercel body limit is 4.5 MB — route via direct before hitting it)
+const MAX_FILE_SIZE_BYTES    = 100 * 1024 * 1024;  // 100 MB
+const TUS_CHUNK_SIZE         = 6 * 1024 * 1024;    // 6 MB (Supabase minimum is 5 MB)
 const ALLOWED_EXTENSION      = ".glb";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -339,8 +339,10 @@ export async function uploadGlb(
     return url;
   }
 
-  // ── 3. Large file → direct (with auto-fallback) ──
-  const MAX_DIRECT_ATTEMPTS = 2;
+  // ── 3. Large file → direct (with retry, NO legacy fallback) ──
+  //    Falling back to legacy for large files would hit Vercel's 4.5 MB body
+  //    limit and produce a guaranteed HTTP 413. So we retry direct only.
+  const MAX_DIRECT_ATTEMPTS = 3;
 
   for (let attempt = 1; attempt <= MAX_DIRECT_ATTEMPTS; attempt++) {
     try {
@@ -351,26 +353,19 @@ export async function uploadGlb(
       onStatus?.("completed");
       return url;
     } catch (err) {
-      console.warn(`[glbUpload] Direct upload attempt ${attempt} failed:`, err);
+      console.warn(`[glbUpload] Direct upload attempt ${attempt}/${MAX_DIRECT_ATTEMPTS} failed:`, err);
       if (attempt < MAX_DIRECT_ATTEMPTS) {
-        // Wait 2 s before retrying
-        await new Promise((r) => setTimeout(r, 2000));
+        // Exponential backoff: 2s, 4s
+        await new Promise((r) => setTimeout(r, 2000 * attempt));
       }
     }
   }
 
-  // ── 4. Both direct attempts failed → fallback to legacy ──
-  console.warn("[glbUpload] Direct upload exhausted. Falling back to legacy.");
-  onFallback?.();
-  onStatus?.("uploading", 1);
-
-  try {
-    const url = await uploadLegacy(file, restaurantId);
-    onStatus?.("completed");
-    return url;
-  } catch (legacyErr) {
-    onStatus?.("failed");
-    console.error("[glbUpload] Legacy fallback also failed:", legacyErr);
-    throw legacyErr;
-  }
+  // All direct attempts exhausted — do NOT fall back to legacy (would cause 413)
+  onStatus?.("failed");
+  const sizeMb = (file.size / 1024 / 1024).toFixed(1);
+  console.error(`[glbUpload] All ${MAX_DIRECT_ATTEMPTS} direct upload attempts failed for ${file.name} (${sizeMb} MB). No legacy fallback for files > ${DIRECT_THRESHOLD_BYTES / 1024 / 1024} MB.`);
+  throw new Error(
+    `Dosya yüklenemedi (${sizeMb} MB). Lütfen internet bağlantınızı kontrol edip tekrar deneyin.`
+  );
 }
