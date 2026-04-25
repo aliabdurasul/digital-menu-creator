@@ -95,15 +95,15 @@ export function MenuInteractions() {
               data-tab={cat.id}
               onClick={() => handleTabClick(cat.id)}
               style={
-                activeCat !== cat.id
-                  ? { border: "1px solid rgba(196,154,60,0.25)", background: "transparent" }
-                  : undefined
+                activeCat === cat.id
+                  ? { background: "#c49a3c", color: "#0a0806", border: "1px solid #c49a3c" }
+                  : { border: "1px solid rgba(196,154,60,0.25)", background: "transparent", color: "rgba(245,241,232,0.6)" }
               }
               className={cn(
                 "min-h-[40px] whitespace-nowrap px-4 py-2 rounded-full text-[13px] font-medium transition-all duration-200",
                 activeCat === cat.id
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-white/5"
+                  ? "shadow-sm"
+                  : "hover:bg-white/5"
               )}
             >
               {cat.name}

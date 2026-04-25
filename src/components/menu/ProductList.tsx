@@ -174,6 +174,7 @@ export function ProductList({ tableId }: { tableId?: string }) {
 
               {activeSelected.arModelUrl && (
                 <ARButton
+                  isRestaurant={isRestaurant}
                   modelUrl={activeSelected.arModelUrl}
                   onClick={() => { close(); setArProduct(activeSelected); }}
                 />
@@ -432,7 +433,7 @@ function ProductRow({ product, hasImage, cart, isRestaurant, onSelect, onAR }: P
 
 // ── ARButton ─────────────────────────────────────────────────────────────────
 // Shows a pulse badge when model is preloaded. Tap feedback (scale + label).
-function ARButton({ modelUrl, onClick }: { modelUrl: string; onClick: () => void }) {
+function ARButton({ modelUrl, onClick, isRestaurant }: { modelUrl: string; onClick: () => void; isRestaurant?: boolean }) {
   const [tapped, setTapped] = useState(false);
   const ready = isModelReady(modelUrl);
 
@@ -451,9 +452,14 @@ function ARButton({ modelUrl, onClick }: { modelUrl: string; onClick: () => void
         onPointerUp={() => setTapped(false)}
         onPointerLeave={() => setTapped(false)}
         onClick={onClick}
-        className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium transition-all duration-150 ${
+        className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
           tapped ? "scale-95 opacity-90" : "scale-100"
-        } ${ready ? "ar-pulse" : ""}`}
+        } ${ready ? "ar-pulse" : ""} ${!isRestaurant ? "bg-primary text-primary-foreground" : ""}`}
+        style={
+          isRestaurant
+            ? { background: "#c49a3c", color: "#0a0806", border: "none" }
+            : undefined
+        }
       >
         <View className="w-4 h-4" />
         {tapped ? "Açılıyor..." : "Masanda Gör"}

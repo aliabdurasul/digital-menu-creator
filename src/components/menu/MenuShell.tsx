@@ -7,7 +7,6 @@ import { MenuHeroBranding } from "@/components/menu/MenuHeroBranding";
 import { LanguageToggle } from "@/components/menu/LanguageToggle";
 import { CoffeeClubButton } from "@/components/loyalty/CoffeeClubButton";
 import { ARWarmup } from "@/components/menu/ARWarmup";
-import { RestaurantIntro } from "@/components/menu/RestaurantIntro";
 
 interface MenuShellProps {
   restaurant: Restaurant;
@@ -38,8 +37,6 @@ export function MenuShell({ restaurant, restaurantEn = null, tableId }: MenuShel
           className="restaurant-theme max-w-[480px] mx-auto min-h-screen shadow-sm"
           style={{ background: "#0a0806" }}
         >
-          {/* Intro animation overlay */}
-          <RestaurantIntro />
 
           {/* Sticky topbar */}
           <div
@@ -98,11 +95,12 @@ export function MenuShell({ restaurant, restaurantEn = null, tableId }: MenuShel
               <h1
                 style={{
                   fontFamily: "'Cormorant Garamond', serif",
-                  fontSize: 36,
+                  fontSize: 26,
                   fontStyle: "italic",
-                  fontWeight: 500,
-                  color: "#f5f1e8",
-                  textShadow: "0 2px 12px rgba(0,0,0,0.7)",
+                  fontWeight: 400,
+                  color: "#e8dfce",
+                  letterSpacing: "0.5px",
+                  textShadow: "0 2px 8px rgba(0,0,0,0.6)",
                   padding: "0 16px",
                 }}
               >
