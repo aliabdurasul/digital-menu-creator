@@ -75,12 +75,6 @@ export function AdminAR({ restaurant, setRestaurant }: Props) {
           setUploadStatus(status);
           if (attempt != null) setUploadAttempt(attempt);
         },
-        onFallback: () => {
-          toast({
-            title: "Büyük dosya için alternatif yol kullanılıyor",
-            description: "Yedek yükleme başlatıldı...",
-          });
-        },
       });
 
       // ── Post-upload logic is IDENTICAL to the original ──

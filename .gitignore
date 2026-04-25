@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 *.local
+.next/
+.next
 
 # Firebase credentials (NEVER commit service account keys)
 *firebase-adminsdk*
