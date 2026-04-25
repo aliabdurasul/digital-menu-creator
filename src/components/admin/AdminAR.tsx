@@ -3,6 +3,7 @@
 import { useState, useRef, Suspense, lazy } from "react";
 import type { Restaurant, Product } from "@/types";
 import { Box, Eye, Trash2, Loader2, Plus, Check } from "lucide-react";
+import { uploadGlb, type UploadStatus } from "@/lib/glbUpload";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,11 @@ export function AdminAR({ restaurant, setRestaurant }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  // ── Upload progress state (large files only) ──────────────────────────────
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState<UploadStatus>("idle");
+  const [uploadAttempt, setUploadAttempt] = useState(1);
+
   const productsWithModels = restaurant.products.filter((p) => p.arModelUrl);
   const productsWithoutModels = restaurant.products.filter((p) => !p.arModelUrl);
 
@@ -56,42 +62,46 @@ export function AdminAR({ restaurant, setRestaurant }: Props) {
     if (!file) return;
     if (fileInputRef.current) fileInputRef.current.value = "";
 
-    if (!file.name.toLowerCase().endsWith(".glb")) {
-      toast({ title: "Geçersiz dosya", description: "Yalnızca .glb dosyaları desteklenir", variant: "destructive" });
-      return;
-    }
-    if (file.size > 50 * 1024 * 1024) {
-      toast({ title: "Dosya çok büyük", description: "Maks 50 MB", variant: "destructive" });
-      return;
-    }
-
+    // Reset progress state
+    setUploadProgress(0);
+    setUploadStatus("idle");
+    setUploadAttempt(1);
     setUploading(true);
+
     try {
-      const body = new FormData();
-      body.append("file", file);
-      body.append("restaurantId", restaurant.id);
+      const url = await uploadGlb(file, restaurant.id, {
+        onProgress: (pct) => setUploadProgress(pct),
+        onStatus:   (status, attempt) => {
+          setUploadStatus(status);
+          if (attempt != null) setUploadAttempt(attempt);
+        },
+        onFallback: () => {
+          toast({
+            title: "Büyük dosya için alternatif yol kullanılıyor",
+            description: "Yedek yükleme başlatıldı...",
+          });
+        },
+      });
 
-      const res = await fetch("/api/upload-model", { method: "POST", body });
-      if (!res.ok) {
-        const { error } = await res.json();
-        toast({ title: "Yükleme başarısız", description: error || "Bilinmeyen hata", variant: "destructive" });
-        return;
-      }
-      const { url } = (await res.json()) as { url: string };
-
-      // If a product is already open in the detail panel, assign immediately
+      // ── Post-upload logic is IDENTICAL to the original ──
       if (selectedProduct) {
         await assignModel(selectedProduct.id, url, selectedProduct.arModelSizeCm);
       } else {
-        // Open assignment dialog — don't let the URL go to waste
         setPendingUrl(url);
         setPendingFileName(file.name);
         setAssignProductId(restaurant.products[0]?.id ?? "");
       }
-    } catch {
-      toast({ title: "Yükleme başarısız", description: "Model yüklenemedi", variant: "destructive" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Model yüklenemedi";
+      toast({ title: "Yükleme başarısız", description: message, variant: "destructive" });
+      setUploadStatus("failed");
     } finally {
       setUploading(false);
+      // Reset progress display after a short delay
+      setTimeout(() => {
+        setUploadProgress(0);
+        setUploadStatus("idle");
+      }, 3000);
     }
   };
 
@@ -246,18 +256,44 @@ export function AdminAR({ restaurant, setRestaurant }: Props) {
             className="hidden"
             onChange={handleUpload}
           />
-          <Button
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-          >
-            {uploading ? (
-              <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
-            ) : (
-              <Plus className="w-4 h-4 mr-1.5" />
+          <div className="flex flex-col items-end gap-1.5">
+            <Button
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
+              ) : (
+                <Plus className="w-4 h-4 mr-1.5" />
+              )}
+              {uploading
+                ? uploadStatus === "retrying"
+                  ? `Yeniden deneniyor (${uploadAttempt}/2)...`
+                  : "Yükleniyor..."
+                : "Model Yükle"}
+            </Button>
+
+            {/* Progress bar — only visible for large files (direct upload path) */}
+            {uploading && uploadProgress > 0 && (
+              <div className="w-36 flex flex-col gap-1">
+                <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+                <span className="text-[10px] text-muted-foreground text-right">
+                  {uploadProgress}%
+                </span>
+              </div>
             )}
-            {uploading ? "Yükleniyor..." : "Model Yükle"}
-          </Button>
+
+            {/* Failed state badge */}
+            {uploadStatus === "failed" && !uploading && (
+              <span className="text-[10px] text-destructive">Yükleme başarısız</span>
+            )}
+          </div>
         </div>
       </div>
 
