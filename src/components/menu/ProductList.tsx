@@ -138,7 +138,10 @@ export function ProductList({ tableId }: { tableId?: string }) {
                 <h3 className="text-lg font-bold text-foreground leading-tight">
                   {activeSelected.name}
                 </h3>
-                <span className="shrink-0 text-primary font-bold text-base">
+                <span
+                  className={`shrink-0 font-bold text-base ${!isRestaurant ? 'text-primary' : ''}`}
+                  style={isRestaurant ? { color: "#c49a3c" } : undefined}
+                >
                   ₺{activeSelected.price.toFixed(2)}
                 </span>
               </div>
