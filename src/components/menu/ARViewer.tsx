@@ -48,20 +48,50 @@ export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) 
 
   // model-viewer load / error events
   useEffect(() => {
-    if (status === "ready") return; // already warm — skip listeners
-    const el = viewerRef.current;
+    const el = viewerRef.current as any;
     if (!el) return;
 
-    const onLoad = () => setStatus("ready");
+    const onLoad = () => {
+      setStatus("ready");
+      
+      // SCALE NORMALIZATION PIPELINE
+      if (typeof el.getDimensions === "function") {
+        // STEP 1 — Compute bounding box
+        const size = el.getDimensions();
+        const maxDim = Math.max(size.x, size.y, size.z);
+        
+        // STEP 2 & 3 — Define real-world target scale & Uniform scale calculation
+        const targetSize = sizeCm ? sizeCm / 100 : 0.25; // default 25cm
+        let scaleFactor = targetSize / maxDim;
+        
+        // STEP 4 — Optional safety clamp
+        scaleFactor = Math.max(0.1, Math.min(scaleFactor, 2.0));
+        
+        // Apply uniform scaling
+        el.scale = `${scaleFactor} ${scaleFactor} ${scaleFactor}`;
+        
+        // Update bounding box framing to ensure bottom touches the surface
+        if (typeof el.updateFraming === "function") {
+          el.updateFraming();
+        }
+      }
+    };
+
     const onError = () => setStatus("error");
 
-    el.addEventListener("load", onLoad);
-    el.addEventListener("error", onError);
+    if (status !== "ready") {
+      el.addEventListener("load", onLoad);
+      el.addEventListener("error", onError);
+    } else {
+      // If already ready, just run the normalization once
+      onLoad();
+    }
+
     return () => {
       el.removeEventListener("load", onLoad);
       el.removeEventListener("error", onError);
     };
-  }, [status]);
+  }, [status, sizeCm]);
 
   // Detect AR support after model loads
   useEffect(() => {
