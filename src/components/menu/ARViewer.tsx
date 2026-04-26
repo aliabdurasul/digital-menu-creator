@@ -1,6 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+/**
+ * FIXED ARViewer
+ * 1. Added precomputedScale prop for iOS Quick Look baked scaling
+ * 2. normalizeScale zero-dimension retry limit and runtime fallback
+ * 3. Merged load effect for React 18 safety and AR support check
+ * 4. Static ar-scale="auto" and conditional static scale attribute
+ * 5. Removed UI debug output (arScale state) and fixed Turkish locale
+ * 6. Removed redundant AR support useEffect
+ */
+
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { X, Box } from "lucide-react";
 import { isModelReady } from "@/lib/arPreloader";
 
@@ -59,6 +69,7 @@ interface ARViewerProps {
   /** Human-readable category name (e.g. "Pizza", "Burger"). Lowercased before lookup. */
   category?: string | null;
   poster?: string;
+  precomputedScale?: number | null;
   onClose: () => void;
 }
 
@@ -69,13 +80,19 @@ interface ModelViewerElement extends HTMLElement {
   updateFraming?: () => void;
 }
 
-export function ARViewer({ src, name, sizeCm, category, poster, onClose }: ARViewerProps) {
+export function ARViewer({ src, name, sizeCm, category, poster, precomputedScale, onClose }: ARViewerProps) {
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     () => (isModelReady(src) ? "ready" : "loading")
   );
   const [arSupported, setArSupported] = useState(true);
-  const [arScale, setArScale] = useState<number | null>(null);
   const viewerRef = useRef<ModelViewerElement>(null);
+
+  // ── Static scale for iOS Quick Look ─────────────────────────────────────
+  const staticScale = useMemo(() => {
+    if (precomputedScale == null) return undefined;
+    const sv = precomputedScale.toFixed(6);
+    return `${sv} ${sv} ${sv}`;
+  }, [precomputedScale]);
 
   // ── Scale normalization ───────────────────────────────────────────────────
   // PRIORITY ORDER:
@@ -92,9 +109,13 @@ export function ARViewer({ src, name, sizeCm, category, poster, onClose }: ARVie
     const dim = el.getDimensions();
     // Guard: if model hasn't loaded geometry yet, retry next frame
     if (!dim || (dim.x === 0 && dim.y === 0 && dim.z === 0)) {
+      const attempts = (normalizeScale as any)._attempts ?? 0;
+      if (attempts > 30) return; // broken model, give up
+      (normalizeScale as any)._attempts = attempts + 1;
       requestAnimationFrame(() => normalizeScale(el));
       return;
     }
+    (normalizeScale as any)._attempts = 0;
 
     const maxDim = Math.max(dim.x, dim.y, dim.z);
     if (maxDim <= 0) return;
@@ -111,9 +132,6 @@ export function ARViewer({ src, name, sizeCm, category, poster, onClose }: ARVie
     el.setAttribute("scale", `${sv} ${sv} ${sv}`);
     el.setAttribute("ar-placement", "floor");
     el.setAttribute("ar-scale", "auto"); // allow user pinch as fallback
-    
-    // Do NOT call updateFraming() here — it resets AR floor anchor
-    setArScale(scale); // store in state to show user the applied size
 
     console.log("[ARViewer] scale", { model: name, category: catKey, dim, maxDim, targetCm, scale });
   }, [sizeCm, category, name]);
@@ -122,33 +140,29 @@ export function ARViewer({ src, name, sizeCm, category, poster, onClose }: ARVie
   useEffect(() => {
     const el = viewerRef.current;
     if (!el) return;
-
-    // ALWAYS attach the load listener regardless of preloader cache status
-    // The preloader warms the network cache but this DOM element is new
+    
+    let unmounted = false;
+    
     const onLoad = () => {
+      if (unmounted) return;
       setStatus("ready");
-      normalizeScale(el);
+      if (!precomputedScale) normalizeScale(el);
+      if (el.canActivateAR !== undefined) setArSupported(!!el.canActivateAR);
     };
-    const onError = () => setStatus("error");
+    
+    const onError = () => { 
+      if (!unmounted) setStatus("error"); 
+    };
 
     el.addEventListener("load", onLoad);
     el.addEventListener("error", onError);
-    return () => {
-      el.removeEventListener("load", onLoad);
-      el.removeEventListener("error", onError);
+    
+    return () => { 
+      unmounted = true; 
+      el.removeEventListener("load", onLoad); 
+      el.removeEventListener("error", onError); 
     };
-  }, [normalizeScale]); // removed `status` dependency — always re-attach
-
-  // ── Detect AR support after model loads ───────────────────────────────
-  useEffect(() => {
-    const el = viewerRef.current;
-    if (!el) return;
-    const check = () => {
-      if (el.canActivateAR !== undefined) setArSupported(!!el.canActivateAR);
-    };
-    el.addEventListener("load", check, { once: true });
-    return () => el.removeEventListener("load", check);
-  }, []);
+  }, [normalizeScale, precomputedScale]);
 
   const handleClose = useCallback(() => onClose(), [onClose]);
 
@@ -158,7 +172,7 @@ export function ARViewer({ src, name, sizeCm, category, poster, onClose }: ARVie
     return () => window.removeEventListener("keydown", h);
   }, [handleClose]);
 
-  const displaySize = sizeCm ?? (CATEGORY_SIZE_CM[category?.toLowerCase().trim() ?? ""] ?? null);
+  const displaySize = sizeCm ?? (CATEGORY_SIZE_CM[category?.toLocaleLowerCase('en-US').trim() ?? ""] ?? null);
 
   return (
     <>
@@ -256,6 +270,7 @@ export function ARViewer({ src, name, sizeCm, category, poster, onClose }: ARVie
                 shadow-softness="0.9"
                 loading="eager"
                 poster={poster}
+                {...(staticScale ? { scale: staticScale } : {})}
                 style={{
                   width: "100%",
                   height: "100%",
@@ -280,11 +295,6 @@ export function ARViewer({ src, name, sizeCm, category, poster, onClose }: ARVie
             {displaySize != null && (
               <p className="text-[11px] text-muted-foreground/60 mt-0.5">
                 Gerçek boyut: ~{displaySize} cm
-              </p>
-            )}
-            {arScale != null && (
-              <p className="text-[11px] text-muted-foreground/60 mt-0.5">
-                Uygulanan Ölçek Çarpanı: {arScale.toFixed(3)}x
               </p>
             )}
           </div>
