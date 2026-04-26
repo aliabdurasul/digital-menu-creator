@@ -29,14 +29,19 @@ declare global {
   }
 }
 
-// ── Scale defaults (metres) ────────────────────────────────────────────────
-// Used ONLY when the admin has not set a sizeCm on the model.
-// These are real-world reference sizes per food type.
-// Category matching is done by the admin-provided sizeCm; if missing we
-// fall back to DEFAULT_TARGET_M so at least nothing explodes in AR.
-const DEFAULT_TARGET_M = 0.25; // 25 cm — reasonable for most plate food
-const MIN_SCALE = 0.05;
-const MAX_SCALE = 10.0;
+// ── Category-based real-world size fallbacks (centimetres) ────────────────
+// Used when the admin has NOT set a custom sizeCm on the model.
+// Values represent the longest real-world dimension of each food category.
+const CATEGORY_SIZE_CM: Record<string, number> = {
+  burger:  12,
+  pizza:   28,
+  drink:   15,
+  dessert: 10,
+  default: 20,
+};
+
+const MIN_SCALE = 0.01;
+const MAX_SCALE = 5.0;
 
 interface ARViewerProps {
   src: string;
@@ -50,7 +55,6 @@ interface ARViewerProps {
 interface ModelViewerElement extends HTMLElement {
   canActivateAR?: boolean;
   getDimensions?: () => { x: number; y: number; z: number };
-  scale?: string; // "X Y Z" — model-viewer's own scale attribute
   updateFraming?: () => void;
 }
 
@@ -61,12 +65,11 @@ export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) 
   const [arSupported, setArSupported] = useState(true);
   const viewerRef = useRef<ModelViewerElement>(null);
 
-  // ── Scale normalization ────────────────────────────────────────────────
-  // Called once after model-viewer fires "load".
-  // model-viewer's getDimensions() returns the model's NATIVE bounding-box
-  // size in metres (as authored), before any viewer scaling is applied.
-  // We compute a uniform scale factor so the longest dimension equals the
-  // target real-world size (sizeCm from DB, or DEFAULT_TARGET_M).
+  // ── Scale normalization ───────────────────────────────────────────────────
+  // GLB files cannot be trusted to use consistent units (some ship in mm,
+  // some in cm, some in metres). We always read the raw bounding box from
+  // getDimensions(), detect the magnitude, correct for unit mismatch, then
+  // drive the scale to the admin's target (sizeCm) or a category default.
   const normalizeScale = useCallback((el: ModelViewerElement) => {
     if (typeof el.getDimensions !== "function") return;
 
@@ -76,23 +79,42 @@ export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) 
     const maxDim = Math.max(dim.x, dim.y, dim.z);
     if (!maxDim || maxDim <= 0) return;
 
-    const targetM = sizeCm != null && sizeCm > 0
-      ? sizeCm / 100
-      : DEFAULT_TARGET_M;
+    // STEP 1 — Resolve target size in metres
+    const targetCm = sizeCm != null && sizeCm > 0
+      ? sizeCm
+      : (CATEGORY_SIZE_CM.default);
+    const targetM = targetCm / 100;
 
-    // Clamp to avoid absurd values from corrupted/odd models
-    const raw = targetM / maxDim;
-    const scaleFactor = Math.max(MIN_SCALE, Math.min(raw, MAX_SCALE));
+    // STEP 2 — Base scale from bounding box
+    let scaleFactor = targetM / maxDim;
 
-    // model-viewer's scale attribute is a "X Y Z" string — uniform means same value
-    const sv = scaleFactor.toFixed(6);
-    el.scale = `${sv} ${sv} ${sv}`;
+    // STEP 3 — Anti-extreme unit correction
+    // GLBs authored in the wrong unit arrive with absurd bounding-box values.
+    // Correct multiplicatively so the final scaleFactor lands in a sane range.
+    if      (maxDim > 5)    scaleFactor *= 0.01;  // authored in cm (100× too big)
+    else if (maxDim > 1)    scaleFactor *= 0.1;   // authored in decimetres
+    else if (maxDim < 0.01) scaleFactor *= 10;    // authored in decimetres (small)
+    else if (maxDim < 0.001) scaleFactor *= 100;  // authored in mm (1000× too small)
 
-    // Reframe camera & recalculate bounding for AR placement (floor alignment)
-    if (typeof el.updateFraming === "function") {
-      el.updateFraming();
-    }
-  }, [sizeCm]);
+    // STEP 4 — Hard clamp: never go completely microscopic or room-scale
+    scaleFactor = Math.max(MIN_SCALE, Math.min(scaleFactor, MAX_SCALE));
+
+    // STEP 5 — Apply via setAttribute (the correct model-viewer API)
+    const s = scaleFactor.toFixed(6);
+    el.setAttribute("scale", `${s} ${s} ${s}`);
+
+    // STEP 6 — Reframe camera & recalculate bounding for AR floor alignment
+    el.updateFraming?.();
+
+    // STEP 7 — Debug log so deviations are visible in DevTools
+    console.log("[ARViewer] scale normalization", {
+      model:       name,
+      dim,
+      maxDim,
+      targetCm,
+      scaleFactor,
+    });
+  }, [sizeCm, name]);
 
   // ── model-viewer load / error events ──────────────────────────────────
   useEffect(() => {
@@ -226,7 +248,6 @@ export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) 
                 alt={`${name} 3D model`}
                 ar={arSupported}
                 ar-modes="webxr scene-viewer quick-look"
-                ar-scale="fixed"
                 camera-controls
                 auto-rotate
                 shadow-intensity="1.2"
