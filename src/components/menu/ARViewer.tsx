@@ -14,8 +14,11 @@ declare global {
           ar?: boolean;
           "ar-modes"?: string;
           "ar-scale"?: string;
+          "ar-placement"?: string;
           "camera-controls"?: boolean;
           "auto-rotate"?: boolean;
+          "min-camera-orbit"?: string;
+          "max-camera-orbit"?: string;
           "shadow-intensity"?: string;
           "shadow-softness"?: string;
           loading?: string;
@@ -40,8 +43,8 @@ const CATEGORY_SIZE_CM: Record<string, number> = {
   default: 20,
 };
 
-const MIN_SCALE = 0.01;
-const MAX_SCALE = 5.0;
+const MIN_SCALE = 0.05;
+const MAX_SCALE = 2.0;
 
 interface ARViewerProps {
   src: string;
@@ -79,41 +82,30 @@ export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) 
     const maxDim = Math.max(dim.x, dim.y, dim.z);
     if (!maxDim || maxDim <= 0) return;
 
-    // STEP 1 — Resolve target size in metres
+    // STEP 1 — Resolve target real-world size (cm → metres)
     const targetCm = sizeCm != null && sizeCm > 0
       ? sizeCm
-      : (CATEGORY_SIZE_CM.default);
+      : CATEGORY_SIZE_CM.default;
     const targetM = targetCm / 100;
 
-    // STEP 2 — Base scale from bounding box
+    // STEP 2 — Compute uniform scale: targetM / native bounding-box
+    // getDimensions() returns metres. Regardless of authoring tool, the ratio
+    // target / actual is the correct multiplier. The hard clamp below catches
+    // degenerate models without needing fragile magnitude-sniffing heuristics.
     let scaleFactor = targetM / maxDim;
 
-    // STEP 3 — Anti-extreme unit correction
-    // GLBs authored in the wrong unit arrive with absurd bounding-box values.
-    // Correct multiplicatively so the final scaleFactor lands in a sane range.
-    if      (maxDim > 5)    scaleFactor *= 0.01;  // authored in cm (100× too big)
-    else if (maxDim > 1)    scaleFactor *= 0.1;   // authored in decimetres
-    else if (maxDim < 0.01) scaleFactor *= 10;    // authored in decimetres (small)
-    else if (maxDim < 0.001) scaleFactor *= 100;  // authored in mm (1000× too small)
-
-    // STEP 4 — Hard clamp: never go completely microscopic or room-scale
+    // STEP 3 — Hard clamp to realistic food range [0.05 .. 2.0]
     scaleFactor = Math.max(MIN_SCALE, Math.min(scaleFactor, MAX_SCALE));
 
-    // STEP 5 — Apply via setAttribute (the correct model-viewer API)
+    // STEP 4 — Apply via setAttribute (model-viewer observes attribute changes)
     const s = scaleFactor.toFixed(6);
     el.setAttribute("scale", `${s} ${s} ${s}`);
 
-    // STEP 6 — Reframe camera & recalculate bounding for AR floor alignment
+    // STEP 5 — Reframe camera + recalculate bounding for AR floor alignment
     el.updateFraming?.();
 
-    // STEP 7 — Debug log so deviations are visible in DevTools
-    console.log("[ARViewer] scale normalization", {
-      model:       name,
-      dim,
-      maxDim,
-      targetCm,
-      scaleFactor,
-    });
+    // Debug: visible in DevTools for per-model diagnosis
+    console.log("[ARViewer] scale", { model: name, dim, maxDim, targetCm, scaleFactor });
   }, [sizeCm, name]);
 
   // ── model-viewer load / error events ──────────────────────────────────
@@ -248,10 +240,14 @@ export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) 
                 alt={`${name} 3D model`}
                 ar={arSupported}
                 ar-modes="webxr scene-viewer quick-look"
+                ar-placement="floor"
+                ar-scale="auto"
                 camera-controls
-                auto-rotate
-                shadow-intensity="1.2"
-                shadow-softness="0.8"
+                auto-rotate={false}
+                min-camera-orbit="auto auto 0.3m"
+                max-camera-orbit="auto auto 2m"
+                shadow-intensity="1.5"
+                shadow-softness="0.9"
                 loading="eager"
                 poster={poster}
                 style={{
