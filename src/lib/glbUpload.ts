@@ -1,41 +1,32 @@
 /**
  * glbUpload.ts
  *
- * Production-grade GLB upload library with hybrid routing:
- *   • files < 10 MB  → Path A (legacy /api/upload-model, unchanged)
- *   • files ≥ 10 MB  → Path B (direct presigned TUS upload to Supabase)
- *
- * If Path B fails for any reason, it automatically falls back to Path A.
- * No external UI dependencies — pure logic + callbacks.
+ * Production-grade GLB upload library:
+ *   • Direct browser -> Supabase upload (Bypasses Vercel 4.5MB limit entirely)
+ *   • No backend endpoints involved
+ *   • Fake progress tracking (Supabase standard upload doesn't expose progress natively)
+ *   • Max 3 retries
  */
 
-import * as tus from "tus-js-client";
+import { createClient } from "@/lib/supabase/client";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const DIRECT_THRESHOLD_BYTES = 4 * 1024 * 1024;   // 4 MB (Vercel body limit is 4.5 MB — route via direct before hitting it)
-const MAX_FILE_SIZE_BYTES    = 100 * 1024 * 1024;  // 100 MB
-const TUS_CHUNK_SIZE         = 6 * 1024 * 1024;    // 6 MB (Supabase minimum is 5 MB)
-const ALLOWED_EXTENSION      = ".glb";
+const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024; // 100 MB
+const ALLOWED_EXTENSION = ".glb";
+const MAX_DIRECT_ATTEMPTS = 3;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type UploadMode   = "legacy" | "direct";
 export type UploadStatus = "idle" | "uploading" | "retrying" | "completed" | "failed";
 
 export interface UploadCallbacks {
-  /** Called each time progress updates (0–100). Only fires for direct uploads. */
   onProgress?: (pct: number) => void;
-  /** Called when the upload mode or retry attempt changes. */
   onStatus?: (status: UploadStatus, attempt?: number) => void;
 }
 
 // ── Validation ────────────────────────────────────────────────────────────────
 
-/**
- * Validates a GLB file before any network call.
- * Returns null if valid, or a user-facing Turkish error string.
- */
 export function validateGlbFile(file: File): string | null {
   if (!file.name.toLowerCase().endsWith(ALLOWED_EXTENSION)) {
     return "Yalnızca .glb dosyaları desteklenir";
@@ -50,215 +41,8 @@ export function validateGlbFile(file: File): string | null {
   return null;
 }
 
-// ── Path B: Direct TUS upload ─────────────────────────────────────────────────
-
-interface UploadSession {
-  signedUrl: string;
-  path: string;
-}
-
-/** Step 1: Request a presigned upload session from our backend. */
-async function getUploadSession(
-  file: File,
-  restaurantId: string
-): Promise<UploadSession> {
-  const controller = new AbortController();
-  const timeout    = setTimeout(() => controller.abort(), 15_000); // 15 s
-
-  let res: Response;
-  try {
-    res = await fetch("/api/upload-session", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({
-        restaurantId,
-        filename: file.name,
-        fileSize: file.size,
-      }),
-      signal: controller.signal,
-    });
-  } catch (fetchErr) {
-    clearTimeout(timeout);
-    const isAbort = fetchErr instanceof DOMException && fetchErr.name === "AbortError";
-    console.error("[glbUpload] Upload session fetch failed:", fetchErr);
-    throw new Error(
-      isAbort
-        ? "Oturum isteği zaman aşımına uğradı (15s)"
-        : `Ağ hatası: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`
-    );
-  } finally {
-    clearTimeout(timeout);
-  }
-
-  console.log("[glbUpload] Upload session response:", res.status, res.statusText);
-
-  if (!res.ok) {
-    let errMsg: string;
-    try {
-      const json = await res.json();
-      errMsg = (json as { error?: string }).error || JSON.stringify(json);
-    } catch {
-      try {
-        const text = await res.text();
-        errMsg = text.slice(0, 200) || `HTTP ${res.status} ${res.statusText}`;
-      } catch {
-        errMsg = `HTTP ${res.status} ${res.statusText}`;
-      }
-    }
-    console.error("[glbUpload] Upload session error:", errMsg);
-    throw new Error(errMsg);
-  }
-
-  return (await res.json()) as UploadSession;
-}
-
-/** Step 2: Upload the file directly to Supabase via TUS protocol. */
-function uploadViaTus(
-  file: File,
-  session: UploadSession,
-  onProgress?: (pct: number) => void
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const anonKey    = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-    const upload = new tus.Upload(file, {
-      endpoint: `${supabaseUrl}/storage/v1/upload/resumable`,
-      uploadUrl: session.signedUrl,
-      retryDelays: [0, 1000, 3000, 5000, 10000],
-      chunkSize: TUS_CHUNK_SIZE,
-      headers: {
-        Authorization: `Bearer ${anonKey}`,
-        "x-upsert":    "true",
-      },
-      metadata: {
-        bucketName:   "models",
-        objectName:   session.path,
-        contentType:  "model/gltf-binary",
-        cacheControl: "3600",
-      },
-      onProgress(bytesUploaded, bytesTotal) {
-        if (bytesTotal > 0) {
-          onProgress?.(Math.round((bytesUploaded / bytesTotal) * 100));
-        }
-      },
-      onSuccess() {
-        resolve();
-      },
-      onError(err: Error & { originalResponse?: { getBody?: () => string }; causingError?: Error }) {
-        // TUS errors can be DetailedError with originalResponse and causingError
-        const tusBody = err.originalResponse?.getBody?.() ?? "";
-        const cause   = err.causingError?.message ?? "";
-        const detail  = [err.message, cause, tusBody].filter(Boolean).join(" | ");
-        console.error("[glbUpload] TUS upload error:", detail, err);
-        reject(new Error(`TUS yükleme hatası: ${detail}`));
-      },
-    });
-
-    // Resume a previous upload if one exists (handles tab close mid-upload)
-    upload.findPreviousUploads().then((prev) => {
-      if (prev.length > 0) upload.resumeFromPreviousUpload(prev[0]);
-      upload.start();
-    });
-  });
-}
-
-/** Step 3: Ask the backend to return the public URL of the uploaded file. */
-async function confirmUpload(path: string): Promise<string> {
-  const controller = new AbortController();
-  const timeout    = setTimeout(() => controller.abort(), 10_000); // 10 s
-
-  let res: Response;
-  try {
-    res = await fetch("/api/confirm-upload", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ path }),
-      signal:  controller.signal,
-    });
-  } catch (fetchErr) {
-    clearTimeout(timeout);
-    const isAbort = fetchErr instanceof DOMException && fetchErr.name === "AbortError";
-    console.error("[glbUpload] Confirm fetch failed:", fetchErr);
-    throw new Error(
-      isAbort
-        ? "Onay isteği zaman aşımına uğradı (10s)"
-        : `Ağ hatası: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`
-    );
-  } finally {
-    clearTimeout(timeout);
-  }
-
-  console.log("[glbUpload] Confirm response:", res.status, res.statusText);
-
-  if (!res.ok) {
-    let errMsg: string;
-    try {
-      const json = await res.json();
-      errMsg = (json as { error?: string }).error || JSON.stringify(json);
-    } catch {
-      try {
-        const text = await res.text();
-        errMsg = text.slice(0, 200) || `HTTP ${res.status} ${res.statusText}`;
-      } catch {
-        errMsg = `HTTP ${res.status} ${res.statusText}`;
-      }
-    }
-    console.error("[glbUpload] Confirm upload error:", errMsg);
-    throw new Error(errMsg);
-  }
-
-  const { url } = (await res.json()) as { url: string };
-  return url;
-}
-
-/** Full direct upload pipeline: session → TUS upload → confirm. */
-async function uploadDirect(
-  file: File,
-  restaurantId: string,
-  onProgress?: (pct: number) => void
-): Promise<string> {
-  console.log("[glbUpload] Starting direct upload for", file.name, `(${(file.size / 1024 / 1024).toFixed(1)} MB)`);
-
-  let session: UploadSession;
-  try {
-    session = await getUploadSession(file, restaurantId);
-    console.log("[glbUpload] Got upload session, path:", session.path);
-  } catch (err) {
-    console.error("[glbUpload] STEP 1 FAILED (get session):", err);
-    throw err;
-  }
-
-  try {
-    await uploadViaTus(file, session, onProgress);
-    console.log("[glbUpload] TUS upload complete, confirming...");
-  } catch (err) {
-    console.error("[glbUpload] STEP 2 FAILED (TUS upload):", err);
-    throw err;
-  }
-
-  try {
-    const url = await confirmUpload(session.path);
-    console.log("[glbUpload] Upload confirmed. Public URL:", url);
-    return url;
-  } catch (err) {
-    console.error("[glbUpload] STEP 3 FAILED (confirm):", err);
-    throw err;
-  }
-}
-
 // ── Master Entry Point ────────────────────────────────────────────────────────
 
-/**
- * uploadGlb — the single function AdminAR.tsx should call.
- *
- * Handles:
- *   • validation (throws with a user-facing Turkish message if invalid)
- *   • direct upload to Supabase
- *   • progress + status callbacks
- *
- * Returns the public URL of the uploaded model.
- */
 export async function uploadGlb(
   file: File,
   restaurantId: string,
@@ -266,35 +50,67 @@ export async function uploadGlb(
 ): Promise<string> {
   const { onProgress, onStatus } = callbacks;
 
-  // ── 1. Validate ──
   const validationError = validateGlbFile(file);
   if (validationError) throw new Error(validationError);
 
-  console.log(`[glbUpload] Starting direct upload for ${file.name}`);
+  const supabase = createClient();
+  // Ensure path is unique and safe
+  const safeName = file.name.replace(/[^a-zA-Z0-9.\-]/g, "");
+  const path = `${restaurantId}/${Date.now()}_${safeName}`;
+  const sizeMb = (file.size / 1024 / 1024).toFixed(1);
 
-  const MAX_DIRECT_ATTEMPTS = 3;
+  console.log(`[glbUpload] Starting direct upload for ${file.name} (${sizeMb}MB) -> ${path}`);
 
   for (let attempt = 1; attempt <= MAX_DIRECT_ATTEMPTS; attempt++) {
     try {
       if (attempt > 1) onStatus?.("retrying", attempt);
-      else             onStatus?.("uploading", attempt);
+      else onStatus?.("uploading", attempt);
 
-      const url = await uploadDirect(file, restaurantId, onProgress);
-      onStatus?.("completed");
-      return url;
-    } catch (err) {
-      console.warn(`[glbUpload] Direct upload attempt ${attempt}/${MAX_DIRECT_ATTEMPTS} failed:`, err);
-      if (attempt < MAX_DIRECT_ATTEMPTS) {
-        // Exponential backoff: 2s, 4s
-        await new Promise((r) => setTimeout(r, 2000 * attempt));
+      // Start fake progress
+      let progress = 0;
+      const progressInterval = setInterval(() => {
+        progress += Math.random() * 15;
+        if (progress > 90) progress = 90; // cap at 90 until complete
+        onProgress?.(Math.round(progress));
+      }, 500);
+
+      const { data, error } = await supabase.storage
+        .from("models")
+        .upload(path, file, {
+          contentType: "model/gltf-binary",
+          upsert: true,
+        });
+
+      clearInterval(progressInterval);
+
+      if (error) {
+        throw new Error(error.message);
       }
+
+      // Finish progress
+      onProgress?.(100);
+      onStatus?.("completed");
+
+      const { data: publicUrlData } = supabase.storage
+        .from("models")
+        .getPublicUrl(path);
+
+      console.log("[glbUpload] Upload confirmed. Public URL:", publicUrlData.publicUrl);
+      return publicUrlData.publicUrl;
+      
+    } catch (err: any) {
+      console.warn(`[glbUpload] Direct upload attempt ${attempt}/${MAX_DIRECT_ATTEMPTS} failed:`, err);
+      
+      if (attempt === MAX_DIRECT_ATTEMPTS) {
+        onStatus?.("failed");
+        console.error("UPLOAD_ERROR", err);
+        throw new Error(err?.message || "Yükleme başarısız oldu");
+      }
+
+      // Exponential backoff before retry: 2s, 4s
+      await new Promise((r) => setTimeout(r, 2000 * attempt));
     }
   }
 
-  onStatus?.("failed");
-  const sizeMb = (file.size / 1024 / 1024).toFixed(1);
-  console.error(`[glbUpload] All ${MAX_DIRECT_ATTEMPTS} direct upload attempts failed for ${file.name} (${sizeMb} MB).`);
-  throw new Error(
-    `Dosya yüklenemedi (${sizeMb} MB). Lütfen internet bağlantınızı kontrol edip tekrar deneyin.`
-  );
+  throw new Error("Bilinmeyen bir yükleme hatası oluştu.");
 }
