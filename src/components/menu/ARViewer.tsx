@@ -20,6 +20,7 @@ declare global {
           "shadow-softness"?: string;
           loading?: string;
           poster?: string;
+          scale?: string;
           style?: React.CSSProperties;
         },
         HTMLElement
@@ -27,6 +28,15 @@ declare global {
     }
   }
 }
+
+// ── Scale defaults (metres) ────────────────────────────────────────────────
+// Used ONLY when the admin has not set a sizeCm on the model.
+// These are real-world reference sizes per food type.
+// Category matching is done by the admin-provided sizeCm; if missing we
+// fall back to DEFAULT_TARGET_M so at least nothing explodes in AR.
+const DEFAULT_TARGET_M = 0.25; // 25 cm — reasonable for most plate food
+const MIN_SCALE = 0.05;
+const MAX_SCALE = 10.0;
 
 interface ARViewerProps {
   src: string;
@@ -36,66 +46,84 @@ interface ARViewerProps {
   onClose: () => void;
 }
 
+// ── ModelViewer element shape (only what we need) ────────────────────────
+interface ModelViewerElement extends HTMLElement {
+  canActivateAR?: boolean;
+  getDimensions?: () => { x: number; y: number; z: number };
+  scale?: string; // "X Y Z" — model-viewer's own scale attribute
+  updateFraming?: () => void;
+}
+
 export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) {
-  // If the preloader already has this model warm, start as "ready" immediately
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     () => (isModelReady(src) ? "ready" : "loading")
   );
   const [arSupported, setArSupported] = useState(true);
-  const viewerRef = useRef<HTMLElement>(null);
+  const viewerRef = useRef<ModelViewerElement>(null);
 
-  const scaleMetre = ((sizeCm ?? 20) / 100).toFixed(3);
+  // ── Scale normalization ────────────────────────────────────────────────
+  // Called once after model-viewer fires "load".
+  // model-viewer's getDimensions() returns the model's NATIVE bounding-box
+  // size in metres (as authored), before any viewer scaling is applied.
+  // We compute a uniform scale factor so the longest dimension equals the
+  // target real-world size (sizeCm from DB, or DEFAULT_TARGET_M).
+  const normalizeScale = useCallback((el: ModelViewerElement) => {
+    if (typeof el.getDimensions !== "function") return;
 
-  // model-viewer load / error events
+    const dim = el.getDimensions();
+    if (!dim) return;
+
+    const maxDim = Math.max(dim.x, dim.y, dim.z);
+    if (!maxDim || maxDim <= 0) return;
+
+    const targetM = sizeCm != null && sizeCm > 0
+      ? sizeCm / 100
+      : DEFAULT_TARGET_M;
+
+    // Clamp to avoid absurd values from corrupted/odd models
+    const raw = targetM / maxDim;
+    const scaleFactor = Math.max(MIN_SCALE, Math.min(raw, MAX_SCALE));
+
+    // model-viewer's scale attribute is a "X Y Z" string — uniform means same value
+    const sv = scaleFactor.toFixed(6);
+    el.scale = `${sv} ${sv} ${sv}`;
+
+    // Reframe camera & recalculate bounding for AR placement (floor alignment)
+    if (typeof el.updateFraming === "function") {
+      el.updateFraming();
+    }
+  }, [sizeCm]);
+
+  // ── model-viewer load / error events ──────────────────────────────────
   useEffect(() => {
-    const el = viewerRef.current as any;
+    const el = viewerRef.current;
     if (!el) return;
+
+    // If preloader already warmed this model, the "load" event has already
+    // fired — run normalisation immediately, don't re-attach listeners.
+    if (status === "ready") {
+      normalizeScale(el);
+      return;
+    }
 
     const onLoad = () => {
       setStatus("ready");
-      
-      // SCALE NORMALIZATION PIPELINE
-      if (typeof el.getDimensions === "function") {
-        // STEP 1 — Compute bounding box
-        const size = el.getDimensions();
-        const maxDim = Math.max(size.x, size.y, size.z);
-        
-        // STEP 2 & 3 — Define real-world target scale & Uniform scale calculation
-        const targetSize = sizeCm ? sizeCm / 100 : 0.25; // default 25cm
-        let scaleFactor = targetSize / maxDim;
-        
-        // STEP 4 — Optional safety clamp
-        scaleFactor = Math.max(0.1, Math.min(scaleFactor, 2.0));
-        
-        // Apply uniform scaling
-        el.scale = `${scaleFactor} ${scaleFactor} ${scaleFactor}`;
-        
-        // Update bounding box framing to ensure bottom touches the surface
-        if (typeof el.updateFraming === "function") {
-          el.updateFraming();
-        }
-      }
+      normalizeScale(el);
     };
-
     const onError = () => setStatus("error");
 
-    if (status !== "ready") {
-      el.addEventListener("load", onLoad);
-      el.addEventListener("error", onError);
-    } else {
-      // If already ready, just run the normalization once
-      onLoad();
-    }
-
+    el.addEventListener("load", onLoad);
+    el.addEventListener("error", onError);
     return () => {
       el.removeEventListener("load", onLoad);
       el.removeEventListener("error", onError);
     };
-  }, [status, sizeCm]);
+  // Re-run if sizeCm changes so live admin edits are reflected immediately
+  }, [status, normalizeScale]);
 
-  // Detect AR support after model loads
+  // ── Detect AR support after model loads ───────────────────────────────
   useEffect(() => {
-    const el = viewerRef.current as (HTMLElement & { canActivateAR?: boolean }) | null;
+    const el = viewerRef.current;
     if (!el) return;
     const check = () => {
       if (el.canActivateAR !== undefined) setArSupported(!!el.canActivateAR);
@@ -210,7 +238,6 @@ export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) 
                   height: "100%",
                   opacity: status === "ready" ? 1 : 0,
                   transition: "opacity 0.5s ease",
-                  ["--model-scale" as string]: scaleMetre,
                 }}
               />
             )}
@@ -238,4 +265,3 @@ export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) 
     </>
   );
 }
-
