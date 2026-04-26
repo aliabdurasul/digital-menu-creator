@@ -33,6 +33,11 @@ export function OrderingWrapper({ restaurantId, tableId, moduleType, withLoyalty
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [installSheetOpen, setInstallSheetOpen] = useState(false);
 
+  // ── Module guard ──────────────────────────────────────────────────────────
+  // Coffee Club UI (loyalty panel, install prompt, push permission) is
+  // exclusively a Cafe Module feature. Restaurant module must never show it.
+  const isCafe = moduleType === "cafe";
+
   // Stable per-restaurant storage scope for self-service so the cart
   // persists between navigations but never bleeds across tenants.
   const cartScope = tableId ?? `self_${restaurantId}`;
@@ -49,12 +54,12 @@ export function OrderingWrapper({ restaurantId, tableId, moduleType, withLoyalty
         moduleType={moduleType}
       />
       <OrderReadyWatcher moduleType={moduleType} />
-      {withLoyalty && <CoffeeClubPanel onOpenCart={() => setDrawerOpen(true)} />}
-      {/* Install prompt only fires on the self-service route (no tableId). */}
+      {isCafe && withLoyalty && <CoffeeClubPanel onOpenCart={() => setDrawerOpen(true)} />}
+      {/* Install prompt only fires on cafe self-service route (no tableId). */}
       {/* Showing it on a table QR would make the installed PWA open pinned to that table. */}
-      {!tableId && <CartPushTrigger onTriggerInstall={() => setInstallSheetOpen(true)} />}
-      {withLoyalty && <PushPermissionSheet />}
-      {!tableId && (
+      {isCafe && !tableId && <CartPushTrigger onTriggerInstall={() => setInstallSheetOpen(true)} />}
+      {isCafe && withLoyalty && <PushPermissionSheet />}
+      {isCafe && !tableId && (
         <InstallPromptSheet
           open={installSheetOpen}
           onClose={() => setInstallSheetOpen(false)}
