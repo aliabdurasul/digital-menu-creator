@@ -519,6 +519,9 @@ export function AdminAR({ restaurant, setRestaurant }: Props) {
             src={selectedProduct.arModelUrl}
             name={selectedProduct.name}
             sizeCm={selectedProduct.arModelSizeCm}
+            category={
+              restaurant.categories.find((c) => c.id === selectedProduct.categoryId)?.name ?? null
+            }
             poster={
               selectedProduct.image && selectedProduct.image !== "/placeholder.svg"
                 ? selectedProduct.image

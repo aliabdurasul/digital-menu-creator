@@ -194,11 +194,15 @@ export function ProductList({ tableId }: { tableId?: string }) {
             src={arProduct.arModelUrl}
             name={arProduct.name}
             sizeCm={arProduct.arModelSizeCm}
+            category={
+              restaurant.categories.find((c) => c.id === arProduct.categoryId)?.name ?? null
+            }
             poster={arProduct.image !== "/placeholder.svg" ? arProduct.image : undefined}
             onClose={() => setArProduct(null)}
           />
         </Suspense>
       )}
+
     </>
   );
 }

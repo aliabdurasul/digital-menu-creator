@@ -32,24 +32,32 @@ declare global {
   }
 }
 
-// ── Category-based real-world size fallbacks (centimetres) ────────────────
-// Used when the admin has NOT set a custom sizeCm on the model.
-// Values represent the longest real-world dimension of each food category.
-const CATEGORY_SIZE_CM: Record<string, number> = {
+// ── Category-based real-world size defaults (centimetres) ─────────────────
+// Priority: sizeCm (admin override) → category match → default
+// These map CATEGORY NAMES (lowercased) to longest real-world dimension.
+export const CATEGORY_SIZE_CM: Record<string, number> = {
   burger:  12,
   pizza:   28,
+  kebab:   22,
   drink:   15,
+  içecek:  15,  // Turkish alias
   dessert: 10,
+  tatlı:   10,  // Turkish alias
   default: 20,
 };
 
-const MIN_SCALE = 0.05;
-const MAX_SCALE = 2.0;
+// ── Hard scale clamp for realistic food on a table ────────────────────────
+// 0.03 = smallest possible (tiny dessert spoon)
+// 0.80 = largest possible (large pizza plate)
+const MIN_SCALE = 0.03;
+const MAX_SCALE = 0.80;
 
 interface ARViewerProps {
   src: string;
   name: string;
   sizeCm?: number | null;
+  /** Human-readable category name (e.g. "Pizza", "Burger"). Lowercased before lookup. */
+  category?: string | null;
   poster?: string;
   onClose: () => void;
 }
@@ -61,7 +69,7 @@ interface ModelViewerElement extends HTMLElement {
   updateFraming?: () => void;
 }
 
-export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) {
+export function ARViewer({ src, name, sizeCm, category, poster, onClose }: ARViewerProps) {
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     () => (isModelReady(src) ? "ready" : "loading")
   );
@@ -69,10 +77,14 @@ export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) 
   const viewerRef = useRef<ModelViewerElement>(null);
 
   // ── Scale normalization ───────────────────────────────────────────────────
-  // GLB files cannot be trusted to use consistent units (some ship in mm,
-  // some in cm, some in metres). We always read the raw bounding box from
-  // getDimensions(), detect the magnitude, correct for unit mismatch, then
-  // drive the scale to the admin's target (sizeCm) or a category default.
+  // PRIORITY ORDER:
+  //   1. sizeCm — admin sets exact size per product
+  //   2. category — matched against CATEGORY_SIZE_CM table
+  //   3. default — 20cm fallback
+  //
+  // FORMULA:
+  //   scale = targetM / maxDim   (clean ratio, no unit heuristics)
+  //   scale = clamp(scale, 0.03, 0.80)
   const normalizeScale = useCallback((el: ModelViewerElement) => {
     if (typeof el.getDimensions !== "function") return;
 
@@ -82,39 +94,42 @@ export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) 
     const maxDim = Math.max(dim.x, dim.y, dim.z);
     if (!maxDim || maxDim <= 0) return;
 
-    // STEP 1 — Resolve target real-world size (cm → metres)
-    const targetCm = sizeCm != null && sizeCm > 0
-      ? sizeCm
-      : CATEGORY_SIZE_CM.default;
+    // Step 1 — Resolve target size
+    const catKey = category?.toLowerCase().trim() ?? "";
+    const targetCm =
+      (sizeCm != null && sizeCm > 0)
+        ? sizeCm
+        : (CATEGORY_SIZE_CM[catKey] ?? CATEGORY_SIZE_CM.default);
+
     const targetM = targetCm / 100;
 
-    // STEP 2 — Compute uniform scale: targetM / native bounding-box
-    // getDimensions() returns metres. Regardless of authoring tool, the ratio
-    // target / actual is the correct multiplier. The hard clamp below catches
-    // degenerate models without needing fragile magnitude-sniffing heuristics.
-    let scaleFactor = targetM / maxDim;
+    // Step 2 — Only valid scaling formula (no unit sniffing)
+    let scale = targetM / maxDim;
 
-    // STEP 3 — Hard clamp to realistic food range [0.05 .. 2.0]
-    scaleFactor = Math.max(MIN_SCALE, Math.min(scaleFactor, MAX_SCALE));
+    // Step 3 — Hard clamp to realistic food range
+    scale = Math.min(Math.max(scale, MIN_SCALE), MAX_SCALE);
 
-    // STEP 4 — Apply via setAttribute (model-viewer observes attribute changes)
-    const s = scaleFactor.toFixed(6);
-    el.setAttribute("scale", `${s} ${s} ${s}`);
+    // Step 4 — Apply (setAttribute is the correct model-viewer API)
+    const sv = scale.toFixed(6);
+    el.setAttribute("scale", `${sv} ${sv} ${sv}`);
 
-    // STEP 5 — Reframe camera + recalculate bounding for AR floor alignment
+    // Step 5 — Enforce AR placement imperatively (belt-and-suspenders over HTML attr)
+    el.setAttribute("ar-placement", "floor");
+    el.setAttribute("ar-scale", "fixed");
+
+    // Step 6 — Reframe camera + recalculate bounding box for AR floor snap
     el.updateFraming?.();
 
-    // Debug: visible in DevTools for per-model diagnosis
-    console.log("[ARViewer] scale", { model: name, dim, maxDim, targetCm, scaleFactor });
-  }, [sizeCm, name]);
+    console.log("[ARViewer] scale", { model: name, category: catKey, dim, maxDim, targetCm, scale });
+  }, [sizeCm, category, name]);
 
   // ── model-viewer load / error events ──────────────────────────────────
   useEffect(() => {
     const el = viewerRef.current;
     if (!el) return;
 
-    // If preloader already warmed this model, the "load" event has already
-    // fired — run normalisation immediately, don't re-attach listeners.
+    // If preloader already warmed this model, the "load" event has fired —
+    // run normalisation immediately without waiting for a new event.
     if (status === "ready") {
       normalizeScale(el);
       return;
@@ -132,7 +147,7 @@ export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) 
       el.removeEventListener("load", onLoad);
       el.removeEventListener("error", onError);
     };
-  // Re-run if sizeCm changes so live admin edits are reflected immediately
+  // Re-run if sizeCm / category changes so admin edits reflect immediately
   }, [status, normalizeScale]);
 
   // ── Detect AR support after model loads ───────────────────────────────
@@ -153,6 +168,8 @@ export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) 
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
   }, [handleClose]);
+
+  const displaySize = sizeCm ?? (CATEGORY_SIZE_CM[category?.toLowerCase().trim() ?? ""] ?? null);
 
   return (
     <>
@@ -218,7 +235,7 @@ export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) 
               />
             )}
 
-            {/* Shimmer overlay on top of poster while loading */}
+            {/* Shimmer overlay while loading */}
             {status === "loading" && (
               <div className="absolute inset-0 ar-shimmer z-20 opacity-60" />
             )}
@@ -241,7 +258,7 @@ export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) 
                 ar={arSupported}
                 ar-modes="webxr scene-viewer quick-look"
                 ar-placement="floor"
-                ar-scale="auto"
+                ar-scale="fixed"
                 camera-controls
                 auto-rotate={false}
                 min-camera-orbit="auto auto 0.3m"
@@ -271,9 +288,9 @@ export function ARViewer({ src, name, sizeCm, poster, onClose }: ARViewerProps) 
                 Cihazınız AR desteklemiyor — 3D modeli döndürerek inceleyebilirsiniz
               </p>
             )}
-            {sizeCm != null && (
+            {displaySize != null && (
               <p className="text-[11px] text-muted-foreground/60 mt-0.5">
-                Gerçek boyut: ~{sizeCm} cm
+                Gerçek boyut: ~{displaySize} cm
               </p>
             )}
           </div>
