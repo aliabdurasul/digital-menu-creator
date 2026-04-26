@@ -74,6 +74,7 @@ export function ARViewer({ src, name, sizeCm, category, poster, onClose }: ARVie
     () => (isModelReady(src) ? "ready" : "loading")
   );
   const [arSupported, setArSupported] = useState(true);
+  const [arScale, setArScale] = useState<number | null>(null);
   const viewerRef = useRef<ModelViewerElement>(null);
 
   // ── Scale normalization ───────────────────────────────────────────────────
@@ -89,36 +90,30 @@ export function ARViewer({ src, name, sizeCm, category, poster, onClose }: ARVie
     if (typeof el.getDimensions !== "function") return;
 
     const dim = el.getDimensions();
-    if (!dim) return;
+    // Guard: if model hasn't loaded geometry yet, retry next frame
+    if (!dim || (dim.x === 0 && dim.y === 0 && dim.z === 0)) {
+      requestAnimationFrame(() => normalizeScale(el));
+      return;
+    }
 
     const maxDim = Math.max(dim.x, dim.y, dim.z);
-    if (!maxDim || maxDim <= 0) return;
+    if (maxDim <= 0) return;
 
-    // Step 1 — Resolve target size
-    const catKey = category?.toLowerCase().trim() ?? "";
-    const targetCm =
-      (sizeCm != null && sizeCm > 0)
-        ? sizeCm
-        : (CATEGORY_SIZE_CM[catKey] ?? CATEGORY_SIZE_CM.default);
-
+    const catKey = category?.toLocaleLowerCase('en-US').trim() ?? "";
+    const targetCm = (sizeCm != null && sizeCm > 0)
+      ? sizeCm
+      : (CATEGORY_SIZE_CM[catKey] ?? CATEGORY_SIZE_CM.default);
     const targetM = targetCm / 100;
 
-    // Step 2 — Only valid scaling formula (no unit sniffing)
-    let scale = targetM / maxDim;
-
-    // Step 3 — Hard clamp to realistic food range
-    scale = Math.min(Math.max(scale, MIN_SCALE), MAX_SCALE);
-
-    // Step 4 — Apply (setAttribute is the correct model-viewer API)
+    const scale = Math.min(Math.max(targetM / maxDim, MIN_SCALE), MAX_SCALE);
     const sv = scale.toFixed(6);
+
     el.setAttribute("scale", `${sv} ${sv} ${sv}`);
-
-    // Step 5 — Enforce AR placement imperatively (belt-and-suspenders over HTML attr)
     el.setAttribute("ar-placement", "floor");
-    el.setAttribute("ar-scale", "fixed");
-
-    // Step 6 — Reframe camera + recalculate bounding box for AR floor snap
-    el.updateFraming?.();
+    el.setAttribute("ar-scale", "auto"); // allow user pinch as fallback
+    
+    // Do NOT call updateFraming() here — it resets AR floor anchor
+    setArScale(scale); // store in state to show user the applied size
 
     console.log("[ARViewer] scale", { model: name, category: catKey, dim, maxDim, targetCm, scale });
   }, [sizeCm, category, name]);
@@ -128,13 +123,8 @@ export function ARViewer({ src, name, sizeCm, category, poster, onClose }: ARVie
     const el = viewerRef.current;
     if (!el) return;
 
-    // If preloader already warmed this model, the "load" event has fired —
-    // run normalisation immediately without waiting for a new event.
-    if (status === "ready") {
-      normalizeScale(el);
-      return;
-    }
-
+    // ALWAYS attach the load listener regardless of preloader cache status
+    // The preloader warms the network cache but this DOM element is new
     const onLoad = () => {
       setStatus("ready");
       normalizeScale(el);
@@ -147,8 +137,7 @@ export function ARViewer({ src, name, sizeCm, category, poster, onClose }: ARVie
       el.removeEventListener("load", onLoad);
       el.removeEventListener("error", onError);
     };
-  // Re-run if sizeCm / category changes so admin edits reflect immediately
-  }, [status, normalizeScale]);
+  }, [normalizeScale]); // removed `status` dependency — always re-attach
 
   // ── Detect AR support after model loads ───────────────────────────────
   useEffect(() => {
@@ -258,7 +247,7 @@ export function ARViewer({ src, name, sizeCm, category, poster, onClose }: ARVie
                 ar={arSupported}
                 ar-modes="webxr scene-viewer quick-look"
                 ar-placement="floor"
-                ar-scale="fixed"
+                ar-scale="auto"
                 camera-controls
                 auto-rotate={false}
                 min-camera-orbit="auto auto 0.3m"
@@ -291,6 +280,11 @@ export function ARViewer({ src, name, sizeCm, category, poster, onClose }: ARVie
             {displaySize != null && (
               <p className="text-[11px] text-muted-foreground/60 mt-0.5">
                 Gerçek boyut: ~{displaySize} cm
+              </p>
+            )}
+            {arScale != null && (
+              <p className="text-[11px] text-muted-foreground/60 mt-0.5">
+                Uygulanan Ölçek Çarpanı: {arScale.toFixed(3)}x
               </p>
             )}
           </div>
