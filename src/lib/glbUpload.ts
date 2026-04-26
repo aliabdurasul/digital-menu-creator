@@ -78,6 +78,7 @@ export async function uploadGlb(
         .from("models")
         .upload(path, file, {
           contentType: "model/gltf-binary",
+          cacheControl: "31536000",
           upsert: true,
         });
 

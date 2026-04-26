@@ -81,7 +81,7 @@ interface ModelViewerElement extends HTMLElement {
 }
 
 export function ARViewer({ src, name, sizeCm, category, poster, precomputedScale, onClose }: ARViewerProps) {
-  const [status, setStatus] = useState<"loading" | "ready" | "error">(
+  const [status, setStatus] = useState<"loading" | "ready" | "error" | "timeout">(
     () => (isModelReady(src) ? "ready" : "loading")
   );
   const [arSupported, setArSupported] = useState(true);
@@ -143,15 +143,24 @@ export function ARViewer({ src, name, sizeCm, category, poster, precomputedScale
     
     let unmounted = false;
     
+    // 10s timeout fallback: if model doesn't load, degrade gracefully to poster
+    const fallbackTimer = setTimeout(() => {
+      if (!unmounted) setStatus("timeout");
+    }, 10000);
+
     const onLoad = () => {
       if (unmounted) return;
+      clearTimeout(fallbackTimer);
       setStatus("ready");
       if (!precomputedScale) normalizeScale(el);
       if (el.canActivateAR !== undefined) setArSupported(!!el.canActivateAR);
     };
     
     const onError = () => { 
-      if (!unmounted) setStatus("error"); 
+      if (!unmounted) {
+        clearTimeout(fallbackTimer);
+        setStatus("error"); 
+      }
     };
 
     el.addEventListener("load", onLoad);
@@ -159,6 +168,7 @@ export function ARViewer({ src, name, sizeCm, category, poster, precomputedScale
     
     return () => { 
       unmounted = true; 
+      clearTimeout(fallbackTimer);
       el.removeEventListener("load", onLoad); 
       el.removeEventListener("error", onError); 
     };
@@ -243,17 +253,9 @@ export function ARViewer({ src, name, sizeCm, category, poster, precomputedScale
               <div className="absolute inset-0 ar-shimmer z-20 opacity-60" />
             )}
 
-            {status === "error" && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center z-20 gap-2 px-6 text-center bg-muted">
-                <Box className="w-8 h-8 text-muted-foreground" />
-                <p className="text-sm text-destructive font-medium">Model yüklenemedi</p>
-                <button type="button" onClick={handleClose} className="text-xs text-muted-foreground underline">
-                  Kapat
-                </button>
-              </div>
-            )}
 
-            {status !== "error" && (
+
+            {status !== "error" && status !== "timeout" && (
               <model-viewer
                 ref={viewerRef as React.RefObject<HTMLElement>}
                 src={src}

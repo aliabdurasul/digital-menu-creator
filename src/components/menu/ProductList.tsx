@@ -226,10 +226,15 @@ function ProductRow({ product, hasImage, cart, isRestaurant, onSelect, onAR }: P
     const el = rowRef.current;
     if (!el) return;
 
+    // Check if user is on a slow connection
+    const connection = (navigator as any).connection;
+    const isSlow = connection?.saveData || connection?.effectiveType === "2g" || connection?.effectiveType === "slow-2g";
+    if (isSlow) return;
+
     const obs = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          preloadModel(product.arModelUrl);
+          preloadModel(product.arModelUrl!);
           obs.disconnect();
         }
       },

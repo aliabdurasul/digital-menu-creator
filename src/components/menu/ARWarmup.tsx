@@ -15,7 +15,7 @@ interface Props {
 export function ARWarmup({ arModelUrls }: Props) {
   useEffect(() => {
     warmWebGL();
-    preloadAboveFold(arModelUrls, 3);
+    preloadAboveFold(arModelUrls, 5);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return null;
