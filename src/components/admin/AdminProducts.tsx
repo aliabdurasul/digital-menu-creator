@@ -502,7 +502,7 @@ export function AdminProducts({ restaurant, setRestaurant, moduleType = "restaur
                       <div className="space-y-0.5 pt-1">
                         {[
                           { label: "Yüklendi", done: true },
-                          { label: "Sıkıştırılıyor...", done: arProcessingStatus === "processing" || arProcessingStatus === "ready" },
+                          { label: "Sıkıştırılıyor...", done: arProcessingStatus === "processing" },
                           { label: "Ölçek hesaplanıyor", done: false },
                           { label: "AR'a hazır", done: false },
                         ].map((step) => (
