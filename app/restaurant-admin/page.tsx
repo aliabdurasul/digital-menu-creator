@@ -108,7 +108,10 @@ export default function RestaurantAdminPage() {
               portion_info: string;
               allergen_info: string;
               ar_model_url?: string;
+              ar_model_url_low?: string | null;
               ar_model_size_cm?: number | null;
+              ar_scale?: number | null;
+              ar_processing_status?: string | null;
             }) => ({
               id: i.id,
               name: i.name,
@@ -121,7 +124,12 @@ export default function RestaurantAdminPage() {
               ingredients: i.ingredients || "",
               portionInfo: i.portion_info || "",
               allergenInfo: i.allergen_info || "",
-              arModelUrl: i.ar_model_url || "",              arModelSizeCm: i.ar_model_size_cm ?? null,            })
+              arModelUrl: i.ar_model_url || "",
+              arModelSizeCm: i.ar_model_size_cm ?? null,
+              arModelUrlLow: i.ar_model_url_low ?? null,
+              arScale: i.ar_scale ?? null,
+              arProcessingStatus: (i.ar_processing_status as "none" | "pending" | "processing" | "ready" | "error") ?? "none",
+            })
           ),
           plan: dbRestaurant.plan || "basic",
           active: dbRestaurant.active ?? true,
