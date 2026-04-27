@@ -12,7 +12,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { X, Box } from "lucide-react";
-import { isModelReady } from "@/lib/arPreloader";
+import { markReady } from "@/lib/arPreloader";
 
 declare global {
   namespace JSX {
@@ -81,9 +81,8 @@ interface ModelViewerElement extends HTMLElement {
 }
 
 export function ARViewer({ src, name, sizeCm, category, poster, precomputedScale, onClose }: ARViewerProps) {
-  const [status, setStatus] = useState<"loading" | "ready" | "error" | "timeout">(
-    () => (isModelReady(src) ? "ready" : "loading")
-  );
+  const [status, setStatus] = useState<"loading" | "ready" | "error" | "timeout">("loading");
+  const [retryKey, setRetryKey] = useState(0);
   const [arSupported, setArSupported] = useState(true);
   const viewerRef = useRef<ModelViewerElement>(null);
 
@@ -143,14 +142,15 @@ export function ARViewer({ src, name, sizeCm, category, poster, precomputedScale
     
     let unmounted = false;
     
-    // 10s timeout fallback: if model doesn't load, degrade gracefully to poster
+    // 30s timeout — large models (50MB+) need extra time on mobile connections
     const fallbackTimer = setTimeout(() => {
       if (!unmounted) setStatus("timeout");
-    }, 10000);
+    }, 30000);
 
     const onLoad = () => {
       if (unmounted) return;
       clearTimeout(fallbackTimer);
+      markReady(src);
       setStatus("ready");
       if (!precomputedScale) normalizeScale(el);
       if (el.canActivateAR !== undefined) setArSupported(!!el.canActivateAR);
@@ -172,7 +172,7 @@ export function ARViewer({ src, name, sizeCm, category, poster, precomputedScale
       el.removeEventListener("load", onLoad); 
       el.removeEventListener("error", onError); 
     };
-  }, [normalizeScale, precomputedScale]);
+  }, [normalizeScale, precomputedScale, src, retryKey]);
 
   const handleClose = useCallback(() => onClose(), [onClose]);
 
@@ -253,33 +253,48 @@ export function ARViewer({ src, name, sizeCm, category, poster, precomputedScale
               <div className="absolute inset-0 ar-shimmer z-20 opacity-60" />
             )}
 
+            {/* model-viewer always mounted — key forces re-mount on retry */}
+            <model-viewer
+              key={retryKey}
+              ref={viewerRef as React.RefObject<HTMLElement>}
+              src={src}
+              alt={`${name} 3D model`}
+              ar={arSupported}
+              ar-modes="webxr scene-viewer quick-look"
+              ar-placement="floor"
+              ar-scale="auto"
+              camera-controls
+              auto-rotate={false}
+              min-camera-orbit="auto auto 0.3m"
+              max-camera-orbit="auto auto 2m"
+              shadow-intensity="1.5"
+              shadow-softness="0.9"
+              loading="lazy"
+              poster={poster}
+              {...(staticScale ? { scale: staticScale } : {})}
+              style={{
+                width: "100%",
+                height: "100%",
+                opacity: status === "ready" ? 1 : 0,
+                transition: "opacity 0.5s ease",
+              }}
+            />
 
-
-            {status !== "error" && status !== "timeout" && (
-              <model-viewer
-                ref={viewerRef as React.RefObject<HTMLElement>}
-                src={src}
-                alt={`${name} 3D model`}
-                ar={arSupported}
-                ar-modes="webxr scene-viewer quick-look"
-                ar-placement="floor"
-                ar-scale="auto"
-                camera-controls
-                auto-rotate={false}
-                min-camera-orbit="auto auto 0.3m"
-                max-camera-orbit="auto auto 2m"
-                shadow-intensity="1.5"
-                shadow-softness="0.9"
-                loading="eager"
-                poster={poster}
-                {...(staticScale ? { scale: staticScale } : {})}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  opacity: status === "ready" ? 1 : 0,
-                  transition: "opacity 0.5s ease",
-                }}
-              />
+            {/* Retry overlay — shown on error or timeout */}
+            {(status === "error" || status === "timeout") && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center z-20 gap-3 px-6 text-center bg-muted/90">
+                <Box className="w-8 h-8 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground font-medium">
+                  {status === "timeout" ? "Yükleme uzun sürdü" : "Model yüklenemedi"}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => { setStatus("loading"); setRetryKey((k) => k + 1); }}
+                  className="text-xs px-4 py-1.5 rounded-full bg-primary text-primary-foreground"
+                >
+                  Yeniden dene
+                </button>
+              </div>
             )}
           </div>
 
