@@ -60,9 +60,19 @@ export function ProductList({ tableId }: { tableId?: string }) {
   const close = useCallback(() => setSelected(null), []);
 
   useEffect(() => {
-    if (activeSelected || arProduct) document.body.style.overflow = "hidden";
-    else document.body.style.overflow = "";
-    return () => { document.body.style.overflow = ""; };
+    if (activeSelected || arProduct) {
+      // Read scrollbar width before hiding to prevent layout shift on desktop
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+      document.body.style.overflow = "hidden";
+      if (scrollbarWidth > 0) document.body.style.paddingRight = `${scrollbarWidth}px`;
+    } else {
+      document.body.style.overflow = "";
+      document.body.style.paddingRight = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+      document.body.style.paddingRight = "";
+    };
   }, [activeSelected, arProduct]);
 
   useEffect(() => {
@@ -198,6 +208,9 @@ export function ProductList({ tableId }: { tableId?: string }) {
               restaurant.categories.find((c) => c.id === arProduct.categoryId)?.name ?? null
             }
             poster={arProduct.image !== "/placeholder.svg" ? arProduct.image : undefined}
+            precomputedScale={arProduct.arScale}
+            arModelUrlLow={arProduct.arModelUrlLow ?? undefined}
+            isRestaurant={isRestaurant}
             onClose={() => setArProduct(null)}
           />
         </Suspense>

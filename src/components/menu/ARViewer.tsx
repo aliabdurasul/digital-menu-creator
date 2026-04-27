@@ -11,8 +11,8 @@
  */
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { X, Box } from "lucide-react";
-import { markReady } from "@/lib/arPreloader";
+import { X, Box, Cuboid } from "lucide-react";
+import { markReady, preloadModel } from "@/lib/arPreloader";
 
 declare global {
   namespace JSX {
@@ -70,6 +70,10 @@ interface ARViewerProps {
   category?: string | null;
   poster?: string;
   precomputedScale?: number | null;
+  /** Low-LOD preview GLB — shown first for fast initial render, then swapped to src */
+  arModelUrlLow?: string;
+  /** Applies dark luxury (restaurant) styling vs default cafe styling */
+  isRestaurant?: boolean;
   onClose: () => void;
 }
 
@@ -80,11 +84,18 @@ interface ModelViewerElement extends HTMLElement {
   updateFraming?: () => void;
 }
 
-export function ARViewer({ src, name, sizeCm, category, poster, precomputedScale, onClose }: ARViewerProps) {
-  const [status, setStatus] = useState<"loading" | "ready" | "error" | "timeout">("loading");
+export function ARViewer({ src, name, sizeCm, category, poster, precomputedScale, arModelUrlLow, isRestaurant, onClose }: ARViewerProps) {
+  // shouldLoad gates model-viewer mounting — false until user taps "3D Görüntüle"
+  const [shouldLoad, setShouldLoad] = useState(false);
+  const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error" | "timeout">("idle");
   const [retryKey, setRetryKey] = useState(0);
+  const [softRetries, setSoftRetries] = useState(0);
   const [arSupported, setArSupported] = useState(true);
+  const [progress, setProgress] = useState(0);
+  // activeSrc: starts as low-LOD preview (if available), swaps to full src after load
+  const [activeSrc, setActiveSrc] = useState<string>(arModelUrlLow ?? src);
   const viewerRef = useRef<ModelViewerElement>(null);
+  const normalizeAttempts = useRef(0);
 
   // ── Static scale for iOS Quick Look ─────────────────────────────────────
   const staticScale = useMemo(() => {
@@ -108,13 +119,12 @@ export function ARViewer({ src, name, sizeCm, category, poster, precomputedScale
     const dim = el.getDimensions();
     // Guard: if model hasn't loaded geometry yet, retry next frame
     if (!dim || (dim.x === 0 && dim.y === 0 && dim.z === 0)) {
-      const attempts = (normalizeScale as any)._attempts ?? 0;
-      if (attempts > 30) return; // broken model, give up
-      (normalizeScale as any)._attempts = attempts + 1;
+      if (normalizeAttempts.current > 30) return; // broken model, give up
+      normalizeAttempts.current += 1;
       requestAnimationFrame(() => normalizeScale(el));
       return;
     }
-    (normalizeScale as any)._attempts = 0;
+    normalizeAttempts.current = 0;
 
     const maxDim = Math.max(dim.x, dim.y, dim.z);
     if (maxDim <= 0) return;
@@ -135,12 +145,14 @@ export function ARViewer({ src, name, sizeCm, category, poster, precomputedScale
     console.log("[ARViewer] scale", { model: name, category: catKey, dim, maxDim, targetCm, scale });
   }, [sizeCm, category, name]);
 
-  // ── model-viewer load / error events ──────────────────────────────────
+  // ── model-viewer load / error / progress events ─────────────────────────
   useEffect(() => {
+    if (!shouldLoad) return; // don't start until user taps the load button
     const el = viewerRef.current;
     if (!el) return;
     
     let unmounted = false;
+    setProgress(0);
     
     // 30s timeout — large models (50MB+) need extra time on mobile connections
     const fallbackTimer = setTimeout(() => {
@@ -150,7 +162,15 @@ export function ARViewer({ src, name, sizeCm, category, poster, precomputedScale
     const onLoad = () => {
       if (unmounted) return;
       clearTimeout(fallbackTimer);
-      markReady(src);
+      setProgress(100);
+      markReady(activeSrc);
+      // Two-stage swap: if we just loaded the low-LOD preview, swap to full model
+      if (arModelUrlLow && activeSrc === arModelUrlLow && arModelUrlLow !== src) {
+        setTimeout(() => {
+          if (!unmounted) setActiveSrc(src);
+          // Keep status "ready" — user sees low-LOD immediately, full swaps in seamlessly
+        }, 300);
+      }
       setStatus("ready");
       if (!precomputedScale) normalizeScale(el);
       if (el.canActivateAR !== undefined) setArSupported(!!el.canActivateAR);
@@ -163,16 +183,24 @@ export function ARViewer({ src, name, sizeCm, category, poster, precomputedScale
       }
     };
 
+    const onProgress = (e: Event) => {
+      const pct = Math.round(((e as CustomEvent).detail?.totalProgress ?? 0) * 100);
+      if (!unmounted) setProgress(pct);
+    };
+
     el.addEventListener("load", onLoad);
     el.addEventListener("error", onError);
+    el.addEventListener("progress", onProgress);
     
     return () => { 
-      unmounted = true; 
+      unmounted = true;
+      normalizeAttempts.current = 0;
       clearTimeout(fallbackTimer);
       el.removeEventListener("load", onLoad); 
-      el.removeEventListener("error", onError); 
+      el.removeEventListener("error", onError);
+      el.removeEventListener("progress", onProgress);
     };
-  }, [normalizeScale, precomputedScale, src, retryKey]);
+  }, [normalizeScale, precomputedScale, activeSrc, retryKey, shouldLoad, arModelUrlLow, src]);
 
   const handleClose = useCallback(() => onClose(), [onClose]);
 
@@ -217,27 +245,56 @@ export function ARViewer({ src, name, sizeCm, category, poster, precomputedScale
 
         <div
           onClick={(e) => e.stopPropagation()}
-          className="ar-panel relative z-10 w-full sm:max-w-md bg-card rounded-t-2xl sm:rounded-2xl shadow-2xl border border-border overflow-hidden"
+          className="ar-panel relative z-10 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden"
+          style={isRestaurant
+            ? { background: "#1f1b15", border: "1px solid #2e2820" }
+            : undefined}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <div
+            className="flex items-center justify-between px-4 py-3"
+            style={isRestaurant
+              ? { borderBottom: "1px solid #2e2820" }
+              : { borderBottom: "1px solid hsl(var(--border))" }}
+          >
             <div className="flex items-center gap-2 min-w-0">
-              <Box className="w-4 h-4 text-primary shrink-0" />
-              <h3 className="font-semibold text-foreground text-sm truncate">{name}</h3>
+              <Box className="w-4 h-4 shrink-0" style={isRestaurant ? { color: "#c49a3c" } : { color: "hsl(var(--primary))" }} />
+              <h3
+                className="font-semibold text-sm truncate"
+                style={isRestaurant ? { color: "#f5f1e8", fontFamily: "'Cormorant Garamond', serif", fontSize: 16 } : undefined}
+              >
+                {name}
+              </h3>
             </div>
             <button
               type="button"
               onClick={handleClose}
-              className="w-8 h-8 rounded-full bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors shrink-0 ml-2"
+              className="w-8 h-8 rounded-full flex items-center justify-center transition-colors shrink-0 ml-2"
+              style={isRestaurant
+                ? { background: "rgba(255,255,255,0.06)" }
+                : { background: "hsl(var(--muted))" }}
             >
-              <X className="w-4 h-4 text-foreground" />
+              <X className="w-4 h-4" style={isRestaurant ? { color: "#f5f1e8" } : undefined} />
             </button>
           </div>
 
           {/* Viewer area */}
-          <div className="relative aspect-square bg-muted">
+          <div
+            className="relative aspect-square"
+            style={isRestaurant ? { background: "#0f0d0a" } : { background: "hsl(var(--muted))" }}
+          >
+            {/* Thin progress bar — only visible while loading */}
+            {status === "loading" && (
+              <div
+                className="absolute top-0 left-0 z-30 h-0.5 transition-all duration-300"
+                style={{
+                  width: `${progress}%`,
+                  background: isRestaurant ? "#c49a3c" : "hsl(var(--primary))",
+                }}
+              />
+            )}
 
-            {/* Poster image — shown immediately, fades out when model is ready */}
+            {/* Poster — shown in idle + loading states, fades out when model is ready */}
             {poster && status !== "ready" && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -248,49 +305,96 @@ export function ARViewer({ src, name, sizeCm, category, poster, precomputedScale
               />
             )}
 
-            {/* Shimmer overlay while loading */}
-            {status === "loading" && (
-              <div className="absolute inset-0 ar-shimmer z-20 opacity-60" />
+            {/* Idle state: poster fills the area; user sees "3D Görüntüle" CTA */}
+            {status === "idle" && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center z-20 gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    preloadModel(src);
+                    setShouldLoad(true);
+                    setStatus("loading");
+                  }}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold shadow-lg transition-all active:scale-95"
+                  style={isRestaurant
+                    ? { background: "#c49a3c", color: "#0a0806" }
+                    : { background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }}
+                >
+                  <Cuboid className="w-4 h-4" />
+                  3D Görüntüle
+                </button>
+              </div>
             )}
 
-            {/* model-viewer always mounted — key forces re-mount on retry */}
-            <model-viewer
-              key={retryKey}
-              ref={viewerRef as React.RefObject<HTMLElement>}
-              src={src}
-              alt={`${name} 3D model`}
-              ar={arSupported}
-              ar-modes="webxr scene-viewer quick-look"
-              ar-placement="floor"
-              ar-scale="auto"
-              camera-controls
-              auto-rotate={false}
-              min-camera-orbit="auto auto 0.3m"
-              max-camera-orbit="auto auto 2m"
-              shadow-intensity="1.5"
-              shadow-softness="0.9"
-              loading="lazy"
-              poster={poster}
-              {...(staticScale ? { scale: staticScale } : {})}
-              style={{
-                width: "100%",
-                height: "100%",
-                opacity: status === "ready" ? 1 : 0,
-                transition: "opacity 0.5s ease",
-              }}
-            />
+            {/* Shimmer overlay while loading */}
+            {status === "loading" && (
+              <div className="absolute inset-0 ar-shimmer z-20 opacity-40" />
+            )}
 
-            {/* Retry overlay — shown on error or timeout */}
+            {/* model-viewer — only mounted after user taps the button */}
+            {shouldLoad && (
+              <model-viewer
+                key={retryKey}
+                ref={viewerRef as React.RefObject<HTMLElement>}
+                src={activeSrc}
+                alt={`${name} 3D model`}
+                ar={arSupported}
+                ar-modes="scene-viewer webxr quick-look"
+                ar-placement="floor"
+                ar-scale="auto"
+                camera-controls
+                auto-rotate={false}
+                min-camera-orbit="auto auto 0.3m"
+                max-camera-orbit="auto auto 2m"
+                shadow-intensity="1.5"
+                shadow-softness="0.9"
+                loading="eager"
+                poster={poster}
+                {...(staticScale ? { scale: staticScale } : {})}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  opacity: status === "ready" ? 1 : 0,
+                  transition: "opacity 0.5s ease",
+                }}
+              />
+            )}
+
+            {/* Error / timeout overlay */}
             {(status === "error" || status === "timeout") && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center z-20 gap-3 px-6 text-center bg-muted/90">
-                <Box className="w-8 h-8 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground font-medium">
+              <div
+                className="absolute inset-0 flex flex-col items-center justify-center z-20 gap-3 px-6 text-center"
+                style={isRestaurant ? { background: "rgba(15,13,10,0.92)" } : { background: "hsl(var(--muted) / 0.92)" }}
+              >
+                <Box className="w-8 h-8" style={isRestaurant ? { color: "#a89b8c" } : { color: "hsl(var(--muted-foreground))" }} />
+                <p
+                  className="text-sm font-medium"
+                  style={isRestaurant ? { color: "#f5f1e8" } : { color: "hsl(var(--muted-foreground))" }}
+                >
                   {status === "timeout" ? "Yükleme uzun sürdü" : "Model yüklenemedi"}
                 </p>
                 <button
                   type="button"
-                  onClick={() => { setStatus("loading"); setRetryKey((k) => k + 1); }}
-                  className="text-xs px-4 py-1.5 rounded-full bg-primary text-primary-foreground"
+                  onClick={() => {
+                    setStatus("loading");
+                    const nextSoft = softRetries + 1;
+                    setSoftRetries(nextSoft);
+                    if (nextSoft <= 2) {
+                      const el = viewerRef.current;
+                      if (el) {
+                        const currentSrc = el.getAttribute("src") ?? "";
+                        el.removeAttribute("src");
+                        requestAnimationFrame(() => el.setAttribute("src", currentSrc));
+                        return;
+                      }
+                    }
+                    setSoftRetries(0);
+                    setRetryKey((k) => k + 1);
+                  }}
+                  className="text-xs px-4 py-1.5 rounded-full"
+                  style={isRestaurant
+                    ? { background: "#c49a3c", color: "#0a0806" }
+                    : { background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }}
                 >
                   Yeniden dene
                 </button>
@@ -300,17 +404,34 @@ export function ARViewer({ src, name, sizeCm, category, poster, precomputedScale
 
           {/* Footer */}
           <div className="px-4 py-3 text-center">
-            {arSupported ? (
-              <p className="text-xs text-muted-foreground">
-                AR görünümü için sağ alt köşedeki butona dokunun
-              </p>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Cihazınız AR desteklemiyor — 3D modeli döndürerek inceleyebilirsiniz
+            {status === "idle" && (
+              <p className="text-xs" style={isRestaurant ? { color: "#a89b8c" } : { color: "hsl(var(--muted-foreground))" }}>
+                3D görüntü ve AR deneyimi için butona dokunun
               </p>
             )}
+            {status === "loading" && (
+              <p className="text-xs" style={isRestaurant ? { color: "#a89b8c" } : { color: "hsl(var(--muted-foreground))" }}>
+                Model yükleniyor{progress > 0 ? ` — %${progress}` : "..."}
+              </p>
+            )}
+            {status === "ready" && (
+              <>
+                {arSupported ? (
+                  <p className="text-xs" style={isRestaurant ? { color: "#a89b8c" } : { color: "hsl(var(--muted-foreground))" }}>
+                    AR görünümü için sağ alt köşedeki butona dokunun
+                  </p>
+                ) : (
+                  <p className="text-xs" style={isRestaurant ? { color: "#a89b8c" } : { color: "hsl(var(--muted-foreground))" }}>
+                    Cihazınız AR desteklemiyor — 3D modeli döndürerek inceleyebilirsiniz
+                  </p>
+                )}
+              </>
+            )}
             {displaySize != null && (
-              <p className="text-[11px] text-muted-foreground/60 mt-0.5">
+              <p
+                className="text-[11px] mt-0.5"
+                style={isRestaurant ? { color: "rgba(168,155,140,0.5)" } : { color: "hsl(var(--muted-foreground) / 0.6)" }}
+              >
                 Gerçek boyut: ~{displaySize} cm
               </p>
             )}

@@ -13,7 +13,7 @@
  *   preloadAboveFold(urls, limit) — network-prefetch first N models
  */
 
-export type LoadState = "idle" | "prefetching" | "ready" | "error";
+export type LoadState = "idle" | "prefetching" | "ready" | "error" | "skipped";
 
 // ── Singletons (persist for the entire browser session) ───────────────────
 const stateMap = new Map<string, LoadState>();
@@ -22,15 +22,27 @@ const stateMap = new Map<string, LoadState>();
 // monopolising the HTTP cache for very large files.
 const SIZE_THRESHOLD_BYTES = 20 * 1024 * 1024; // 20 MB
 
+// ── URL normalization — strip query params so ?t=cache-buster doesn't
+// create duplicate keys for the same physical file.
+function normalizeUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.origin + u.pathname;
+  } catch {
+    return url;
+  }
+}
+
 // ── Internal async fetch ──────────────────────────────────────────────────
 async function doPrefetch(url: string): Promise<void> {
+  const key = normalizeUrl(url);
   try {
     // HEAD first — cheap size check before committing to a full download
     const head = await fetch(url, { method: "HEAD" });
     const length = parseInt(head.headers.get("content-length") ?? "0", 10);
     if (length > SIZE_THRESHOLD_BYTES) {
-      // Too large to prefetch — let model-viewer stream it lazily
-      stateMap.set(url, "idle");
+      // Too large to prefetch — mark skipped so we never retry the HEAD
+      stateMap.set(key, "skipped");
       return;
     }
     // Full GET into browser HTTP cache
@@ -38,7 +50,7 @@ async function doPrefetch(url: string): Promise<void> {
     // State stays "prefetching" until ARViewer calls markReady().
     // isModelReady() returns false until the visible model-viewer fires load.
   } catch {
-    stateMap.set(url, "error");
+    stateMap.set(key, "error");
   }
 }
 
@@ -47,12 +59,14 @@ async function doPrefetch(url: string): Promise<void> {
 /**
  * Warm the HTTP cache for a GLB file. Fire-and-forget (returns void).
  * Skips files over 20 MB and de-duplicates in-flight requests.
+ * Normalizes URL (strips query params) before keying.
  */
 export function preloadModel(url: string): void {
   if (typeof window === "undefined") return;
-  const current = stateMap.get(url);
-  if (current === "ready" || current === "prefetching") return;
-  stateMap.set(url, "prefetching");
+  const key = normalizeUrl(url);
+  const current = stateMap.get(key);
+  if (current === "ready" || current === "prefetching" || current === "skipped") return;
+  stateMap.set(key, "prefetching");
   doPrefetch(url);
 }
 
@@ -61,16 +75,16 @@ export function preloadModel(url: string): void {
  * This is the only place that promotes a URL's state to "ready".
  */
 export function markReady(url: string): void {
-  stateMap.set(url, "ready");
+  stateMap.set(normalizeUrl(url), "ready");
 }
 
 /** Returns true only after ARViewer has fully decoded the model. */
 export function isModelReady(url: string): boolean {
-  return stateMap.get(url) === "ready";
+  return stateMap.get(normalizeUrl(url)) === "ready";
 }
 
 export function getLoadState(url: string): LoadState {
-  return stateMap.get(url) ?? "idle";
+  return stateMap.get(normalizeUrl(url)) ?? "idle";
 }
 
 /**

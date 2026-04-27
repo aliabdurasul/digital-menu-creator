@@ -46,7 +46,13 @@ export interface DbMenuItem {
   portion_info: string;
   allergen_info: string;
   ar_model_url: string;
+  ar_model_url_low: string | null;
+  ar_model_url_raw: string | null;
   ar_model_size_cm: number | null;
+  ar_model_size_bytes: number | null;
+  ar_scale: number | null;
+  ar_processing_status: "none" | "pending" | "processing" | "ready" | "error";
+  ar_processing_error: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -107,7 +113,10 @@ export interface Product {
   portionInfo: string;
   allergenInfo: string;
   arModelUrl: string;
+  arModelUrlLow: string | null;
   arModelSizeCm: number | null;
+  arScale: number | null;
+  arProcessingStatus: "none" | "pending" | "processing" | "ready" | "error";
 }
 
 export interface Category {
@@ -184,7 +193,10 @@ export function toLegacyRestaurant(
       portionInfo: i.portion_info || "",
       allergenInfo: i.allergen_info || "",
       arModelUrl: i.ar_model_url || "",
+      arModelUrlLow: i.ar_model_url_low ?? null,
       arModelSizeCm: i.ar_model_size_cm ?? null,
+      arScale: i.ar_scale ?? null,
+      arProcessingStatus: i.ar_processing_status ?? "none",
     })),
     plan: r.plan,
     active: r.active,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { Restaurant, Product, ModuleType } from "@/types";
 import { Plus, Trash2, Loader2, Pencil, ChevronDown, Box, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -73,7 +73,45 @@ export function AdminProducts({ restaurant, setRestaurant, moduleType = "restaur
   const [uploading, setUploading] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [arProcessingStatus, setArProcessingStatus] = useState<string>("none");
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast } = useToast();
+
+  // Poll processing status while a product is being processed
+  useEffect(() => {
+    if (!editingProduct) return;
+    setArProcessingStatus(editingProduct.arProcessingStatus ?? "none");
+
+    const isPending = (s: string) => s === "pending" || s === "processing";
+    if (!isPending(editingProduct.arProcessingStatus ?? "none")) return;
+
+    const supabase = createClient();
+    pollRef.current = setInterval(async () => {
+      const { data } = await supabase
+        .from("menu_items")
+        .select("ar_processing_status, ar_model_url, ar_model_url_low, ar_scale")
+        .eq("id", editingProduct.id)
+        .single();
+      if (!data) return;
+      setArProcessingStatus(data.ar_processing_status);
+      if (!isPending(data.ar_processing_status)) {
+        if (pollRef.current) clearInterval(pollRef.current);
+        // Sync updated product into local state
+        setRestaurant((r) =>
+          r ? {
+            ...r,
+            products: r.products.map((p) =>
+              p.id === editingProduct.id
+                ? { ...p, arModelUrl: data.ar_model_url ?? p.arModelUrl, arModelUrlLow: data.ar_model_url_low ?? p.arModelUrlLow, arScale: data.ar_scale ?? p.arScale, arProcessingStatus: data.ar_processing_status }
+                : p
+            ),
+          } : r
+        );
+      }
+    }, 3000);
+
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [editingProduct?.id, editingProduct?.arProcessingStatus, setRestaurant]);
 
   const sorted = [...restaurant.products].sort((a, b) => a.order - b.order);
   const isEditing = !!editingProduct;
@@ -256,7 +294,10 @@ export function AdminProducts({ restaurant, setRestaurant, moduleType = "restaur
           portionInfo: _portionInfo || editingProduct.portionInfo,
           allergenInfo: _allergenInfo || editingProduct.allergenInfo,
           arModelUrl: editingProduct.arModelUrl,
+          arModelUrlLow: editingProduct.arModelUrlLow,
           arModelSizeCm: editingProduct.arModelSizeCm,
+          arScale: editingProduct.arScale,
+          arProcessingStatus: editingProduct.arProcessingStatus,
         };
 
         setRestaurant((r) =>
@@ -289,7 +330,10 @@ export function AdminProducts({ restaurant, setRestaurant, moduleType = "restaur
           portionInfo: _portionInfo,
           allergenInfo: _allergenInfo,
           arModelUrl: "",
+          arModelUrlLow: null,
           arModelSizeCm: null,
+          arScale: null,
+          arProcessingStatus: "none",
         };
 
         setRestaurant((r) => r ? { ...r, products: [...r.products, product] } : r);
@@ -422,26 +466,71 @@ export function AdminProducts({ restaurant, setRestaurant, moduleType = "restaur
                 </div>
               </div>
               {isEditing && editingProduct && (
-                <div className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Box className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                    {editingProduct.arModelUrl ? (
-                      <span className="text-xs text-foreground truncate">
-                        {editingProduct.arModelUrl.split("/").pop()}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">3D model yok</span>
+                <div className="space-y-2">
+                  {/* AR processing status card */}
+                  <div className="rounded-lg border border-border bg-muted/40 px-3 py-2.5 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Box className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-xs font-medium text-foreground">
+                          {arProcessingStatus === "none" && "3D model yok"}
+                          {arProcessingStatus === "pending" && "Yükleme bekleniyor..."}
+                          {arProcessingStatus === "processing" && "Model işleniyor..."}
+                          {arProcessingStatus === "ready" && (editingProduct.arModelUrl ? editingProduct.arModelUrl.split("/").pop()?.slice(0, 32) + (editingProduct.arModelUrl.split("/").pop()?.length ?? 0 > 32 ? "..." : "") : "3D model hazır")}
+                          {arProcessingStatus === "error" && "İşleme başarısız"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 ml-2">
+                        {(arProcessingStatus === "pending" || arProcessingStatus === "processing") && (
+                          <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                        )}
+                        {onNavigateAR && (
+                          <button
+                            type="button"
+                            onClick={() => { setOpen(false); onNavigateAR(); }}
+                            className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 transition-colors"
+                          >
+                            AR Modeller
+                            <ExternalLink className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Step-by-step processing progress */}
+                    {(arProcessingStatus === "pending" || arProcessingStatus === "processing") && (
+                      <div className="space-y-0.5 pt-1">
+                        {[
+                          { label: "Yüklendi", done: true },
+                          { label: "Sıkıştırılıyor...", done: arProcessingStatus === "processing" || arProcessingStatus === "ready" },
+                          { label: "Ölçek hesaplanıyor", done: false },
+                          { label: "AR'a hazır", done: false },
+                        ].map((step) => (
+                          <div key={step.label} className="flex items-center gap-1.5">
+                            <span className="text-[10px]">{step.done ? "✓" : "—"}</span>
+                            <span className={`text-[10px] ${step.done ? "text-foreground" : "text-muted-foreground"}`}>
+                              {step.label}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
-                  {onNavigateAR && (
-                    <button
-                      type="button"
-                      onClick={() => { setOpen(false); onNavigateAR(); }}
-                      className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 transition-colors shrink-0 ml-3"
-                    >
-                      AR Modeller
-                      <ExternalLink className="w-3 h-3" />
-                    </button>
+
+                  {/* Quality warnings — only when processing is ready */}
+                  {arProcessingStatus === "ready" && (
+                    <>
+                      {editingProduct.arModelUrl && !editingProduct.image && (
+                        <p className="text-[11px] text-amber-600">⚠ AR ürünleri için görsel zorunludur — yükleyin</p>
+                      )}
+                      {(editingProduct.arScale ?? 1) < 0.01 && (
+                        <p className="text-[11px] text-amber-600">⚠ Model çok küçük — boyut ayarını kontrol edin</p>
+                      )}
+                    </>
+                  )}
+
+                  {arProcessingStatus === "error" && (
+                    <p className="text-[11px] text-destructive">İşleme hatası — 3D modeli tekrar yükleyin</p>
                   )}
                 </div>
               )}
